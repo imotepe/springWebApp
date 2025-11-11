@@ -5,19 +5,24 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Objects;
 
-@Document("users")
-public class User {
+@Document("customers")
+public class Customer {
     @Id
     private String id;
     private String name;
     private String email;
+    private String phone;
+    private String notes;
 
-    public User() {}
+    public Customer() {
+    }
 
-    public User(String id, String name, String email) {
+    public Customer(String id, String name, String email, String phone, String notes) {
         this.id = id;
         this.name = name;
         this.email = email;
+        this.phone = phone;
+        this.notes = notes;
     }
 
     public String getId() {
@@ -44,31 +49,47 @@ public class User {
         this.email = email;
     }
 
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof User)) {
+        if (!(o instanceof Customer)) {
             return false;
         }
-        User user = (User) o;
-        return Objects.equals(id, user.id)
-                && Objects.equals(name, user.name)
-                && Objects.equals(email, user.email);
+        Customer customer = (Customer) o;
+        return Objects.equals(id, customer.id)
+                && Objects.equals(email, customer.email);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, email);
+        return Objects.hash(id, email);
     }
 
     @Override
     public String toString() {
-        return "User{"
+        return "Customer{"
                 + "id='" + id + '\''
                 + ", name='" + name + '\''
                 + ", email='" + email + '\''
+                + ", phone='" + phone + '\''
                 + '}';
     }
 }
