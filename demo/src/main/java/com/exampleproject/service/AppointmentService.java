@@ -1,7 +1,11 @@
 package com.exampleproject.service;
 
 import com.exampleproject.model.Appointment;
+import com.exampleproject.model.AppointmentEvent;
+import com.exampleproject.model.AppointmentEventType;
 import com.exampleproject.model.AppointmentStatus;
+import com.exampleproject.model.Customer;
+import com.exampleproject.model.CustomerInteraction;
 import com.exampleproject.repository.AppointmentRepository;
 import com.exampleproject.repository.CustomerRepository;
 import org.springframework.http.HttpStatus;
@@ -9,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class AppointmentService {
@@ -56,6 +62,9 @@ public class AppointmentService {
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
         }
+        if (appointment.getEvents() == null) {
+            appointment.setEvents(new ArrayList<>());
+        }
         return appointmentRepository.save(appointment);
     }
 
@@ -68,6 +77,9 @@ public class AppointmentService {
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
         }
+        if (appointment.getEvents() == null) {
+            appointment.setEvents(new ArrayList<>());
+        }
         return appointmentRepository.save(appointment);
     }
 
@@ -76,6 +88,67 @@ public class AppointmentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found");
         }
         appointmentRepository.deleteById(id);
+    }
+
+    public Appointment addEvent(String appointmentId, AppointmentEvent event) {
+        if (event == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Event payload is required");
+        }
+        Appointment appointment = findById(appointmentId);
+
+        if (appointment.getEvents() == null) {
+            appointment.setEvents(new ArrayList<>());
+        }
+
+        AppointmentEventType type = event.getType();
+        if (type == null) {
+            type = AppointmentEventType.CUSTOMER_COMMENT;
+            event.setType(type);
+        }
+
+        if (event.getComment() == null || event.getComment().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Comment is required");
+        }
+
+        event.setId(UUID.randomUUID().toString());
+        if (event.getCreatedAt() == null) {
+            event.setCreatedAt(LocalDateTime.now());
+        }
+        if (event.getCreatedBy() == null || event.getCreatedBy().isBlank()) {
+            event.setCreatedBy("customer");
+        }
+
+        if (event.getStatus() != null) {
+            appointment.setStatus(event.getStatus());
+        }
+
+        appointment.getEvents().add(event);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        propagateToCustomer(saved, event);
+        return saved;
+    }
+
+    private void propagateToCustomer(Appointment appointment, AppointmentEvent event) {
+        Customer customer = customerRepository.findById(appointment.getCustomerId())
+                .orElse(null);
+        if (customer == null) {
+            return;
+        }
+        if (customer.getInteractions() == null) {
+            customer.setInteractions(new ArrayList<>());
+        }
+        CustomerInteraction interaction = new CustomerInteraction(
+                event.getId(),
+                appointment.getId(),
+                event.getType(),
+                event.getStatus(),
+                event.getComment(),
+                event.getCreatedBy(),
+                event.getCreatedAt()
+        );
+        customer.getInteractions().add(interaction);
+        customerRepository.save(customer);
     }
 
     private void validateAppointment(Appointment appointment) {

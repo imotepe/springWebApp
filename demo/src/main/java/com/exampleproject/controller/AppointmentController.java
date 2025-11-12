@@ -1,6 +1,7 @@
 package com.exampleproject.controller;
 
 import com.exampleproject.model.Appointment;
+import com.exampleproject.model.AppointmentEvent;
 import com.exampleproject.service.AppointmentService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,6 +58,11 @@ public class AppointmentController {
     @PutMapping("/{id}")
     public Appointment update(@PathVariable String id, @RequestBody Appointment appointment) {
         return appointmentService.update(id, appointment);
+    }
+
+    @PostMapping("/{id}/events")
+    public Appointment addEvent(@PathVariable String id, @RequestBody AppointmentEvent event) {
+        return appointmentService.addEvent(id, event);
     }
 
     @DeleteMapping("/{id}")

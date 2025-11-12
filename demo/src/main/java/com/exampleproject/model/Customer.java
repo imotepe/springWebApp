@@ -3,6 +3,8 @@ package com.exampleproject.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Document("customers")
@@ -13,16 +15,20 @@ public class Customer {
     private String email;
     private String phone;
     private String notes;
+    private List<CustomerInteraction> interactions = new ArrayList<>();
 
     public Customer() {
     }
 
-    public Customer(String id, String name, String email, String phone, String notes) {
+    public Customer(String id, String name, String email, String phone, String notes, List<CustomerInteraction> interactions) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.phone = phone;
         this.notes = notes;
+        if (interactions != null) {
+            this.interactions = interactions;
+        }
     }
 
     public String getId() {
@@ -64,6 +70,9 @@ public class Customer {
     public void setNotes(String notes) {
         this.notes = notes;
     }
+
+    public List<CustomerInteraction> getInteractions() { return interactions; }
+    public void setInteractions(List<CustomerInteraction> interactions) { this.interactions = interactions; }
 
     @Override
     public boolean equals(Object o) {

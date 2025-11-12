@@ -4,6 +4,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Document("appointments")
@@ -18,6 +20,7 @@ public class Appointment {
     private LocalDateTime endTime;
     private AppointmentStatus status = AppointmentStatus.SCHEDULED;
     private String notes;
+    private List<AppointmentEvent> events = new ArrayList<>();
 
     public Appointment() {
     }
@@ -31,7 +34,8 @@ public class Appointment {
             LocalDateTime startTime,
             LocalDateTime endTime,
             AppointmentStatus status,
-            String notes
+            String notes,
+            List<AppointmentEvent> events
     ) {
         this.id = id;
         this.orgId = orgId;
@@ -42,6 +46,9 @@ public class Appointment {
         this.endTime = endTime;
         this.status = status;
         this.notes = notes;
+        if (events != null) {
+            this.events = events;
+        }
     }
 
     public String getId() {
@@ -100,6 +107,9 @@ public class Appointment {
     public void setNotes(String notes) {
         this.notes = notes;
     }
+
+    public List<AppointmentEvent> getEvents() { return events; }
+    public void setEvents(List<AppointmentEvent> events) { this.events = events; }
 
     @Override
     public boolean equals(Object o) {
