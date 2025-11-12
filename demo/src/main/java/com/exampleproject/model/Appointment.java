@@ -10,7 +10,10 @@ import java.util.Objects;
 public class Appointment {
     @Id
     private String id;
+    private String orgId; // tenant
     private String customerId;
+    private String appointmentTypeId;
+    private String resourceId; // optional
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private AppointmentStatus status = AppointmentStatus.SCHEDULED;
@@ -21,14 +24,20 @@ public class Appointment {
 
     public Appointment(
             String id,
+            String orgId,
             String customerId,
+            String appointmentTypeId,
+            String resourceId,
             LocalDateTime startTime,
             LocalDateTime endTime,
             AppointmentStatus status,
             String notes
     ) {
         this.id = id;
+        this.orgId = orgId;
         this.customerId = customerId;
+        this.appointmentTypeId = appointmentTypeId;
+        this.resourceId = resourceId;
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = status;
@@ -43,6 +52,9 @@ public class Appointment {
         this.id = id;
     }
 
+    public String getOrgId() { return orgId; }
+    public void setOrgId(String orgId) { this.orgId = orgId; }
+
     public String getCustomerId() {
         return customerId;
     }
@@ -50,6 +62,12 @@ public class Appointment {
     public void setCustomerId(String customerId) {
         this.customerId = customerId;
     }
+
+    public String getAppointmentTypeId() { return appointmentTypeId; }
+    public void setAppointmentTypeId(String appointmentTypeId) { this.appointmentTypeId = appointmentTypeId; }
+
+    public String getResourceId() { return resourceId; }
+    public void setResourceId(String resourceId) { this.resourceId = resourceId; }
 
     public LocalDateTime getStartTime() {
         return startTime;
@@ -104,7 +122,10 @@ public class Appointment {
     public String toString() {
         return "Appointment{"
                 + "id='" + id + '\''
+                + ", orgId='" + orgId + '\''
                 + ", customerId='" + customerId + '\''
+                + ", appointmentTypeId='" + appointmentTypeId + '\''
+                + ", resourceId='" + resourceId + '\''
                 + ", startTime=" + startTime
                 + ", endTime=" + endTime
                 + ", status=" + status
