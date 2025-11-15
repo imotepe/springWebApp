@@ -1,0 +1,160 @@
+@startuml
+hide methods
+skinparam classAttributeIconSize 0
+
+class Organization {
+  +id: String
+  +name: String
+  +industry: String
+  +type: String
+  +phone: String
+  +address: Address
+  +location: GeoLocation
+  +scheduleConfig: ScheduleConfig
+}
+
+class OrganizationType {
+  +id: String
+  +name: String
+  +description: String
+}
+
+class Address {
+  +street: String
+  +city: String
+  +state: String
+  +postalCode: String
+  +country: String
+}
+
+class GeoLocation {
+  +latitude: Double
+  +longitude: Double
+}
+
+class ScheduleConfig {
+  +workingDays: Set<DayOfWeek>
+  +businessHours: Map<DayOfWeek, List<TimeWindow>>
+  +breaks: Map<DayOfWeek, List<TimeWindow>>
+  +holidays: Set<LocalDate>
+}
+
+class TimeWindow {
+  +start: LocalTime
+  +end: LocalTime
+}
+
+class AppointmentType {
+  +id: String
+  +orgId: String
+  +name: String
+  +category: String
+  +defaultDurationMinutes: Integer
+  +allowedDurations: List<Integer>
+  +requiresResource: boolean
+  +active: boolean
+}
+
+class AppointmentEvent {
+  +id: String
+  +type: AppointmentEventType
+  +status: AppointmentStatus
+  +comment: String
+  +createdBy: String
+  +createdAt: LocalDateTime
+}
+
+enum AppointmentEventType {
+  CUSTOMER_COMMENT
+  CUSTOMER_CANCEL
+  CUSTOMER_UPDATE
+  INTERNAL_NOTE
+}
+
+class CustomerInteraction {
+  +id: String
+  +appointmentId: String
+  +type: AppointmentEventType
+  +status: AppointmentStatus
+  +comment: String
+  +createdBy: String
+  +createdAt: LocalDateTime
+}
+
+class Resource {
+  +id: String
+  +orgId: String
+  +name: String
+  +type: String
+  +allowedAppointmentTypeIds: Set<String>
+  +scheduleOverride: ScheduleConfig
+  +capacity: Integer
+  +active: boolean
+}
+
+class Customer {
+  +id: String
+  +name: String
+  +email: String
+  +phone: String
+  +notes: String
+  +interactions: List<CustomerInteraction>
+}
+
+class User {
+  +id: String
+  +name: String
+  +email: String
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+class Appointment {
+  +id: String
+  +orgId: String
+  +customerId: String
+  +appointmentTypeId: String
+  +resourceId: String
+  +startTime: LocalDateTime
+  +endTime: LocalDateTime
+  +status: AppointmentStatus
+  +notes: String
+  +events: List<AppointmentEvent>
+}
+
+class AvailabilitySlot {
+  +start: LocalDateTime
+  +end: LocalDateTime
+}
+
+Organization "1" o- "1" ScheduleConfig : scheduleConfig
+Resource "0..1" o- "1" ScheduleConfig : scheduleOverride
+ScheduleConfig "1" o- "*" TimeWindow : businessHours/breaks
+
+Organization "*" --> "1" OrganizationType : type (name)
+Organization "1" o- "1" Address : address
+Organization "0..1" o- "1" GeoLocation : location
+Appointment "*" --> "1" Organization : orgId
+Appointment "*" --> "1" Customer : customerId
+Appointment "*" --> "1" AppointmentType : appointmentTypeId
+Appointment "*" --> "0..1" Resource : resourceId
+Appointment ..> AppointmentStatus
+Appointment "1" o- "*" AppointmentEvent : events
+AppointmentEvent ..> AppointmentEventType
+AppointmentEvent ..> AppointmentStatus
+
+AppointmentType "*" --> "1" Organization : orgId
+Resource "*" --> "1" Organization : orgId
+
+AvailabilitySlot ..> Appointment : computed from
+
+Customer "1" o- "*" CustomerInteraction : interactions
+CustomerInteraction --> Appointment : appointmentId
+CustomerInteraction ..> AppointmentEventType
+CustomerInteraction ..> AppointmentStatus
+
+@enduml

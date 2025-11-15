@@ -12,15 +12,23 @@ public class Organization {
     private String name;
     private String industry;
     private String type;
+    private String phone;
+    private Address address;
+    private GeoLocation location;
     private ScheduleConfig scheduleConfig;
 
     public Organization() {}
 
-    public Organization(String id, String name, String industry, String type, ScheduleConfig scheduleConfig) {
+    public Organization(String id, String name, String industry, String type,
+                        String phone,
+                        Address address, GeoLocation location, ScheduleConfig scheduleConfig) {
         this.id = id;
         this.name = name;
         this.industry = industry;
         this.type = type;
+        this.phone = phone;
+        this.address = address;
+        this.location = location;
         this.scheduleConfig = scheduleConfig;
     }
 
@@ -35,6 +43,15 @@ public class Organization {
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public Address getAddress() { return address; }
+    public void setAddress(Address address) { this.address = address; }
+
+    public GeoLocation getLocation() { return location; }
+    public void setLocation(GeoLocation location) { this.location = location; }
 
     public ScheduleConfig getScheduleConfig() { return scheduleConfig; }
     public void setScheduleConfig(ScheduleConfig scheduleConfig) { this.scheduleConfig = scheduleConfig; }
@@ -57,7 +74,9 @@ public class Organization {
                 ", name='" + name + '\'' +
                 ", industry='" + industry + '\'' +
                 ", type='" + type + '\'' +
+                ", phone='" + phone + '\'' +
+                ", address=" + address +
+                ", location=" + location +
                 '}';
     }
 }
-
