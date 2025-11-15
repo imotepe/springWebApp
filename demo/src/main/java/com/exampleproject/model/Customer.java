@@ -3,6 +3,7 @@ package com.exampleproject.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,20 +13,33 @@ public class Customer {
     @Id
     private String id;
     private String name;
+    private String firstName;
     private String email;
     private String phone;
     private String notes;
+    private LocalDate dateOfBirth;
     private List<CustomerInteraction> interactions = new ArrayList<>();
 
     public Customer() {
     }
 
-    public Customer(String id, String name, String email, String phone, String notes, List<CustomerInteraction> interactions) {
+    public Customer(
+            String id,
+            String name,
+            String firstName,
+            String email,
+            String phone,
+            String notes,
+            LocalDate dateOfBirth,
+            List<CustomerInteraction> interactions
+    ) {
         this.id = id;
         this.name = name;
+        this.firstName = firstName;
         this.email = email;
         this.phone = phone;
         this.notes = notes;
+        this.dateOfBirth = dateOfBirth;
         if (interactions != null) {
             this.interactions = interactions;
         }
@@ -45,6 +59,14 @@ public class Customer {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
     }
 
     public String getEmail() {
@@ -69,6 +91,14 @@ public class Customer {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 
     public List<CustomerInteraction> getInteractions() { return interactions; }
@@ -97,8 +127,10 @@ public class Customer {
         return "Customer{"
                 + "id='" + id + '\''
                 + ", name='" + name + '\''
+                + ", firstName='" + firstName + '\''
                 + ", email='" + email + '\''
                 + ", phone='" + phone + '\''
+                + ", dateOfBirth=" + dateOfBirth
                 + '}';
     }
 }

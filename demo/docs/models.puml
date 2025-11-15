@@ -97,8 +97,10 @@ class Resource {
 class Customer {
   +id: String
   +name: String
+  +firstName: String
   +email: String
   +phone: String
+  +dateOfBirth: LocalDate
   +notes: String
   +interactions: List<CustomerInteraction>
 }
