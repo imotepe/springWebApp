@@ -93,9 +93,17 @@ public class AvailabilityService {
         List<AvailabilitySlot> slots = new ArrayList<>();
         LocalDate date = from.toLocalDate();
         LocalDate endDate = to.toLocalDate();
+        List<Holiday> holidays = Optional.ofNullable(schedule.getHolidays()).orElse(Collections.emptyList());
+        Set<DayOfWeek> typeAllowedDays = type.getAllowedDaysOfWeek();
+        Map<DayOfWeek, List<TimeWindow>> typeAllowedWindows = type.getAllowedTimeWindows();
 
         while (!date.isAfter(endDate)) {
-            if (schedule.getHolidays() != null && schedule.getHolidays().contains(date)) {
+            final LocalDate currentDate = date;
+            List<Holiday> dayHolidays = holidays.stream()
+                    .filter(h -> h.getDate() != null && h.getDate().equals(currentDate))
+                    .collect(Collectors.toList());
+            boolean fullDayHoliday = dayHolidays.stream().anyMatch(Holiday::isAllDay);
+            if (fullDayHoliday) {
                 date = date.plusDays(1);
                 continue;
             }
@@ -104,8 +112,30 @@ public class AvailabilityService {
                 date = date.plusDays(1);
                 continue;
             }
+            if (typeAllowedDays != null && !typeAllowedDays.isEmpty() && !typeAllowedDays.contains(dow)) {
+                date = date.plusDays(1);
+                continue;
+            }
             List<TimeWindow> dayWindows = optionalList(schedule.getBusinessHours(), dow);
-            List<TimeWindow> dayBreaks = optionalList(schedule.getBreaks(), dow);
+            List<TimeWindow> allowedWindows = typeAllowedWindows != null
+                    ? sanitizeTimeWindows(typeAllowedWindows.getOrDefault(dow, Collections.emptyList()))
+                    : Collections.emptyList();
+            if (!allowedWindows.isEmpty()) {
+                dayWindows = intersectTimeWindows(dayWindows, allowedWindows);
+            }
+            if (dayWindows.isEmpty()) {
+                date = date.plusDays(1);
+                continue;
+            }
+            List<TimeWindow> dayBreaks = new ArrayList<>(optionalList(schedule.getBreaks(), dow));
+
+            List<TimeWindow> holidayBlocks = dayHolidays.stream()
+                    .filter(h -> !h.isAllDay())
+                    .flatMap(h -> sanitizeTimeWindows(h.getClosedWindows()).stream())
+                    .collect(Collectors.toList());
+            if (!holidayBlocks.isEmpty()) {
+                dayBreaks.addAll(holidayBlocks);
+            }
 
             for (TimeWindow window : dayWindows) {
                 LocalDateTime windowStart = LocalDateTime.of(date, window.getStart());
@@ -147,11 +177,7 @@ public class AvailabilityService {
     private List<TimeWindow> optionalList(Map<DayOfWeek, List<TimeWindow>> map, DayOfWeek key) {
         if (map == null) return Collections.emptyList();
         List<TimeWindow> lst = map.getOrDefault(key, Collections.emptyList());
-        // Ensure sorted and valid
-        return lst.stream()
-                .filter(tw -> tw.getStart() != null && tw.getEnd() != null && tw.getStart().isBefore(tw.getEnd()))
-                .sorted(Comparator.comparing(TimeWindow::getStart))
-                .collect(Collectors.toList());
+        return sanitizeTimeWindows(lst);
     }
 
     private boolean overlapsBreak(LocalDateTime start, LocalDateTime end, LocalDate date, List<TimeWindow> breaks) {
@@ -176,5 +202,29 @@ public class AvailabilityService {
     private boolean overlap(LocalDateTime s1, LocalDateTime e1, LocalDateTime s2, LocalDateTime e2) {
         return s1.isBefore(e2) && s2.isBefore(e1);
     }
-}
 
+    private List<TimeWindow> sanitizeTimeWindows(List<TimeWindow> windows) {
+        if (windows == null) return Collections.emptyList();
+        return windows.stream()
+                .filter(tw -> tw.getStart() != null && tw.getEnd() != null && tw.getStart().isBefore(tw.getEnd()))
+                .sorted(Comparator.comparing(TimeWindow::getStart))
+                .collect(Collectors.toList());
+    }
+
+    private List<TimeWindow> intersectTimeWindows(List<TimeWindow> base, List<TimeWindow> constraints) {
+        if (base.isEmpty() || constraints.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TimeWindow> result = new ArrayList<>();
+        for (TimeWindow b : base) {
+            for (TimeWindow c : constraints) {
+                LocalTime start = b.getStart().isAfter(c.getStart()) ? b.getStart() : c.getStart();
+                LocalTime end = b.getEnd().isBefore(c.getEnd()) ? b.getEnd() : c.getEnd();
+                if (start.isBefore(end)) {
+                    result.add(new TimeWindow(start, end));
+                }
+            }
+        }
+        return sanitizeTimeWindows(result);
+    }
+}

@@ -36,7 +36,7 @@ class ScheduleConfig {
   +workingDays: Set<DayOfWeek>
   +businessHours: Map<DayOfWeek, List<TimeWindow>>
   +breaks: Map<DayOfWeek, List<TimeWindow>>
-  +holidays: Set<LocalDate>
+  +holidays: List<Holiday>
 }
 
 class TimeWindow {
@@ -53,6 +53,8 @@ class AppointmentType {
   +allowedDurations: List<Integer>
   +requiresResource: boolean
   +active: boolean
+  +allowedDaysOfWeek: Set<DayOfWeek>
+  +allowedTimeWindows: Map<DayOfWeek, List<TimeWindow>>
 }
 
 class AppointmentEvent {
@@ -131,9 +133,17 @@ class AvailabilitySlot {
   +end: LocalDateTime
 }
 
+class Holiday {
+  +date: LocalDate
+  +allDay: boolean
+  +closedWindows: List<TimeWindow>
+  +description: String
+}
+
 Organization "1" o- "1" ScheduleConfig : scheduleConfig
 Resource "0..1" o- "1" ScheduleConfig : scheduleOverride
 ScheduleConfig "1" o- "*" TimeWindow : businessHours/breaks
+ScheduleConfig "1" o- "*" Holiday : holidays
 
 Organization "*" --> "1" OrganizationType : type (name)
 Organization "1" o- "1" Address : address

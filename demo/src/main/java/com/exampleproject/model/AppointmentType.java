@@ -3,9 +3,8 @@ package com.exampleproject.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.time.DayOfWeek;
+import java.util.*;
 
 @Document("appointment_types")
 public class AppointmentType {
@@ -18,6 +17,8 @@ public class AppointmentType {
     private List<Integer> allowedDurations = new ArrayList<>(); // e.g., [15,30,45,60]
     private boolean requiresResource = false; // if true, must specify resource
     private boolean active = true;
+    private Set<DayOfWeek> allowedDaysOfWeek;
+    private Map<DayOfWeek, List<TimeWindow>> allowedTimeWindows = new EnumMap<>(DayOfWeek.class);
 
     public AppointmentType() {}
 
@@ -29,7 +30,9 @@ public class AppointmentType {
             Integer defaultDurationMinutes,
             List<Integer> allowedDurations,
             boolean requiresResource,
-            boolean active
+            boolean active,
+            Set<DayOfWeek> allowedDaysOfWeek,
+            Map<DayOfWeek, List<TimeWindow>> allowedTimeWindows
     ) {
         this.id = id;
         this.orgId = orgId;
@@ -39,6 +42,10 @@ public class AppointmentType {
         this.allowedDurations = allowedDurations;
         this.requiresResource = requiresResource;
         this.active = active;
+        this.allowedDaysOfWeek = allowedDaysOfWeek;
+        if (allowedTimeWindows != null) {
+            this.allowedTimeWindows = allowedTimeWindows;
+        }
     }
 
     public String getId() { return id; }
@@ -65,6 +72,14 @@ public class AppointmentType {
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
+    public Set<DayOfWeek> getAllowedDaysOfWeek() { return allowedDaysOfWeek; }
+    public void setAllowedDaysOfWeek(Set<DayOfWeek> allowedDaysOfWeek) { this.allowedDaysOfWeek = allowedDaysOfWeek; }
+
+    public Map<DayOfWeek, List<TimeWindow>> getAllowedTimeWindows() { return allowedTimeWindows; }
+    public void setAllowedTimeWindows(Map<DayOfWeek, List<TimeWindow>> allowedTimeWindows) {
+        this.allowedTimeWindows = allowedTimeWindows != null ? allowedTimeWindows : new EnumMap<>(DayOfWeek.class);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -87,4 +102,3 @@ public class AppointmentType {
                 '}';
     }
 }
-
