@@ -18,6 +18,8 @@ public class Resource {
     private ScheduleConfig scheduleOverride; // optional per-resource schedule
     private Integer capacity; // optional: number of parallel bookings
     private boolean active = true;
+    private ResourceKind kind = ResourceKind.ASSET;
+    private String practitionerUserId;
 
     public Resource() {}
 
@@ -31,14 +33,31 @@ public class Resource {
             Integer capacity,
             boolean active
     ) {
+        this(id, orgId, name, type, allowedAppointmentTypeIds, scheduleOverride, capacity, active, ResourceKind.ASSET, null);
+    }
+
+    public Resource(
+            String id,
+            String orgId,
+            String name,
+            String type,
+            Set<String> allowedAppointmentTypeIds,
+            ScheduleConfig scheduleOverride,
+            Integer capacity,
+            boolean active,
+            ResourceKind kind,
+            String practitionerUserId
+    ) {
         this.id = id;
         this.orgId = orgId;
         this.name = name;
         this.type = type;
-        this.allowedAppointmentTypeIds = allowedAppointmentTypeIds;
+        setAllowedAppointmentTypeIds(allowedAppointmentTypeIds);
         this.scheduleOverride = scheduleOverride;
         this.capacity = capacity;
         this.active = active;
+        this.kind = kind == null ? ResourceKind.ASSET : kind;
+        this.practitionerUserId = practitionerUserId;
     }
 
     public String getId() { return id; }
@@ -54,7 +73,11 @@ public class Resource {
     public void setType(String type) { this.type = type; }
 
     public Set<String> getAllowedAppointmentTypeIds() { return allowedAppointmentTypeIds; }
-    public void setAllowedAppointmentTypeIds(Set<String> allowedAppointmentTypeIds) { this.allowedAppointmentTypeIds = allowedAppointmentTypeIds; }
+    public void setAllowedAppointmentTypeIds(Set<String> allowedAppointmentTypeIds) {
+        this.allowedAppointmentTypeIds = allowedAppointmentTypeIds == null
+                ? new HashSet<>()
+                : new HashSet<>(allowedAppointmentTypeIds);
+    }
 
     public ScheduleConfig getScheduleOverride() { return scheduleOverride; }
     public void setScheduleOverride(ScheduleConfig scheduleOverride) { this.scheduleOverride = scheduleOverride; }
@@ -64,6 +87,14 @@ public class Resource {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    public ResourceKind getKind() { return kind; }
+    public void setKind(ResourceKind kind) {
+        this.kind = kind == null ? ResourceKind.ASSET : kind;
+    }
+
+    public String getPractitionerUserId() { return practitionerUserId; }
+    public void setPractitionerUserId(String practitionerUserId) { this.practitionerUserId = practitionerUserId; }
 
     @Override
     public boolean equals(Object o) {
@@ -83,7 +114,8 @@ public class Resource {
                 ", orgId='" + orgId + '\'' +
                 ", name='" + name + '\'' +
                 ", type='" + type + '\'' +
+                ", kind=" + kind +
+                ", practitionerUserId='" + practitionerUserId + '\'' +
                 '}';
     }
 }
-

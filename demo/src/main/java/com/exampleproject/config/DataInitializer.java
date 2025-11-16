@@ -45,6 +45,7 @@ public class DataInitializer {
     private static final String CUSTOMER_EMMA_ID = "customer-emma-leroy";
     private static final String APPOINTMENT_DISCOVERY_ID = "appt-discovery-call";
     private static final String APPOINTMENT_INSTALL_ID = "appt-onsite-install";
+    private static final String USER_PRACTITIONER_ID = "user-practitioner";
 
     @Bean
     CommandLineRunner loadReferenceData(
@@ -130,18 +131,22 @@ public class DataInitializer {
                 new HashSet<>(Set.of(APPOINTMENT_TYPE_CONSULTATION_ID)),
                 null,
                 1,
-                true
+                true,
+                ResourceKind.ASSET,
+                null
         );
 
         Resource onsiteCrew = new Resource(
                 RESOURCE_ONSITE_CREW_ID,
                 ORG_AURORA_ID,
-                "Equipe installation mobile",
+                "Docteur Emma Leroy",
                 "field",
                 new HashSet<>(Set.of(APPOINTMENT_TYPE_INSTALLATION_ID)),
                 saturdayOverride,
-                3,
-                true
+                1,
+                true,
+                ResourceKind.HUMAN,
+                USER_PRACTITIONER_ID
         );
 
         return List.of(crmDesk, onsiteCrew);
@@ -224,9 +229,57 @@ public class DataInitializer {
     }
 
     private List<User> buildUsers() {
-        User scheduler = new User("user-alex", "Alex Martin", "alex.martin@example.com");
-        User operator = new User("user-naima", "Naima Khelifi", "naima.khelifi@example.com");
-        return List.of(scheduler, operator);
+        User superAdmin = new User(
+                "user-super-admin",
+                "Claire Dubois",
+                "claire.dubois@example.com",
+                EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN)
+        );
+        User platformAdmin = new User(
+                "user-platform-admin",
+                "Nabil Haddad",
+                "nabil.haddad@example.com",
+                EnumSet.of(UserRole.PLATFORM_ADMIN)
+        );
+        User orgAdmin = new User(
+                "user-org-admin",
+                "Sophie Bernard",
+                "sophie.bernard@example.com",
+                EnumSet.of(UserRole.ORGANIZATION_ADMIN)
+        );
+        User serviceManager = new User(
+                "user-service-manager",
+                "Alex Martin",
+                "alex.martin@example.com",
+                EnumSet.of(UserRole.SERVICE_MANAGER)
+        );
+        User agent = new User(
+                "user-agent",
+                "Naima Khelifi",
+                "naima.khelifi@example.com",
+                EnumSet.of(UserRole.AGENT)
+        );
+        User auditor = new User(
+                "user-auditor",
+                "Luc Nguyen",
+                "luc.nguyen@example.com",
+                EnumSet.of(UserRole.AUDITOR)
+        );
+        User practitioner = new User(
+                USER_PRACTITIONER_ID,
+                "Dr. Emma Leroy",
+                "emma.leroy@example.com",
+                EnumSet.of(UserRole.PRACTITIONER)
+        );
+        return List.of(
+                superAdmin,
+                platformAdmin,
+                orgAdmin,
+                serviceManager,
+                agent,
+                auditor,
+                practitioner
+        );
     }
 
     private List<Appointment> buildAppointments() {

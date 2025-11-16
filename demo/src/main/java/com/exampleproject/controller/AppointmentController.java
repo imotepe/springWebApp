@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,20 +35,18 @@ public class AppointmentController {
             LocalDateTime from,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime to
+            LocalDateTime to,
+            @RequestHeader(value = "X-User-Id", required = false) String userId
     ) {
-        if (customerId != null && !customerId.isBlank()) {
-            return appointmentService.findByCustomerId(customerId);
-        }
-        if (from != null && to != null) {
-            return appointmentService.findByStartRange(from, to);
-        }
-        return appointmentService.findAll();
+        return appointmentService.search(customerId, from, to, userId);
     }
 
     @GetMapping("/{id}")
-    public Appointment get(@PathVariable String id) {
-        return appointmentService.findById(id);
+    public Appointment get(
+            @PathVariable String id,
+            @RequestHeader(value = "X-User-Id", required = false) String userId
+    ) {
+        return appointmentService.findByIdForUser(id, userId);
     }
 
     @PostMapping
@@ -61,8 +60,12 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/events")
-    public Appointment addEvent(@PathVariable String id, @RequestBody AppointmentEvent event) {
-        return appointmentService.addEvent(id, event);
+    public Appointment addEvent(
+            @PathVariable String id,
+            @RequestBody AppointmentEvent event,
+            @RequestHeader(value = "X-User-Id", required = false) String userId
+    ) {
+        return appointmentService.addEvent(id, event, userId);
     }
 
     @DeleteMapping("/{id}")

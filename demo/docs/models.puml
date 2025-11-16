@@ -71,6 +71,7 @@ enum AppointmentEventType {
   CUSTOMER_CANCEL
   CUSTOMER_UPDATE
   INTERNAL_NOTE
+  PRACTITIONER_NOTE
 }
 
 class CustomerInteraction {
@@ -92,6 +93,8 @@ class Resource {
   +scheduleOverride: ScheduleConfig
   +capacity: Integer
   +active: boolean
+  +kind: ResourceKind
+  +practitionerUserId: String
 }
 
 class Customer {
@@ -109,12 +112,28 @@ class User {
   +id: String
   +name: String
   +email: String
+  +roles: Set<UserRole>
 }
 
 enum AppointmentStatus {
   SCHEDULED
   COMPLETED
   CANCELLED
+}
+
+enum UserRole {
+  SUPER_PLATFORM_ADMIN
+  PLATFORM_ADMIN
+  ORGANIZATION_ADMIN
+  SERVICE_MANAGER
+  AGENT
+  AUDITOR
+  PRACTITIONER
+}
+
+enum ResourceKind {
+  HUMAN
+  ASSET
 }
 
 class Appointment {
@@ -161,6 +180,7 @@ AppointmentEvent ..> AppointmentStatus
 
 AppointmentType "*" --> "1" Organization : orgId
 Resource "*" --> "1" Organization : orgId
+Resource "0..1" --> "1" User : practitioner
 
 AvailabilitySlot ..> Appointment : computed from
 
@@ -168,5 +188,7 @@ Customer "1" o- "*" CustomerInteraction : interactions
 CustomerInteraction --> Appointment : appointmentId
 CustomerInteraction ..> AppointmentEventType
 CustomerInteraction ..> AppointmentStatus
+User "*" --> "*" UserRole : roles
+User "*" <-- "0..1" Resource : practitioner
 
 @enduml

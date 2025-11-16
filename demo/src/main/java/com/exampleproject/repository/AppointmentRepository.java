@@ -27,4 +27,12 @@ public interface AppointmentRepository extends MongoRepository<Appointment, Stri
             LocalDateTime start,
             LocalDateTime end
     );
+
+    List<Appointment> findByResourceId(String resourceId);
+
+    List<Appointment> findByResourceIdAndStartTimeBetween(
+            String resourceId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    );
 }
