@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Service
+@SuppressWarnings("null")
 public class OrganizationTypeService {
     private final OrganizationTypeRepository repository;
 
@@ -59,4 +60,3 @@ public class OrganizationTypeService {
         }
     }
 }
-

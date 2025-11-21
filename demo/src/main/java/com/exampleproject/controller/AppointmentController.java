@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,18 +34,14 @@ public class AppointmentController {
             LocalDateTime from,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime to,
-            @RequestHeader(value = "X-User-Id", required = false) String userId
+            LocalDateTime to
     ) {
-        return appointmentService.search(customerId, from, to, userId);
+        return appointmentService.search(customerId, from, to);
     }
 
     @GetMapping("/{id}")
-    public Appointment get(
-            @PathVariable String id,
-            @RequestHeader(value = "X-User-Id", required = false) String userId
-    ) {
-        return appointmentService.findByIdForUser(id, userId);
+    public Appointment get(@PathVariable String id) {
+        return appointmentService.findByIdForUser(id);
     }
 
     @PostMapping
@@ -62,10 +57,9 @@ public class AppointmentController {
     @PostMapping("/{id}/events")
     public Appointment addEvent(
             @PathVariable String id,
-            @RequestBody AppointmentEvent event,
-            @RequestHeader(value = "X-User-Id", required = false) String userId
+            @RequestBody AppointmentEvent event
     ) {
-        return appointmentService.addEvent(id, event, userId);
+        return appointmentService.addEvent(id, event);
     }
 
     @DeleteMapping("/{id}")

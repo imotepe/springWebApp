@@ -1,0 +1,53 @@
+package com.exampleproject.controller;
+
+import com.exampleproject.dto.AuthRequest;
+import com.exampleproject.dto.AuthResponse;
+import com.exampleproject.model.User;
+import com.exampleproject.repository.UserRepository;
+import com.exampleproject.security.JwtService;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+
+    public AuthController(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
+
+    @PostMapping("/token")
+    public AuthResponse token(@RequestBody AuthRequest request) {
+        String identifier = request.getIdentifier();
+        String password = request.getPassword();
+        if (identifier == null || identifier.isBlank() || password == null || password.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identifier and password are required");
+        }
+        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(identifier);
+        if (userOpt.isEmpty()) {
+            userOpt = userRepository.findByUsernameIgnoreCase(identifier);
+        }
+        User user = userOpt.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        if (user.getPassword() == null || !passwordEncoder.matches(password, user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+        return new AuthResponse(jwtService.generateToken(user));
+    }
+}

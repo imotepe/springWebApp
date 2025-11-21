@@ -110,8 +110,11 @@ class Customer {
 
 class User {
   +id: String
-  +name: String
+  +username: String
+  +firstName: String
+  +lastName: String
   +email: String
+  +password: String
   +roles: Set<UserRole>
 }
 
@@ -165,6 +168,7 @@ Organization "1" o- "1" ScheduleConfig : scheduleConfig
 Resource "0..1" o- "1" ScheduleConfig : scheduleOverride
 ScheduleConfig "1" o- "*" TimeWindow : businessHours/breaks
 ScheduleConfig "1" o- "*" Holiday : holidays
+Holiday "1" o- "*" TimeWindow : closedWindows
 
 Organization "*" --> "1" OrganizationType : type (name)
 Organization "1" o- "1" Address : address
@@ -179,8 +183,11 @@ AppointmentEvent ..> AppointmentEventType
 AppointmentEvent ..> AppointmentStatus
 
 AppointmentType "*" --> "1" Organization : orgId
+AppointmentType ..> TimeWindow : allowedTimeWindows
 Resource "*" --> "1" Organization : orgId
 Resource "0..1" --> "1" User : practitioner
+Resource ..> AppointmentType : allowedAppointmentTypeIds (IDs)
+Resource ..> ResourceKind : kind
 
 AvailabilitySlot ..> Appointment : computed from
 

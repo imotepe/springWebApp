@@ -12,7 +12,7 @@ import com.exampleproject.model.UserRole;
 import com.exampleproject.repository.AppointmentRepository;
 import com.exampleproject.repository.CustomerRepository;
 import com.exampleproject.repository.ResourceRepository;
-import com.exampleproject.repository.UserRepository;
+import com.exampleproject.security.CurrentUserProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,22 +24,23 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@SuppressWarnings("null")
 public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
-    private final UserRepository userRepository;
     private final ResourceRepository resourceRepository;
+    private final CurrentUserProvider currentUserProvider;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             CustomerRepository customerRepository,
-            UserRepository userRepository,
-            ResourceRepository resourceRepository
+            ResourceRepository resourceRepository,
+            CurrentUserProvider currentUserProvider
     ) {
         this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
-        this.userRepository = userRepository;
         this.resourceRepository = resourceRepository;
+        this.currentUserProvider = currentUserProvider;
     }
 
     public List<Appointment> findAll() {
@@ -58,8 +59,8 @@ public class AppointmentService {
         return appointmentRepository.findByStartTimeBetween(start, end);
     }
 
-    public List<Appointment> search(String customerId, LocalDateTime from, LocalDateTime to, String userId) {
-        UserAccessContext context = resolveContext(userId);
+    public List<Appointment> search(String customerId, LocalDateTime from, LocalDateTime to) {
+        UserAccessContext context = resolveContext();
         if (context.isPractitioner()) {
             return findForPractitioner(context, customerId, from, to);
         }
@@ -81,9 +82,9 @@ public class AppointmentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found"));
     }
 
-    public Appointment findByIdForUser(String id, String userId) {
+    public Appointment findByIdForUser(String id) {
         Appointment appointment = findById(id);
-        UserAccessContext context = resolveContext(userId);
+        UserAccessContext context = resolveContext();
         if (context.isPractitioner()) {
             sanitizeAppointmentForPractitioner(appointment, context);
         }
@@ -120,11 +121,11 @@ public class AppointmentService {
         appointmentRepository.deleteById(id);
     }
 
-    public Appointment addEvent(String appointmentId, AppointmentEvent event, String userId) {
+    public Appointment addEvent(String appointmentId, AppointmentEvent event) {
         if (event == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Event payload is required");
         }
-        UserAccessContext context = resolveContext(userId);
+        UserAccessContext context = resolveContext();
         Appointment appointment = findById(appointmentId);
 
         ensureEventsCollection(appointment);
@@ -246,12 +247,8 @@ public class AppointmentService {
         }
     }
 
-    private UserAccessContext resolveContext(String userId) {
-        if (userId == null || userId.isBlank()) {
-            return UserAccessContext.anonymous();
-        }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown user: " + userId));
+    private UserAccessContext resolveContext() {
+        User user = currentUserProvider.getCurrentUser();
         Resource practitionerResource = null;
         if (user.getRoles().contains(UserRole.PRACTITIONER)) {
             practitionerResource = resourceRepository.findByPractitionerUserId(user.getId())
@@ -298,16 +295,12 @@ public class AppointmentService {
             this.practitionerResource = practitionerResource;
         }
 
-        static UserAccessContext anonymous() {
-            return new UserAccessContext(null, null);
-        }
-
         boolean isPractitioner() {
-            return user != null && user.getRoles().contains(UserRole.PRACTITIONER);
+            return user.getRoles().contains(UserRole.PRACTITIONER);
         }
 
         String userId() {
-            return user == null ? null : user.getId();
+            return user.getId();
         }
 
         Resource practitionerResource() {

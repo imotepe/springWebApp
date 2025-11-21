@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Service
+@SuppressWarnings("null")
 public class CustomerService {
     private final CustomerRepository repository;
 

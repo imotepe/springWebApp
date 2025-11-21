@@ -14,6 +14,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -30,9 +31,16 @@ import java.util.Set;
 
 @Configuration
 @ConditionalOnProperty(value = "app.initial-data.enabled", havingValue = "true")
+@SuppressWarnings("null")
 public class DataInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
+    private static final String DEFAULT_USER_PASSWORD = "ChangeMe123!";
+    private final PasswordEncoder passwordEncoder;
+
+    public DataInitializer(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
 
     private static final String ORG_TYPE_RETAIL_ID = "org-type-retail";
     private static final String ORG_TYPE_PUBLIC_ID = "org-type-public";
@@ -229,46 +237,68 @@ public class DataInitializer {
     }
 
     private List<User> buildUsers() {
+        String encodedPassword = passwordEncoder.encode(DEFAULT_USER_PASSWORD);
         User superAdmin = new User(
                 "user-super-admin",
-                "Claire Dubois",
+                "claire.dubois",
+                "Claire",
+                "Dubois",
                 "claire.dubois@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN)
         );
         User platformAdmin = new User(
                 "user-platform-admin",
-                "Nabil Haddad",
+                "nabil.haddad",
+                "Nabil",
+                "Haddad",
                 "nabil.haddad@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.PLATFORM_ADMIN)
         );
         User orgAdmin = new User(
                 "user-org-admin",
-                "Sophie Bernard",
+                "sophie.bernard",
+                "Sophie",
+                "Bernard",
                 "sophie.bernard@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.ORGANIZATION_ADMIN)
         );
         User serviceManager = new User(
                 "user-service-manager",
-                "Alex Martin",
+                "alex.martin",
+                "Alex",
+                "Martin",
                 "alex.martin@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.SERVICE_MANAGER)
         );
         User agent = new User(
                 "user-agent",
-                "Naima Khelifi",
+                "naima.khelifi",
+                "Naima",
+                "Khelifi",
                 "naima.khelifi@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.AGENT)
         );
         User auditor = new User(
                 "user-auditor",
-                "Luc Nguyen",
+                "luc.nguyen",
+                "Luc",
+                "Nguyen",
                 "luc.nguyen@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.AUDITOR)
         );
         User practitioner = new User(
                 USER_PRACTITIONER_ID,
-                "Dr. Emma Leroy",
+                "emma.leroy",
+                "Emma",
+                "Leroy",
                 "emma.leroy@example.com",
+                encodedPassword,
                 EnumSet.of(UserRole.PRACTITIONER)
         );
         return List.of(

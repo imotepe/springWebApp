@@ -1,5 +1,6 @@
 package com.exampleproject.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -11,20 +12,27 @@ import java.util.Set;
 public class User {
     @Id
     private String id;
-    private String name;
+    private String username;
+    private String firstName;
+    private String lastName;
     private String email;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String password;
     private Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
 
     public User() {}
 
-    public User(String id, String name, String email) {
-        this(id, name, email, EnumSet.noneOf(UserRole.class));
+    public User(String id, String username, String firstName, String lastName) {
+        this(id, username, firstName, lastName, null, null, EnumSet.noneOf(UserRole.class));
     }
 
-    public User(String id, String name, String email, Set<UserRole> roles) {
+    public User(String id, String username, String firstName, String lastName, String email, String password, Set<UserRole> roles) {
         this.id = id;
-        this.name = name;
+        this.username = username;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.email = email;
+        this.password = password;
         setRoles(roles);
     }
 
@@ -36,12 +44,58 @@ public class User {
         this.id = id;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
     public String getName() {
-        return name;
+        if (firstName == null && lastName == null) {
+            return null;
+        }
+        if (firstName == null) {
+            return lastName;
+        }
+        if (lastName == null) {
+            return firstName;
+        }
+        return firstName + " " + lastName;
     }
 
     public void setName(String name) {
-        this.name = name;
+        if (name == null) {
+            this.firstName = null;
+            this.lastName = null;
+            return;
+        }
+        String trimmed = name.trim();
+        if (trimmed.isEmpty()) {
+            this.firstName = null;
+            this.lastName = null;
+            return;
+        }
+        String[] parts = trimmed.split("\\s+", 2);
+        this.firstName = parts[0];
+        this.lastName = parts.length > 1 ? parts[1] : null;
     }
 
     public String getEmail() {
@@ -51,6 +105,9 @@ public class User {
     public void setEmail(String email) {
         this.email = email;
     }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
     public Set<UserRole> getRoles() {
         return roles.isEmpty() ? EnumSet.noneOf(UserRole.class) : EnumSet.copyOf(roles);
@@ -73,20 +130,26 @@ public class User {
         }
         User user = (User) o;
         return Objects.equals(id, user.id)
-                && Objects.equals(name, user.name)
+                && Objects.equals(username, user.username)
+                && Objects.equals(firstName, user.firstName)
+                && Objects.equals(lastName, user.lastName)
                 && Objects.equals(email, user.email)
+                && Objects.equals(password, user.password)
                 && Objects.equals(roles, user.roles);
     }
 
     @Override
-    public int hashCode() { return Objects.hash(id, name, email, roles); }
+    public int hashCode() { return Objects.hash(id, username, firstName, lastName, email, password, roles); }
 
     @Override
     public String toString() {
         return "User{" +
                 "id='" + id + '\'' +
-                ", name='" + name + '\'' +
+                ", username='" + username + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
+                ", password='[PROTECTED]'" +
                 ", roles=" + roles +
                 '}';
     }

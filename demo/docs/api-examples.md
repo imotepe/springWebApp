@@ -2,6 +2,31 @@
 
 This companion to `docs/api.md` shows concrete request/response pairs using realistic payloads based on the seeded Mongo data (`app.initial-data.enabled=true`).
 
+## Authentication
+
+### Obtain a token
+
+```http
+POST /api/auth/token HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "username": "emma.leroy",
+  "password": "ChangeMe123!"
+}
+```
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Use this token in the `Authorization` header (e.g., `Authorization: Bearer eyJhbGci...`) for the rest of the requests.
+
+You may also provide `email` instead of `username`; both identifiers are matched case-insensitively before checking the password.
+
 ## Appointments
 
 ### Practitioner listing own appointments
@@ -9,7 +34,7 @@ This companion to `docs/api.md` shows concrete request/response pairs using real
 ```http
 GET /api/appointments?from=2025-11-18T00:00:00&to=2025-11-30T00:00:00 HTTP/1.1
 Host: localhost:8080
-X-User-Id: user-practitioner
+Authorization: Bearer <token-for-user-practitioner>
 Accept: application/json
 ```
 
@@ -47,7 +72,7 @@ Accept: application/json
 POST /api/appointments/appt-onsite-install/events HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-X-User-Id: user-practitioner
+Authorization: Bearer <token-for-user-practitioner>
 
 {
   "comment": "Intervention terminee, installation conforme",
@@ -86,6 +111,7 @@ X-User-Id: user-practitioner
 ```http
 GET /api/appointments HTTP/1.1
 Host: localhost:8080
+Authorization: Bearer <token-for-user-agent>
 Accept: application/json
 ```
 
@@ -119,7 +145,7 @@ Accept: application/json
 ]
 ```
 
-Because no `X-User-Id` is sent, the caller is treated as a non-practitioner and sees the full event history for every appointment.
+Here the agent (`user-agent`) sees the full event history because they are not a practitioner.
 
 ## Customers
 
@@ -129,6 +155,7 @@ Because no `X-User-Id` is sent, the caller is treated as a non-practitioner and 
 POST /api/customers HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
+Authorization: Bearer <token-for-user-agent>
 
 {
   "name": "Dupont",
@@ -161,6 +188,7 @@ Content-Type: application/json
 POST /api/resources HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
+Authorization: Bearer <token-for-user-org-admin>
 
 {
   "orgId": "org-aurora-retail",
@@ -184,9 +212,12 @@ The response mirrors the payload and ensures `kind/HUMAN` plus the linkage to th
 PUT /api/users/user-dr-martin HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
+Authorization: Bearer <token-for-user-super-admin>
 
 {
-  "name": "Dr. Paul Martin",
+  "username": "paul.martin",
+  "firstName": "Paul",
+  "lastName": "Martin",
   "email": "paul.martin@example.com",
   "roles": ["PRACTITIONER"]
 }
@@ -195,7 +226,9 @@ Content-Type: application/json
 ```json
 {
   "id": "user-dr-martin",
-  "name": "Dr. Paul Martin",
+  "username": "paul.martin",
+  "firstName": "Paul",
+  "lastName": "Martin",
   "email": "paul.martin@example.com",
   "roles": ["PRACTITIONER"]
 }
@@ -206,4 +239,3 @@ Content-Type: application/json
 ---
 
 Use these samples as templates for manual testing or onboarding API consumers. Adjust IDs and timestamps to match your environment.
-

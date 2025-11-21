@@ -1,12 +1,38 @@
 # API Reference
 
-Base URL: all endpoints are served under `/api`. Responses are JSON and follow standard Spring Boot error semantics (HTTP 4xx for validation/auth, 5xx for unexpected errors).
+Base URL: all endpoints are served under `/api`. Responses are JSON and follow standard Spring Boot error semantics (HTTP 4xx for validation/auth, 5xx for unexpected errors). Every `/api/**` request must be authenticated with a valid JWT.
 
 ## Common Headers
 
 | Header | Usage |
 | --- | --- |
-| `X-User-Id` | Optional. When present, the appointment module derives access control rules from the referenced user. Practitioners **must** supply their user id to list/read/annotate appointments. Other roles may omit it. |
+| `Authorization` | `Bearer <token>` issued by `POST /api/auth/token`. |
+
+## Authentication (`/api/auth/token`)
+
+Obtain a JWT:
+
+- **Request**: `POST /api/auth/token`
+
+```json
+{
+  "username": "claire.dubois",
+  "password": "ChangeMe123!"
+}
+```
+
+- **Response**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Use the returned token in the `Authorization: Bearer ...` header for all subsequent calls.  
+_Tip_: the seeded demo users all share the default password `ChangeMe123!`.
+
+You can also provide `email` instead of `username`; both values are evaluated case-insensitively but only one identifier is required alongside the password.
 
 ---
 
@@ -14,11 +40,11 @@ Base URL: all endpoints are served under `/api`. Responses are JSON and follow s
 
 | Method & Path | Description | Parameters |
 | --- | --- | --- |
-| `GET /api/appointments` | List appointments. Practitioners are automatically scoped to their resource and only see their own events. | Query: `customerId` _(optional)_, `from` & `to` (ISO-8601, optional filter). Header: `X-User-Id` required for practitioners. |
-| `GET /api/appointments/{id}` | Fetch a single appointment. Practitioner events are filtered to those authored by the caller. | Header: `X-User-Id` if practitioner. |
+| `GET /api/appointments` | List appointments. Practitioners are automatically scoped to their resource and only see their own events. | Query: `customerId` _(optional)_, `from` & `to` (ISO-8601, optional filter). |
+| `GET /api/appointments/{id}` | Fetch a single appointment. Practitioner events are filtered to those authored by the caller. | – |
 | `POST /api/appointments` | Create a new appointment. | Body: `Appointment` payload. |
 | `PUT /api/appointments/{id}` | Update an appointment. | Body: `Appointment`. |
-| `POST /api/appointments/{id}/events` | Append an `AppointmentEvent`. Practitioners automatically generate `PRACTITIONER_NOTE` events, mark the appointment `COMPLETED`, and cannot edit others' entries. | Header: `X-User-Id` for practitioner context. Body: `AppointmentEvent`. |
+| `POST /api/appointments/{id}/events` | Append an `AppointmentEvent`. Practitioners automatically generate `PRACTITIONER_NOTE` events, mark the appointment `COMPLETED`, and cannot edit others' entries. | Body: `AppointmentEvent`. |
 | `DELETE /api/appointments/{id}` | Delete an appointment. | – |
 
 ## Appointment Types (`/api/appointment-types`)
@@ -70,6 +96,19 @@ CRUD endpoints at `/api/organization-types` mirroring those for organizations.
 CRUD endpoints for managing platform users and their `roles` set:  
 `GET /api/users`, `GET /api/users/{id}`, `POST`, `PUT`, `DELETE`. Use these to assign platform/organization/practitioner roles described in `docs/roles.md`.
 
+POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional `password`, and the `roles` array. Example:
+
+```json
+{
+  "username": "paul.martin",
+  "firstName": "Paul",
+  "lastName": "Martin",
+  "email": "paul.martin@example.com",
+  "password": "ChangeMe123!",
+  "roles": ["PRACTITIONER"]
+}
+```
+
 ---
 
 ### Notes on Role Behavior
@@ -81,4 +120,3 @@ CRUD endpoints for managing platform users and their `roles` set:
 - Other roles (Agent, Service Manager, etc.) have unrestricted access to appointment and comment data subject to higher-level security configuration.
 
 Refer to `docs/roles.md` for the full privilege hierarchy.
-

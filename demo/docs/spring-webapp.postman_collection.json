@@ -1,0 +1,1324 @@
+{
+  "info": {
+    "name": "Spring Web App API",
+    "_postman_id": "4a2c6c6f-f3a1-4f8f-95c3-2e0c5c55b9b8",
+    "description": "Complete collection covering every REST endpoint exposed by the Spring Web App, including authentication and CRUD flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Obtain JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"claire.dubois\",\n  \"password\": \"ChangeMe123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "token"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    try {",
+                  "        const data = pm.response.json();",
+                  "        if (data.token) {",
+                  "            pm.collectionVariables.set(\"authToken\", data.token);",
+                  "            console.log(\"Auth token saved to collection variables\");",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.warn(\"Unable to parse auth response\", err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/user-super-admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "user-super-admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new.agent\",\n  \"firstName\": \"New\",\n  \"lastName\": \"Agent\",\n  \"email\": \"new.agent@example.com\",\n  \"password\": \"ChangeMe123!\",\n  \"roles\": [\"AGENT\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new.agent\",\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Agent\",\n  \"email\": \"new.agent@example.com\",\n  \"password\": \"ChangeMe123!\",\n  \"roles\": [\"SERVICE_MANAGER\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/user-agent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "user-agent"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/user-agent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "user-agent"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "List Organizations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Organization by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/org-aurora-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "org-aurora-retail"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Organization",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nova Field Ops\",\n  \"industry\": \"Utilities\",\n  \"type\": \"org-type-public\",\n  \"phone\": \"+33 1 80 00 00 00\",\n  \"address\": {\n    \"street\": \"24 Rue Oberkampf\",\n    \"city\": \"Paris\",\n    \"state\": \"Ile-de-France\",\n    \"postalCode\": \"75011\",\n    \"country\": \"France\"\n  },\n  \"location\": {\n    \"latitude\": 48.8566,\n    \"longitude\": 2.3522\n  },\n  \"scheduleConfig\": {\n    \"workingDays\": [\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", \"THURSDAY\", \"FRIDAY\"],\n    \"businessHours\": {\n      \"MONDAY\": [\n        {\"start\": \"09:00\", \"end\": \"12:30\"},\n        {\"start\": \"13:30\", \"end\": \"18:00\"}\n      ]\n    },\n    \"breaks\": {\n      \"MONDAY\": [\n        {\"start\": \"12:30\", \"end\": \"13:30\"}\n      ]\n    },\n    \"holidays\": [\n      {\"date\": \"2025-12-25\", \"allDay\": true, \"closedWindows\": [], \"description\": \"Noel\"}\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Organization",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aurora Service Center\",\n  \"industry\": \"Retail & Services\",\n  \"type\": \"org-type-retail\",\n  \"phone\": \"+33 1 86 65 00 11\",\n  \"address\": {\n    \"street\": \"12 Rue du Faubourg\",\n    \"city\": \"Paris\",\n    \"state\": \"Ile-de-France\",\n    \"postalCode\": \"75010\",\n    \"country\": \"France\"\n  },\n  \"location\": {\n    \"latitude\": 48.8765,\n    \"longitude\": 2.3541\n  },\n  \"scheduleConfig\": {\n    \"workingDays\": [\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", \"THURSDAY\", \"FRIDAY\"],\n    \"businessHours\": {},\n    \"breaks\": {},\n    \"holidays\": []\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/org-aurora-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "org-aurora-retail"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Organization",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/org-aurora-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "org-aurora-retail"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organization Types",
+      "item": [
+        {
+          "name": "List Organization Types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organization-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organization-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Organization Type by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organization-types/org-type-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organization-types",
+                "org-type-retail"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Organization Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pop-up Store\",\n  \"description\": \"Seasonal retail deployments\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organization-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organization-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Organization Type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reseau Retail\",\n  \"description\": \"Centres de services physiques\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organization-types/org-type-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organization-types",
+                "org-type-retail"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Organization Type",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/organization-types/org-type-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organization-types",
+                "org-type-retail"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "item": [
+        {
+          "name": "List Resources (optional org filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources?orgId=org-aurora-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "resources"
+              ],
+              "query": [
+                {
+                  "key": "orgId",
+                  "value": "org-aurora-retail"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Resource by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/resource-crm-desk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "resource-crm-desk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Resource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"name\": \"CRM Desk B\",\n  \"type\": \"CRM_DESK\",\n  \"allowedAppointmentTypeIds\": [\"appt-consultation\"],\n  \"scheduleOverride\": null,\n  \"capacity\": 1,\n  \"active\": true,\n  \"kind\": \"HUMAN\",\n  \"practitionerUserId\": \"user-practitioner\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "resources"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Resource",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"name\": \"CRM Desk A\",\n  \"type\": \"CRM_DESK\",\n  \"allowedAppointmentTypeIds\": [\"appt-consultation\"],\n  \"scheduleOverride\": null,\n  \"capacity\": 2,\n  \"active\": true,\n  \"kind\": \"ASSET\",\n  \"practitionerUserId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/resource-crm-desk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "resource-crm-desk"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Resource",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/resource-crm-desk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "resource-crm-desk"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointment Types",
+      "item": [
+        {
+          "name": "List Appointment Types (optional org filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointment-types?orgId=org-aurora-retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointment-types"
+              ],
+              "query": [
+                {
+                  "key": "orgId",
+                  "value": "org-aurora-retail"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Appointment Type by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointment-types/appt-consultation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointment-types",
+                "appt-consultation"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Appointment Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"name\": \"Solution Demo\",\n  \"category\": \"Consultation\",\n  \"defaultDurationMinutes\": 45,\n  \"allowedDurations\": [30, 45, 60],\n  \"requiresResource\": true,\n  \"active\": true,\n  \"allowedDaysOfWeek\": [\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", \"THURSDAY\", \"FRIDAY\"],\n  \"allowedTimeWindows\": {\n    \"MONDAY\": [\n      {\"start\": \"09:00\", \"end\": \"17:00\"}\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointment-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointment-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Appointment Type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"name\": \"Field Installation\",\n  \"category\": \"Delivery\",\n  \"defaultDurationMinutes\": 90,\n  \"allowedDurations\": [60, 90, 120],\n  \"requiresResource\": true,\n  \"active\": true,\n  \"allowedDaysOfWeek\": [\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", \"THURSDAY\", \"FRIDAY\"],\n  \"allowedTimeWindows\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointment-types/appt-installation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointment-types",
+                "appt-installation"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Appointment Type",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointment-types/appt-installation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointment-types",
+                "appt-installation"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/customer-jean-dupont",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "customer-jean-dupont"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Doe\",\n  \"firstName\": \"John\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+33 6 00 00 00 00\",\n  \"notes\": \"VIP prospect\",\n  \"dateOfBirth\": \"1985-03-18\",\n  \"interactions\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Leroy\",\n  \"firstName\": \"Emma\",\n  \"email\": \"emma.leroy@example.com\",\n  \"phone\": \"+33 6 77 88 22 11\",\n  \"notes\": \"Projet d'extension Q4\",\n  \"dateOfBirth\": \"1992-07-09\",\n  \"interactions\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/customer-emma-leroy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "customer-emma-leroy"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/customer-emma-leroy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "customer-emma-leroy"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer Appointments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/customer-jean-dupont/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customers",
+                "customer-jean-dupont",
+                "appointments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Search Appointments (filters optional)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments?customerId=customer-jean-dupont&from=2025-11-15T00:00:00&to=2025-11-30T23:59:59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "customerId",
+                  "value": "customer-jean-dupont"
+                },
+                {
+                  "key": "from",
+                  "value": "2025-11-15T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2025-11-30T23:59:59"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Appointment by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/appt-discovery-call",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "appt-discovery-call"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"customerId\": \"customer-jean-dupont\",\n  \"appointmentTypeId\": \"appt-consultation\",\n  \"resourceId\": \"resource-crm-desk\",\n  \"startTime\": \"2025-11-20T10:00:00\",\n  \"endTime\": \"2025-11-20T10:30:00\",\n  \"status\": \"SCHEDULED\",\n  \"notes\": \"Prep call\",\n  \"events\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org-aurora-retail\",\n  \"customerId\": \"customer-jean-dupont\",\n  \"appointmentTypeId\": \"appt-consultation\",\n  \"resourceId\": \"resource-crm-desk\",\n  \"startTime\": \"2025-11-21T09:00:00\",\n  \"endTime\": \"2025-11-21T09:45:00\",\n  \"status\": \"SCHEDULED\",\n  \"notes\": \"Updated time\",\n  \"events\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/appt-discovery-call",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "appt-discovery-call"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Appointment Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"INTERNAL_NOTE\",\n  \"status\": \"SCHEDULED\",\n  \"comment\": \"Bring updated proposal\",\n  \"createdBy\": \"claire.dubois@example.com\",\n  \"createdAt\": \"2025-11-18T09:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/appt-discovery-call/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "appt-discovery-call",
+                "events"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Appointment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/appt-discovery-call",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "appt-discovery-call"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Availability",
+      "item": [
+        {
+          "name": "Find Availability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/availability?orgId=org-aurora-retail&appointmentTypeId=appt-consultation&resourceId=resource-crm-desk&from=2025-11-20T08:00:00&to=2025-11-27T18:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "orgId",
+                  "value": "org-aurora-retail"
+                },
+                {
+                  "key": "appointmentTypeId",
+                  "value": "appt-consultation"
+                },
+                {
+                  "key": "resourceId",
+                  "value": "resource-crm-desk"
+                },
+                {
+                  "key": "from",
+                  "value": "2025-11-20T08:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2025-11-27T18:00:00"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "authToken",
+      "value": ""
+    }
+  ]
+}

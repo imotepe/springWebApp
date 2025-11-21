@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Service
+@SuppressWarnings("null")
 public class ResourceService {
     private final ResourceRepository repository;
 
@@ -43,4 +44,3 @@ public class ResourceService {
         repository.deleteById(id);
     }
 }
-

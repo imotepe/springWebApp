@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Service
+@SuppressWarnings("null")
 public class AppointmentTypeService {
     private final AppointmentTypeRepository repository;
 
@@ -51,4 +52,3 @@ public class AppointmentTypeService {
         repository.deleteById(id);
     }
 }
-
