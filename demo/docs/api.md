@@ -32,7 +32,16 @@ Obtain a JWT:
 Use the returned token in the `Authorization: Bearer ...` header for all subsequent calls.  
 _Tip_: the seeded demo users all share the default password `ChangeMe123!`.
 
-You can also provide `email` instead of `username`; both values are evaluated case-insensitively but only one identifier is required alongside the password.
+You can also provide `email` instead of `username`; both values are evaluated case-insensitively but only one identifier is required alongside the password.  
+JWT payloads now include `homeOrgId` so downstream services can scope UI/session logic without an additional lookup. Accounts whose status is not `ACTIVE` cannot authenticate; they produce `403 FORBIDDEN`. If a user’s optional `expiresAt` timestamp (ISO-8601) is reached, the platform automatically marks them `EXPIRED` on the next login attempt and denies authentication.
+
+---
+
+### Organization Scoping
+
+- `SUPER_PLATFORM_ADMIN` and `PLATFORM_ADMIN` users may access every organization.
+- All other roles are automatically restricted to their `homeOrganizationId`. Every repository call applies this scope, so supplying another `orgId` in the query or payload results in `403 FORBIDDEN`.
+- When scoped users create entities (`Customer`, `Resource`, `Appointment`, etc.), the API overwrites/ignores the provided `orgId` and stores their home organization automatically.
 
 ---
 
@@ -62,20 +71,25 @@ You can also provide `email` instead of `username`; both values are evaluated ca
 `GET /api/availability`: compute availability slots for an org & appointment type.  
 Required query params: `orgId`, `appointmentTypeId`, time range `from`, `to` (ISO datetime). Optional `resourceId` narrows computation to a specific resource.
 
-## Customers (`/api/customers`)
+## Customers (/api/customers)
 
 | Method | Description | Notes |
 | --- | --- | --- |
-| `GET /api/customers` | List all customers. | – |
-| `GET /api/customers/{id}` | Retrieve one customer. | – |
-| `POST /api/customers` | Create customer. | Body: `Customer`. |
-| `PUT /api/customers/{id}` | Update customer. | Body: `Customer`. |
-| `DELETE /api/customers/{id}` | Delete. | – |
-| `GET /api/customers/{id}/appointments` | List appointments for a customer. | Reuses appointment service. |
+| GET /api/customers | List customers. | Automatically scoped to the caller's home organization unless they are a platform admin. |
+| GET /api/customers/{id} | Retrieve one customer. |  |
+| POST /api/customers | Create customer. | Body: Customer (includes orgId; ignored for scoped users). |
+| PUT /api/customers/{id} | Update customer. | Body: Customer. |
+| DELETE /api/customers/{id} | Delete. |  |
+| GET /api/customers/{id}/appointments | List appointments for a customer. | Reuses appointment service. |
+
+Customers now carry an orgId attribute. Platform administrators must provide it when creating a customer; organization-scoped users always write to (and can only read from) their own organization.
 
 ## Organizations (`/api/organizations`)
 
 Standard CRUD (GET collection, GET item, POST, PUT, DELETE). Organizations reference addresses, schedule configs, etc. Validation ensures type names exist.
+
+- `databaseName` is reserved for future multi-tenant sharding. All organizations currently share the same Mongo database, so the field will be `null` in responses and can be ignored.
+- Deleting an organization only removes its document from the primary collection; no dedicated tenant databases are created or dropped.
 
 ## Organization Types (`/api/organization-types`)
 
@@ -96,7 +110,11 @@ CRUD endpoints at `/api/organization-types` mirroring those for organizations.
 CRUD endpoints for managing platform users and their `roles` set:  
 `GET /api/users`, `GET /api/users/{id}`, `POST`, `PUT`, `DELETE`. Use these to assign platform/organization/practitioner roles described in `docs/roles.md`.
 
-POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional `password`, and the `roles` array. Example:
+- `GET /api/users` accepts an optional `orgId` query parameter when called by platform admins; organization-scoped callers automatically receive only their own users regardless of the query.
+- `homeOrganizationId` is persisted for every user (null for global platform admins) and is emitted back on read responses.
+- `expiresAt` (ISO-8601 timestamp) can be set to automatically mark a user `EXPIRED` when the instant passes.
+
+POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional `password`, the `roles` array, optional `homeOrganizationId`, and `status`. Example:
 
 ```json
 {
@@ -105,7 +123,11 @@ POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional
   "lastName": "Martin",
   "email": "paul.martin@example.com",
   "password": "ChangeMe123!",
-  "roles": ["PRACTITIONER"]
+  "roles": ["PRACTITIONER"],
+  "homeOrganizationId": "org-aurora-retail",
+  "status": "ACTIVE",
+  "expiresAt": "2026-01-01T00:00:00",
+  "createdAt": "2025-11-01T10:00:00"
 }
 ```
 
@@ -113,10 +135,14 @@ POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional
 
 ### Notes on Role Behavior
 
-- Practitioner users (role `PRACTITIONER`) must be linked to a `Resource` (`practitionerUserId`). They can only:
+- Practitioner users (role `PRACTITIONER`) must be linked to both a `homeOrganizationId` and a `Resource` (`practitionerUserId`). They can only:
   - List appointments assigned to their resource.
   - View appointment events they personally created.
   - Add closing notes (`PRACTITIONER_NOTE`) that may mark appointments as `COMPLETED`.
 - Other roles (Agent, Service Manager, etc.) have unrestricted access to appointment and comment data subject to higher-level security configuration.
+- Organization-scoped callers cannot assign `SUPER_PLATFORM_ADMIN` or `PLATFORM_ADMIN` roles or manage users belonging to other organizations.
+- User statuses: `ACTIVE`, `SUSPENDED`, `EXPIRED`, `BLOCKED`. Only `ACTIVE` users may authenticate; others receive `403 FORBIDDEN`. Use `SUSPENDED`/`BLOCKED` to disable access temporarily/permanently and `EXPIRED` (manually or via `expiresAt`) to signal credentials need renewal.
+- `createdAt` is set automatically on creation and behaves as read-only metadata in responses.
 
-Refer to `docs/roles.md` for the full privilege hierarchy.
+Refer to `docs/roles.md` for the full privilege hierarchy, and use `homeOrganizationId` to enforce tenant-level scoping in UI flows or custom endpoints.
+

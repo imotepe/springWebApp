@@ -18,6 +18,8 @@ public interface AppointmentRepository extends MongoRepository<Appointment, Stri
 
     List<Appointment> findByStartTimeBetween(LocalDateTime startTime, LocalDateTime endTime);
 
+    List<Appointment> findByOrgId(String orgId);
+
     // Multi-tenant helpers
     List<Appointment> findByOrgIdAndStartTimeBetween(String orgId, LocalDateTime start, LocalDateTime end);
 

@@ -5,6 +5,7 @@ import com.exampleproject.repository.AppointmentRepository;
 import com.exampleproject.repository.AppointmentTypeRepository;
 import com.exampleproject.repository.OrganizationRepository;
 import com.exampleproject.repository.ResourceRepository;
+import com.exampleproject.security.OrganizationAccessManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,17 +20,20 @@ public class AvailabilityService {
     private final AppointmentTypeRepository appointmentTypeRepository;
     private final ResourceRepository resourceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final OrganizationAccessManager organizationAccessManager;
 
     public AvailabilityService(
             OrganizationRepository organizationRepository,
             AppointmentTypeRepository appointmentTypeRepository,
             ResourceRepository resourceRepository,
-            AppointmentRepository appointmentRepository
+            AppointmentRepository appointmentRepository,
+            OrganizationAccessManager organizationAccessManager
     ) {
         this.organizationRepository = organizationRepository;
         this.appointmentTypeRepository = appointmentTypeRepository;
         this.resourceRepository = resourceRepository;
         this.appointmentRepository = appointmentRepository;
+        this.organizationAccessManager = organizationAccessManager;
     }
 
     public List<AvailabilitySlot> findAvailableSlots(
@@ -48,6 +52,7 @@ public class AvailabilityService {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
+        organizationAccessManager.currentContext().checkOrgAccess(orgId);
 
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));

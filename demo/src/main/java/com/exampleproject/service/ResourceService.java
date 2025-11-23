@@ -2,6 +2,7 @@ package com.exampleproject.service;
 
 import com.exampleproject.model.Resource;
 import com.exampleproject.repository.ResourceRepository;
+import com.exampleproject.security.OrganizationAccessManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -12,35 +13,60 @@ import java.util.List;
 @SuppressWarnings("null")
 public class ResourceService {
     private final ResourceRepository repository;
+    private final OrganizationAccessManager organizationAccessManager;
 
-    public ResourceService(ResourceRepository repository) { this.repository = repository; }
+    public ResourceService(ResourceRepository repository, OrganizationAccessManager organizationAccessManager) {
+        this.repository = repository;
+        this.organizationAccessManager = organizationAccessManager;
+    }
 
-    public List<Resource> findAll() { return repository.findAll(); }
+    public List<Resource> findAll() {
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        if (context.isPlatformUser()) {
+            return repository.findAll();
+        }
+        return repository.findByOrgId(context.requireOrgScope());
+    }
 
-    public List<Resource> findByOrgId(String orgId) { return repository.findByOrgId(orgId); }
+    public List<Resource> findByOrgId(String orgId) {
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        context.checkOrgAccess(orgId);
+        return repository.findByOrgId(orgId);
+    }
 
     public Resource findById(String id) {
-        return repository.findById(id)
+        Resource resource = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(resource.getOrgId());
+        return resource;
     }
 
     public Resource create(Resource resource) {
         resource.setId(null);
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        if (context.isPlatformUser()) {
+            if (resource.getOrgId() == null || resource.getOrgId().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for resources");
+            }
+        } else {
+            resource.setOrgId(context.requireOrgScope());
+        }
         return repository.save(resource);
     }
 
     public Resource update(String id, Resource resource) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
-        }
+        Resource existing = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
         resource.setId(id);
+        resource.setOrgId(existing.getOrgId());
         return repository.save(resource);
     }
 
     public void delete(String id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
-        }
+        Resource existing = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
         repository.deleteById(id);
     }
 }

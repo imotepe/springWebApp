@@ -13,6 +13,7 @@ import com.exampleproject.repository.AppointmentRepository;
 import com.exampleproject.repository.CustomerRepository;
 import com.exampleproject.repository.ResourceRepository;
 import com.exampleproject.security.CurrentUserProvider;
+import com.exampleproject.security.OrganizationAccessManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,33 +31,42 @@ public class AppointmentService {
     private final CustomerRepository customerRepository;
     private final ResourceRepository resourceRepository;
     private final CurrentUserProvider currentUserProvider;
+    private final OrganizationAccessManager organizationAccessManager;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             CustomerRepository customerRepository,
             ResourceRepository resourceRepository,
-            CurrentUserProvider currentUserProvider
+            CurrentUserProvider currentUserProvider,
+            OrganizationAccessManager organizationAccessManager
     ) {
         this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
         this.resourceRepository = resourceRepository;
         this.currentUserProvider = currentUserProvider;
+        this.organizationAccessManager = organizationAccessManager;
     }
 
     public List<Appointment> findAll() {
-        return appointmentRepository.findAll();
+        UserAccessContext context = resolveContext();
+        if (context.isPlatformUser()) {
+            return appointmentRepository.findAll();
+        }
+        return appointmentRepository.findByOrgId(context.requireOrgScope());
     }
 
     public List<Appointment> findByCustomerId(String customerId) {
-        return appointmentRepository.findByCustomerId(customerId);
+        UserAccessContext context = resolveContext();
+        return filterByOrgScope(appointmentRepository.findByCustomerId(customerId), context);
     }
 
     public List<Appointment> findByStartRange(LocalDateTime start, LocalDateTime end) {
+        UserAccessContext context = resolveContext();
         if (start == null || end == null) {
             return findAll();
         }
         validateTimeRange(start, end);
-        return appointmentRepository.findByStartTimeBetween(start, end);
+        return filterByOrgScope(appointmentRepository.findByStartTimeBetween(start, end), context);
     }
 
     public List<Appointment> search(String customerId, LocalDateTime from, LocalDateTime to) {
@@ -67,24 +77,25 @@ public class AppointmentService {
         if (customerId != null && !customerId.isBlank()) {
             if (from != null && to != null) {
                 validateTimeRange(from, to);
-                return appointmentRepository.findByCustomerIdAndStartTimeBetween(customerId, from, to);
+                return filterByOrgScope(
+                        appointmentRepository.findByCustomerIdAndStartTimeBetween(customerId, from, to),
+                        context
+                );
             }
-            return findByCustomerId(customerId);
+            return filterByOrgScope(appointmentRepository.findByCustomerId(customerId), context);
         }
         if (from != null && to != null) {
-            return findByStartRange(from, to);
+            validateTimeRange(from, to);
+            return filterByOrgScope(appointmentRepository.findByStartTimeBetween(from, to), context);
         }
-        return findAll();
-    }
-
-    public Appointment findById(String id) {
-        return appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found"));
+        return context.isPlatformUser()
+                ? appointmentRepository.findAll()
+                : appointmentRepository.findByOrgId(context.requireOrgScope());
     }
 
     public Appointment findByIdForUser(String id) {
-        Appointment appointment = findById(id);
         UserAccessContext context = resolveContext();
+        Appointment appointment = loadAccessibleAppointment(id, context);
         if (context.isPractitioner()) {
             sanitizeAppointmentForPractitioner(appointment, context);
         }
@@ -92,8 +103,10 @@ public class AppointmentService {
     }
 
     public Appointment create(Appointment appointment) {
-        validateAppointment(appointment);
+        UserAccessContext context = resolveContext();
         appointment.setId(null);
+        ensureOrgForWrite(appointment, context, null);
+        validateAppointment(appointment);
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
         }
@@ -102,9 +115,9 @@ public class AppointmentService {
     }
 
     public Appointment update(String id, Appointment appointment) {
-        if (!appointmentRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found");
-        }
+        UserAccessContext context = resolveContext();
+        Appointment existing = loadAccessibleAppointment(id, context);
+        ensureOrgForWrite(appointment, context, existing);
         validateAppointment(appointment);
         appointment.setId(id);
         if (appointment.getStatus() == null) {
@@ -115,10 +128,9 @@ public class AppointmentService {
     }
 
     public void delete(String id) {
-        if (!appointmentRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found");
-        }
-        appointmentRepository.deleteById(id);
+        UserAccessContext context = resolveContext();
+        Appointment existing = loadAccessibleAppointment(id, context);
+        appointmentRepository.deleteById(existing.getId());
     }
 
     public Appointment addEvent(String appointmentId, AppointmentEvent event) {
@@ -126,7 +138,7 @@ public class AppointmentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Event payload is required");
         }
         UserAccessContext context = resolveContext();
-        Appointment appointment = findById(appointmentId);
+        Appointment appointment = loadAccessibleAppointment(appointmentId, context);
 
         ensureEventsCollection(appointment);
 
@@ -191,6 +203,7 @@ public class AppointmentService {
                     .filter(appt -> customerId.equals(appt.getCustomerId()))
                     .collect(Collectors.toList());
         }
+        appointments = filterByOrgScope(appointments, context);
         appointments.forEach(appt -> sanitizeAppointmentForPractitioner(appt, context));
         return appointments;
     }
@@ -221,6 +234,37 @@ public class AppointmentService {
         );
         customer.getInteractions().add(interaction);
         customerRepository.save(customer);
+    }
+
+    private List<Appointment> filterByOrgScope(List<Appointment> appointments, UserAccessContext context) {
+        if (context.isPlatformUser()) {
+            return appointments;
+        }
+        String orgId = context.requireOrgScope();
+        return appointments.stream()
+                .filter(appt -> orgId.equals(appt.getOrgId()))
+                .collect(Collectors.toList());
+    }
+
+    private Appointment loadAccessibleAppointment(String id, UserAccessContext context) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found"));
+        context.checkOrgAccess(appointment.getOrgId());
+        return appointment;
+    }
+
+    private void ensureOrgForWrite(Appointment appointment, UserAccessContext context, Appointment existing) {
+        if (existing != null) {
+            appointment.setOrgId(existing.getOrgId());
+            return;
+        }
+        if (context.isPlatformUser()) {
+            if (appointment.getOrgId() == null || appointment.getOrgId().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for appointments");
+            }
+        } else {
+            appointment.setOrgId(context.requireOrgScope());
+        }
     }
 
     private void sanitizeAppointmentForPractitioner(Appointment appointment, UserAccessContext context) {
@@ -257,7 +301,11 @@ public class AppointmentService {
                             "No resource linked to practitioner user"
                     ));
         }
-        return new UserAccessContext(user, practitionerResource);
+        return new UserAccessContext(
+                user,
+                practitionerResource,
+                organizationAccessManager.currentContext()
+        );
     }
 
     private void validateTimeRange(LocalDateTime start, LocalDateTime end) {
@@ -270,11 +318,16 @@ public class AppointmentService {
     }
 
     private void validateAppointment(Appointment appointment) {
+        if (appointment.getOrgId() == null || appointment.getOrgId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required");
+        }
         if (appointment.getCustomerId() == null || appointment.getCustomerId().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer id is required");
         }
-        if (!customerRepository.existsById(appointment.getCustomerId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer does not exist");
+        Customer customer = customerRepository.findById(appointment.getCustomerId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer does not exist"));
+        if (customer.getOrgId() == null || !customer.getOrgId().equals(appointment.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer does not belong to organization");
         }
         LocalDateTime startTime = appointment.getStartTime();
         LocalDateTime endTime = appointment.getEndTime();
@@ -289,14 +342,35 @@ public class AppointmentService {
     private static final class UserAccessContext {
         private final User user;
         private final Resource practitionerResource;
+        private final OrganizationAccessManager.OrganizationAccessContext orgContext;
 
-        private UserAccessContext(User user, Resource practitionerResource) {
+        private UserAccessContext(
+                User user,
+                Resource practitionerResource,
+                OrganizationAccessManager.OrganizationAccessContext orgContext
+        ) {
             this.user = user;
             this.practitionerResource = practitionerResource;
+            this.orgContext = orgContext;
         }
 
         boolean isPractitioner() {
             return user.getRoles().contains(UserRole.PRACTITIONER);
+        }
+
+        boolean isPlatformUser() {
+            return orgContext.isPlatformUser();
+        }
+
+        String requireOrgScope() {
+            if (orgContext.isPlatformUser()) {
+                throw new IllegalStateException("Platform users are not scoped");
+            }
+            return orgContext.requireOrgScope();
+        }
+
+        void checkOrgAccess(String orgId) {
+            orgContext.checkOrgAccess(orgId);
         }
 
         String userId() {

@@ -1,128 +1,154 @@
 @startuml
+left to right direction
 hide methods
 skinparam classAttributeIconSize 0
+skinparam dpi 150
+skinparam shadowing false
+skinparam packageStyle rectangle
 
-class Organization {
-  +id: String
-  +name: String
-  +industry: String
-  +type: String
-  +phone: String
-  +address: Address
-  +location: GeoLocation
-  +scheduleConfig: ScheduleConfig
+package "Organizations" {
+  class Organization {
+    +id: String
+    +name: String
+    +industry: String
+    +type: String
+    +phone: String
+    +address: Address
+    +location: GeoLocation
+    +scheduleConfig: ScheduleConfig
+    +databaseName: String
+  }
+
+  class OrganizationType {
+    +id: String
+    +name: String
+    +description: String
+  }
 }
 
-class OrganizationType {
-  +id: String
-  +name: String
-  +description: String
+package "Location" {
+  class Address {
+    +street: String
+    +city: String
+    +state: String
+    +postalCode: String
+    +country: String
+  }
+
+  class GeoLocation {
+    +latitude: Double
+    +longitude: Double
+  }
 }
 
-class Address {
-  +street: String
-  +city: String
-  +state: String
-  +postalCode: String
-  +country: String
+package "Scheduling" {
+  class ScheduleConfig {
+    +workingDays: Set<DayOfWeek>
+    +businessHours: Map<DayOfWeek, List<TimeWindow>>
+    +breaks: Map<DayOfWeek, List<TimeWindow>>
+    +holidays: List<Holiday>
+  }
+
+  class TimeWindow {
+    +start: LocalTime
+    +end: LocalTime
+  }
+
+  class Holiday {
+    +date: LocalDate
+    +allDay: boolean
+    +closedWindows: List<TimeWindow>
+    +description: String
+  }
 }
 
-class GeoLocation {
-  +latitude: Double
-  +longitude: Double
+package "Appointments" {
+  class AppointmentType {
+    +id: String
+    +orgId: String
+    +name: String
+    +category: String
+    +defaultDurationMinutes: Integer
+    +allowedDurations: List<Integer>
+    +requiresResource: boolean
+    +active: boolean
+    +allowedDaysOfWeek: Set<DayOfWeek>
+    +allowedTimeWindows: Map<DayOfWeek, List<TimeWindow>>
+  }
+
+  class Appointment {
+    +id: String
+    +orgId: String
+    +customerId: String
+    +appointmentTypeId: String
+    +resourceId: String
+    +startTime: LocalDateTime
+    +endTime: LocalDateTime
+    +status: AppointmentStatus
+    +notes: String
+    +events: List<AppointmentEvent>
+  }
+
+  class AppointmentEvent {
+    +id: String
+    +type: AppointmentEventType
+    +status: AppointmentStatus
+    +comment: String
+    +createdBy: String
+    +createdAt: LocalDateTime
+  }
+
+  enum AppointmentEventType {
+    CUSTOMER_COMMENT
+    CUSTOMER_CANCEL
+    CUSTOMER_UPDATE
+    INTERNAL_NOTE
+    PRACTITIONER_NOTE
+  }
+
+  enum AppointmentStatus {
+    SCHEDULED
+    COMPLETED
+    CANCELLED
+  }
 }
 
-class ScheduleConfig {
-  +workingDays: Set<DayOfWeek>
-  +businessHours: Map<DayOfWeek, List<TimeWindow>>
-  +breaks: Map<DayOfWeek, List<TimeWindow>>
-  +holidays: List<Holiday>
-}
+package "Customers & People" {
+  class Customer {
+    +id: String
+    +orgId: String
+    +name: String
+    +firstName: String
+    +email: String
+    +phone: String
+    +dateOfBirth: LocalDate
+    +notes: String
+    +interactions: List<CustomerInteraction>
+  }
 
-class TimeWindow {
-  +start: LocalTime
-  +end: LocalTime
-}
+  class CustomerInteraction {
+    +id: String
+    +appointmentId: String
+    +type: AppointmentEventType
+    +status: AppointmentStatus
+    +comment: String
+    +createdBy: String
+    +createdAt: LocalDateTime
+  }
 
-class AppointmentType {
-  +id: String
-  +orgId: String
-  +name: String
-  +category: String
-  +defaultDurationMinutes: Integer
-  +allowedDurations: List<Integer>
-  +requiresResource: boolean
-  +active: boolean
-  +allowedDaysOfWeek: Set<DayOfWeek>
-  +allowedTimeWindows: Map<DayOfWeek, List<TimeWindow>>
-}
-
-class AppointmentEvent {
-  +id: String
-  +type: AppointmentEventType
-  +status: AppointmentStatus
-  +comment: String
-  +createdBy: String
-  +createdAt: LocalDateTime
-}
-
-enum AppointmentEventType {
-  CUSTOMER_COMMENT
-  CUSTOMER_CANCEL
-  CUSTOMER_UPDATE
-  INTERNAL_NOTE
-  PRACTITIONER_NOTE
-}
-
-class CustomerInteraction {
-  +id: String
-  +appointmentId: String
-  +type: AppointmentEventType
-  +status: AppointmentStatus
-  +comment: String
-  +createdBy: String
-  +createdAt: LocalDateTime
-}
-
-class Resource {
-  +id: String
-  +orgId: String
-  +name: String
-  +type: String
-  +allowedAppointmentTypeIds: Set<String>
-  +scheduleOverride: ScheduleConfig
-  +capacity: Integer
-  +active: boolean
-  +kind: ResourceKind
-  +practitionerUserId: String
-}
-
-class Customer {
-  +id: String
-  +name: String
-  +firstName: String
-  +email: String
-  +phone: String
-  +dateOfBirth: LocalDate
-  +notes: String
-  +interactions: List<CustomerInteraction>
-}
-
-class User {
-  +id: String
-  +username: String
-  +firstName: String
-  +lastName: String
-  +email: String
-  +password: String
-  +roles: Set<UserRole>
-}
-
-enum AppointmentStatus {
-  SCHEDULED
-  COMPLETED
-  CANCELLED
-}
+  class User {
+    +id: String
+    +username: String
+    +firstName: String
+    +lastName: String
+    +email: String
+    +password: String
+    +roles: Set<UserRole>
+    +homeOrganizationId: String
+    +status: UserStatus
+    +expiresAt: LocalDateTime
+    +createdAt: LocalDateTime
+  }
 
 enum UserRole {
   SUPER_PLATFORM_ADMIN
@@ -134,34 +160,37 @@ enum UserRole {
   PRACTITIONER
 }
 
-enum ResourceKind {
-  HUMAN
-  ASSET
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  BLOCKED
+}
 }
 
-class Appointment {
-  +id: String
-  +orgId: String
-  +customerId: String
-  +appointmentTypeId: String
-  +resourceId: String
-  +startTime: LocalDateTime
-  +endTime: LocalDateTime
-  +status: AppointmentStatus
-  +notes: String
-  +events: List<AppointmentEvent>
-}
+package "Operations" {
+  class Resource {
+    +id: String
+    +orgId: String
+    +name: String
+    +type: String
+    +allowedAppointmentTypeIds: Set<String>
+    +scheduleOverride: ScheduleConfig
+    +capacity: Integer
+    +active: boolean
+    +kind: ResourceKind
+    +practitionerUserId: String
+  }
 
-class AvailabilitySlot {
-  +start: LocalDateTime
-  +end: LocalDateTime
-}
+  enum ResourceKind {
+    HUMAN
+    ASSET
+  }
 
-class Holiday {
-  +date: LocalDate
-  +allDay: boolean
-  +closedWindows: List<TimeWindow>
-  +description: String
+  class AvailabilitySlot {
+    +start: LocalDateTime
+    +end: LocalDateTime
+  }
 }
 
 Organization "1" o- "1" ScheduleConfig : scheduleConfig
@@ -197,5 +226,7 @@ CustomerInteraction ..> AppointmentEventType
 CustomerInteraction ..> AppointmentStatus
 User "*" --> "*" UserRole : roles
 User "*" <-- "0..1" Resource : practitioner
+User "*" --> "0..1" Organization : homeOrganization
+User "*" --> "1" UserStatus : status
 
 @enduml

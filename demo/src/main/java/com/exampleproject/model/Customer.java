@@ -12,6 +12,7 @@ import java.util.Objects;
 public class Customer {
     @Id
     private String id;
+    private String orgId;
     private String name;
     private String firstName;
     private String email;
@@ -25,6 +26,7 @@ public class Customer {
 
     public Customer(
             String id,
+            String orgId,
             String name,
             String firstName,
             String email,
@@ -34,6 +36,7 @@ public class Customer {
             List<CustomerInteraction> interactions
     ) {
         this.id = id;
+        this.orgId = orgId;
         this.name = name;
         this.firstName = firstName;
         this.email = email;
@@ -51,6 +54,14 @@ public class Customer {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getOrgId() {
+        return orgId;
+    }
+
+    public void setOrgId(String orgId) {
+        this.orgId = orgId;
     }
 
     public String getName() {
@@ -114,18 +125,20 @@ public class Customer {
         }
         Customer customer = (Customer) o;
         return Objects.equals(id, customer.id)
-                && Objects.equals(email, customer.email);
+                && Objects.equals(email, customer.email)
+                && Objects.equals(orgId, customer.orgId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, email);
+        return Objects.hash(id, email, orgId);
     }
 
     @Override
     public String toString() {
         return "Customer{"
                 + "id='" + id + '\''
+                + ", orgId='" + orgId + '\''
                 + ", name='" + name + '\''
                 + ", firstName='" + firstName + '\''
                 + ", email='" + email + '\''

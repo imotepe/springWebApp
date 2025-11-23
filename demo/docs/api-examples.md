@@ -170,6 +170,7 @@ Authorization: Bearer <token-for-user-agent>
 ```json
 {
   "id": "generated-id",
+  "orgId": "org-aurora-retail",
   "name": "Dupont",
   "firstName": "Claire",
   "email": "claire.dupont@example.com",
@@ -179,6 +180,8 @@ Authorization: Bearer <token-for-user-agent>
   "interactions": []
 }
 ```
+
+> Scoped users don’t need to pass `orgId`; the API sets it to their home organization automatically. Platform admins must provide it explicitly when creating customers for specific tenants.
 
 ## Resources
 
@@ -206,6 +209,38 @@ The response mirrors the payload and ensures `kind/HUMAN` plus the linkage to th
 
 ## Users
 
+### Listing users for one organization
+
+```http
+GET /api/users?orgId=org-aurora-retail HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token-for-user-platform-admin>
+Accept: application/json
+```
+
+```json
+[
+  {
+    "id": "user-org-admin",
+    "username": "sophie.bernard",
+    "firstName": "Sophie",
+    "lastName": "Bernard",
+    "email": "sophie.bernard@example.com",
+    "roles": ["ORGANIZATION_ADMIN"],
+    "homeOrganizationId": "org-aurora-retail"
+  },
+  {
+    "id": "user-practitioner",
+    "username": "emma.leroy",
+    "firstName": "Emma",
+    "lastName": "Leroy",
+    "email": "emma.leroy@example.com",
+    "roles": ["PRACTITIONER"],
+    "homeOrganizationId": "org-aurora-retail"
+  }
+]
+```
+
 ### Assigning roles
 
 ```http
@@ -219,7 +254,10 @@ Authorization: Bearer <token-for-user-super-admin>
   "firstName": "Paul",
   "lastName": "Martin",
   "email": "paul.martin@example.com",
-  "roles": ["PRACTITIONER"]
+  "roles": ["PRACTITIONER"],
+  "homeOrganizationId": "org-aurora-retail",
+  "status": "ACTIVE",
+  "expiresAt": "2026-01-01T00:00:00"
 }
 ```
 
@@ -230,11 +268,79 @@ Authorization: Bearer <token-for-user-super-admin>
   "firstName": "Paul",
   "lastName": "Martin",
   "email": "paul.martin@example.com",
-  "roles": ["PRACTITIONER"]
+  "roles": ["PRACTITIONER"],
+  "homeOrganizationId": "org-aurora-retail",
+  "status": "ACTIVE",
+  "expiresAt": "2026-01-01T00:00:00",
+  "createdAt": "2025-11-01T10:00:00"
 }
 ```
 
-> Link this user to a `Resource` via `practitionerUserId` so practitioner-specific filtering works as expected.
+> Link this user to a `Resource` via `practitionerUserId` so practitioner-specific filtering works as expected. Platform-level accounts can omit `homeOrganizationId`. Use the `status` field (`ACTIVE`, `SUSPENDED`, `EXPIRED`, `BLOCKED`) plus `expiresAt` to disable or expire accounts without deleting them.
+
+---
+
+## Organizations
+
+### Create organization (auto-provision tenant DB)
+
+```http
+POST /api/organizations HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+Authorization: Bearer <token-for-user-org-admin>
+
+{
+  "name": "Nordic Support Hub",
+  "industry": "Field Services",
+  "type": "org-type-retail",
+  "phone": "+46 700 11 22 33",
+  "address": {
+    "street": "3 Centralplan",
+    "city": "Stockholm",
+    "state": "Stockholm",
+    "postalCode": "111 20",
+    "country": "Sweden"
+  },
+  "scheduleConfig": {
+    "workingDays": ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"],
+    "businessHours": {
+      "MONDAY": [{"start": "08:00", "end": "16:00"}]
+    },
+    "breaks": {},
+    "holidays": []
+  }
+}
+```
+
+```json
+{
+  "id": "org-nordic-support-hub",
+  "name": "Nordic Support Hub",
+  "industry": "Field Services",
+  "type": "org-type-retail",
+  "phone": "+46 700 11 22 33",
+  "address": {
+    "street": "3 Centralplan",
+    "city": "Stockholm",
+    "state": "Stockholm",
+    "postalCode": "111 20",
+    "country": "Sweden"
+  },
+  "location": null,
+  "scheduleConfig": {
+    "workingDays": ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"],
+    "businessHours": {
+      "MONDAY": [{"start": "08:00", "end": "16:00"}]
+    },
+    "breaks": {},
+    "holidays": []
+  },
+  "databaseName": null
+}
+```
+
+> `databaseName` stays `null` because every organization shares the same Mongo database today. The field remains reserved for future use, so clients can ignore it for now.
 
 ---
 

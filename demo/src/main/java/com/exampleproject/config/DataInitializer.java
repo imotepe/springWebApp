@@ -45,6 +45,7 @@ public class DataInitializer {
     private static final String ORG_TYPE_RETAIL_ID = "org-type-retail";
     private static final String ORG_TYPE_PUBLIC_ID = "org-type-public";
     private static final String ORG_AURORA_ID = "org-aurora-retail";
+    private static final String ORG_RIVIERA_ID = "org-riviera-public";
     private static final String RESOURCE_CRM_DESK_ID = "resource-crm-desk";
     private static final String RESOURCE_ONSITE_CREW_ID = "resource-onsite-crew";
     private static final String APPOINTMENT_TYPE_CONSULTATION_ID = "appt-consultation";
@@ -105,11 +106,36 @@ public class DataInitializer {
                 "+33 1 86 65 00 11",
                 hqAddress,
                 location,
-                scheduleConfig
+                scheduleConfig,
+                null
         );
 
-        return List.of(aurora);
+        Address rivieraAddress = new Address(
+                "25 Avenue du Prado",
+                "Marseille",
+                "Provence-Alpes-Cote d'Azur",
+                "13006",
+                "France"
+        );
+
+        ScheduleConfig rivieraSchedule = defaultScheduleConfig();
+        GeoLocation rivieraLocation = new GeoLocation(43.2857, 5.3830);
+
+        Organization riviera = new Organization(
+                ORG_RIVIERA_ID,
+                "Riviera Community Hub",
+                "Services publics & culture",
+                ORG_TYPE_PUBLIC_ID,
+                "+33 4 91 23 45 67",
+                rivieraAddress,
+                rivieraLocation,
+                rivieraSchedule,
+                null
+        );
+
+        return List.of(aurora, riviera);
     }
+
 
     private List<Resource> buildResources() {
         ScheduleConfig saturdayOverride = defaultScheduleConfig();
@@ -213,6 +239,7 @@ public class DataInitializer {
 
         Customer jean = new Customer(
                 CUSTOMER_JEAN_ID,
+                ORG_AURORA_ID,
                 "Dupont",
                 "Jean",
                 "jean.dupont@example.com",
@@ -224,6 +251,7 @@ public class DataInitializer {
 
         Customer emma = new Customer(
                 CUSTOMER_EMMA_ID,
+                ORG_AURORA_ID,
                 "Leroy",
                 "Emma",
                 "emma.leroy@example.com",
@@ -238,6 +266,7 @@ public class DataInitializer {
 
     private List<User> buildUsers() {
         String encodedPassword = passwordEncoder.encode(DEFAULT_USER_PASSWORD);
+        String ilyesPassword = passwordEncoder.encode("Nac456*l");
         User superAdmin = new User(
                 "user-super-admin",
                 "claire.dubois",
@@ -245,7 +274,11 @@ public class DataInitializer {
                 "Dubois",
                 "claire.dubois@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN)
+                EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN),
+                null,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(30)
         );
         User platformAdmin = new User(
                 "user-platform-admin",
@@ -254,7 +287,11 @@ public class DataInitializer {
                 "Haddad",
                 "nabil.haddad@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.PLATFORM_ADMIN)
+                EnumSet.of(UserRole.PLATFORM_ADMIN),
+                null,
+                UserStatus.ACTIVE,
+                LocalDateTime.now().plusMonths(6),
+                LocalDateTime.now().minusDays(28)
         );
         User orgAdmin = new User(
                 "user-org-admin",
@@ -263,7 +300,11 @@ public class DataInitializer {
                 "Bernard",
                 "sophie.bernard@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.ORGANIZATION_ADMIN)
+                EnumSet.of(UserRole.ORGANIZATION_ADMIN),
+                ORG_AURORA_ID,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(20)
         );
         User serviceManager = new User(
                 "user-service-manager",
@@ -272,7 +313,11 @@ public class DataInitializer {
                 "Martin",
                 "alex.martin@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.SERVICE_MANAGER)
+                EnumSet.of(UserRole.SERVICE_MANAGER),
+                ORG_AURORA_ID,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(15)
         );
         User agent = new User(
                 "user-agent",
@@ -281,7 +326,11 @@ public class DataInitializer {
                 "Khelifi",
                 "naima.khelifi@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.AGENT)
+                EnumSet.of(UserRole.AGENT),
+                ORG_AURORA_ID,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(10)
         );
         User auditor = new User(
                 "user-auditor",
@@ -290,7 +339,11 @@ public class DataInitializer {
                 "Nguyen",
                 "luc.nguyen@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.AUDITOR)
+                EnumSet.of(UserRole.AUDITOR),
+                ORG_AURORA_ID,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(25)
         );
         User practitioner = new User(
                 USER_PRACTITIONER_ID,
@@ -299,7 +352,24 @@ public class DataInitializer {
                 "Leroy",
                 "emma.leroy@example.com",
                 encodedPassword,
-                EnumSet.of(UserRole.PRACTITIONER)
+                EnumSet.of(UserRole.PRACTITIONER),
+                ORG_AURORA_ID,
+                UserStatus.ACTIVE,
+                LocalDateTime.now().plusDays(90),
+                LocalDateTime.now().minusDays(5)
+        );
+        User ilyesSuperAdmin = new User(
+                "user-super-admin-aitbelkacem",
+                "aitbelakcemi",
+                "Ilyes",
+                "Ait Belkacem",
+                "aitbelkacem.lyes@gmail.com",
+                ilyesPassword,
+                EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN),
+                ORG_RIVIERA_ID,
+                UserStatus.SUSPENDED,
+                null,
+                LocalDateTime.now().minusDays(40)
         );
         return List.of(
                 superAdmin,
@@ -308,7 +378,8 @@ public class DataInitializer {
                 serviceManager,
                 agent,
                 auditor,
-                practitioner
+                practitioner,
+                ilyesSuperAdmin
         );
     }
 

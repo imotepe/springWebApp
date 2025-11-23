@@ -3,6 +3,7 @@ package com.exampleproject.controller;
 import com.exampleproject.dto.AuthRequest;
 import com.exampleproject.dto.AuthResponse;
 import com.exampleproject.model.User;
+import com.exampleproject.model.UserStatus;
 import com.exampleproject.repository.UserRepository;
 import com.exampleproject.security.JwtService;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @RestController
@@ -45,9 +47,27 @@ public class AuthController {
             userOpt = userRepository.findByUsernameIgnoreCase(identifier);
         }
         User user = userOpt.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        enforceExpiration(user);
         if (user.getPassword() == null || !passwordEncoder.matches(password, user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is not active");
+        }
         return new AuthResponse(jwtService.generateToken(user));
+    }
+
+    private void enforceExpiration(User user) {
+        LocalDateTime expiresAt = user.getExpiresAt();
+        if (expiresAt == null) {
+            return;
+        }
+        if (LocalDateTime.now().isAfter(expiresAt)) {
+            if (user.getStatus() != UserStatus.EXPIRED) {
+                user.setStatus(UserStatus.EXPIRED);
+                userRepository.save(user);
+            }
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is expired");
+        }
     }
 }

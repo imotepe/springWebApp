@@ -16,12 +16,14 @@ public class Organization {
     private Address address;
     private GeoLocation location;
     private ScheduleConfig scheduleConfig;
+    private String databaseName;
 
     public Organization() {}
 
     public Organization(String id, String name, String industry, String type,
                         String phone,
-                        Address address, GeoLocation location, ScheduleConfig scheduleConfig) {
+                        Address address, GeoLocation location, ScheduleConfig scheduleConfig,
+                        String databaseName) {
         this.id = id;
         this.name = name;
         this.industry = industry;
@@ -30,6 +32,7 @@ public class Organization {
         this.address = address;
         this.location = location;
         this.scheduleConfig = scheduleConfig;
+        this.databaseName = databaseName;
     }
 
     public String getId() { return id; }
@@ -56,6 +59,9 @@ public class Organization {
     public ScheduleConfig getScheduleConfig() { return scheduleConfig; }
     public void setScheduleConfig(ScheduleConfig scheduleConfig) { this.scheduleConfig = scheduleConfig; }
 
+    public String getDatabaseName() { return databaseName; }
+    public void setDatabaseName(String databaseName) { this.databaseName = databaseName; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -77,6 +83,7 @@ public class Organization {
                 ", phone='" + phone + '\'' +
                 ", address=" + address +
                 ", location=" + location +
+                ", databaseName='" + databaseName + '\'' +
                 '}';
     }
 }

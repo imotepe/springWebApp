@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
@@ -19,14 +20,69 @@ public class User {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
     private Set<UserRole> roles = EnumSet.noneOf(UserRole.class);
+    private String homeOrganizationId;
+    private UserStatus status = UserStatus.ACTIVE;
+    private LocalDateTime expiresAt;
+    private LocalDateTime createdAt;
 
     public User() {}
 
     public User(String id, String username, String firstName, String lastName) {
-        this(id, username, firstName, lastName, null, null, EnumSet.noneOf(UserRole.class));
+        this(id, username, firstName, lastName, null, null, EnumSet.noneOf(UserRole.class), null, UserStatus.ACTIVE, null, null);
     }
 
-    public User(String id, String username, String firstName, String lastName, String email, String password, Set<UserRole> roles) {
+    public User(
+            String id,
+            String username,
+            String firstName,
+            String lastName,
+            String email,
+            String password,
+            Set<UserRole> roles
+    ) {
+        this(id, username, firstName, lastName, email, password, roles, null, UserStatus.ACTIVE, null, null);
+    }
+
+    public User(
+            String id,
+            String username,
+            String firstName,
+            String lastName,
+            String email,
+            String password,
+            Set<UserRole> roles,
+            String homeOrganizationId
+    ) {
+        this(id, username, firstName, lastName, email, password, roles, homeOrganizationId, UserStatus.ACTIVE, null, null);
+    }
+
+    public User(
+            String id,
+            String username,
+            String firstName,
+            String lastName,
+            String email,
+            String password,
+            Set<UserRole> roles,
+            String homeOrganizationId,
+            UserStatus status
+    ) {
+        this(id, username, firstName, lastName, email, password, roles, homeOrganizationId, status, null, null);
+    }
+
+    public User(
+            String id,
+            String username,
+            String firstName,
+            String lastName,
+            String email,
+            String password,
+            Set<UserRole> roles,
+            String homeOrganizationId,
+            UserStatus status,
+            LocalDateTime expiresAt,
+            LocalDateTime createdAt
+    ) {
         this.id = id;
         this.username = username;
         this.firstName = firstName;
@@ -34,6 +90,10 @@ public class User {
         this.email = email;
         this.password = password;
         setRoles(roles);
+        this.homeOrganizationId = homeOrganizationId;
+        this.status = status == null ? UserStatus.ACTIVE : status;
+        this.expiresAt = expiresAt;
+        this.createdAt = createdAt == null ? LocalDateTime.now() : createdAt;
     }
 
     public String getId() {
@@ -120,6 +180,38 @@ public class User {
         this.roles = EnumSet.copyOf(roles);
     }
 
+    public String getHomeOrganizationId() {
+        return homeOrganizationId;
+    }
+
+    public void setHomeOrganizationId(String homeOrganizationId) {
+        this.homeOrganizationId = homeOrganizationId;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(UserStatus status) {
+        this.status = status == null ? UserStatus.ACTIVE : status;
+    }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(LocalDateTime expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -135,11 +227,17 @@ public class User {
                 && Objects.equals(lastName, user.lastName)
                 && Objects.equals(email, user.email)
                 && Objects.equals(password, user.password)
-                && Objects.equals(roles, user.roles);
+                && Objects.equals(roles, user.roles)
+                && Objects.equals(homeOrganizationId, user.homeOrganizationId)
+                && status == user.status
+                && Objects.equals(expiresAt, user.expiresAt)
+                && Objects.equals(createdAt, user.createdAt);
     }
 
     @Override
-    public int hashCode() { return Objects.hash(id, username, firstName, lastName, email, password, roles); }
+    public int hashCode() {
+        return Objects.hash(id, username, firstName, lastName, email, password, roles, homeOrganizationId, status, expiresAt, createdAt);
+    }
 
     @Override
     public String toString() {
@@ -151,6 +249,10 @@ public class User {
                 ", email='" + email + '\'' +
                 ", password='[PROTECTED]'" +
                 ", roles=" + roles +
+                ", homeOrganizationId='" + homeOrganizationId + '\'' +
+                ", status=" + status +
+                ", expiresAt=" + expiresAt +
+                ", createdAt=" + createdAt +
                 '}';
     }
 }
