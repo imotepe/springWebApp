@@ -33,7 +33,7 @@ Use the returned token in the `Authorization: Bearer ...` header for all subsequ
 _Tip_: the seeded demo users all share the default password `ChangeMe123!`.
 
 You can also provide `email` instead of `username`; both values are evaluated case-insensitively but only one identifier is required alongside the password.  
-JWT payloads now include `homeOrgId` so downstream services can scope UI/session logic without an additional lookup. Accounts whose status is not `ACTIVE` cannot authenticate; they produce `403 FORBIDDEN`. If a user’s optional `expiresAt` timestamp (ISO-8601) is reached, the platform automatically marks them `EXPIRED` on the next login attempt and denies authentication.
+JWT payloads now include `homeOrganizationId` so downstream services can scope UI/session logic without an additional lookup. Accounts whose status is not `ACTIVE` cannot authenticate; they produce `403 FORBIDDEN`. If a user's optional `expiresAt` timestamp (ISO-8601) is reached, the platform automatically marks them `EXPIRED` on the next login attempt and denies authentication.
 
 ---
 
@@ -50,21 +50,21 @@ JWT payloads now include `homeOrgId` so downstream services can scope UI/session
 | Method & Path | Description | Parameters |
 | --- | --- | --- |
 | `GET /api/appointments` | List appointments. Practitioners are automatically scoped to their resource and only see their own events. | Query: `customerId` _(optional)_, `from` & `to` (ISO-8601, optional filter). |
-| `GET /api/appointments/{id}` | Fetch a single appointment. Practitioner events are filtered to those authored by the caller. | – |
+| `GET /api/appointments/{id}` | Fetch a single appointment. Practitioner events are filtered to those authored by the caller. | None |
 | `POST /api/appointments` | Create a new appointment. | Body: `Appointment` payload. |
 | `PUT /api/appointments/{id}` | Update an appointment. | Body: `Appointment`. |
 | `POST /api/appointments/{id}/events` | Append an `AppointmentEvent`. Practitioners automatically generate `PRACTITIONER_NOTE` events, mark the appointment `COMPLETED`, and cannot edit others' entries. | Body: `AppointmentEvent`. |
-| `DELETE /api/appointments/{id}` | Delete an appointment. | – |
+| `DELETE /api/appointments/{id}` | Delete an appointment. | None |
 
 ## Appointment Types (`/api/appointment-types`)
 
 | Method | Description | Notes |
 | --- | --- | --- |
 | `GET /api/appointment-types` | List appointment types, optionally filtered by `orgId`. | Query: `orgId` optional. |
-| `GET /api/appointment-types/{id}` | Retrieve one appointment type. | – |
+| `GET /api/appointment-types/{id}` | Retrieve one appointment type. | None |
 | `POST /api/appointment-types` | Create a type. | Body: `AppointmentType`. |
 | `PUT /api/appointment-types/{id}` | Update a type. | Body: `AppointmentType`. |
-| `DELETE /api/appointment-types/{id}` | Delete a type. | – |
+| `DELETE /api/appointment-types/{id}` | Delete a type. | None |
 
 ## Availability (`/api/availability`)
 
@@ -126,8 +126,7 @@ POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional
   "roles": ["PRACTITIONER"],
   "homeOrganizationId": "org-aurora-retail",
   "status": "ACTIVE",
-  "expiresAt": "2026-01-01T00:00:00",
-  "createdAt": "2025-11-01T10:00:00"
+  "expiresAt": "2026-01-01T00:00:00"
 }
 ```
 

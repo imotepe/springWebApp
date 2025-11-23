@@ -64,7 +64,7 @@ Accept: application/json
 ]
 ```
 
-> When `X-User-Id=user-practitioner`, only appointments bound to the associated resource are returned. If the practitioner adds their own event later, the response will only include that event.
+> Practitioner tokens are automatically scoped to their linked resource, so they only see their own appointments and the events they personally created.
 
 ### Adding a practitioner note / closing an appointment
 
@@ -181,7 +181,7 @@ Authorization: Bearer <token-for-user-agent>
 }
 ```
 
-> Scoped users don’t need to pass `orgId`; the API sets it to their home organization automatically. Platform admins must provide it explicitly when creating customers for specific tenants.
+> Scoped users don't need to pass `orgId`; the API sets it to their home organization automatically. Platform admins must provide it explicitly when creating customers for specific tenants.
 
 ## Resources
 
@@ -282,7 +282,7 @@ Authorization: Bearer <token-for-user-super-admin>
 
 ## Organizations
 
-### Create organization (auto-provision tenant DB)
+### Create organization (shared database)
 
 ```http
 POST /api/organizations HTTP/1.1
