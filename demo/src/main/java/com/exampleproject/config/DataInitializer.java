@@ -6,7 +6,9 @@ import com.exampleproject.repository.AppointmentTypeRepository;
 import com.exampleproject.repository.CustomerRepository;
 import com.exampleproject.repository.OrganizationRepository;
 import com.exampleproject.repository.OrganizationTypeRepository;
+import com.exampleproject.repository.PlanRepository;
 import com.exampleproject.repository.ResourceRepository;
+import com.exampleproject.repository.SubscriptionRepository;
 import com.exampleproject.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,11 +58,31 @@ public class DataInitializer {
     private static final String APPOINTMENT_DISCOVERY_ID = "appt-discovery-call";
     private static final String APPOINTMENT_INSTALL_ID = "appt-onsite-install";
     private static final String USER_PRACTITIONER_ID = "user-practitioner";
+    private static final String SUB_AURORA_ID = "sub-aurora-default";
+    private static final String SUB_RIVIERA_ID = "sub-riviera-default";
+    private static final String PLAN_TRIAL_30D_ID = "plan-trial-30d";
+    private static final String PLAN_TRIAL_30D_CODE = "TRIAL_30D";
+    private static final String PLAN_TRIAL_180D_ID = "plan-trial-180d";
+    private static final String PLAN_TRIAL_180D_CODE = "TRIAL_180D";
+    private static final String PLAN_TRIAL_360D_ID = "plan-trial-360d";
+    private static final String PLAN_TRIAL_360D_CODE = "TRIAL_360D";
+    private static final String PLAN_SUB_MONTHLY_ID = "plan-sub-monthly";
+    private static final String PLAN_SUB_MONTHLY_CODE = "SUB_MONTHLY";
+    private static final String PLAN_SUB_90D_ID = "plan-sub-90d";
+    private static final String PLAN_SUB_90D_CODE = "SUB_90D";
+    private static final String PLAN_SUB_180D_ID = "plan-sub-180d";
+    private static final String PLAN_SUB_180D_CODE = "SUB_180D";
+    private static final String PLAN_SUB_360D_ID = "plan-sub-360d";
+    private static final String PLAN_SUB_360D_CODE = "SUB_360D";
+    private static final String PLAN_SUB_720D_ID = "plan-sub-720d";
+    private static final String PLAN_SUB_720D_CODE = "SUB_720D";
 
     @Bean
     CommandLineRunner loadReferenceData(
             OrganizationTypeRepository organizationTypeRepository,
             OrganizationRepository organizationRepository,
+            PlanRepository planRepository,
+            SubscriptionRepository subscriptionRepository,
             ResourceRepository resourceRepository,
             AppointmentTypeRepository appointmentTypeRepository,
             CustomerRepository customerRepository,
@@ -70,6 +93,8 @@ public class DataInitializer {
             log.info("Loading initial Mongo data (idempotent)");
             organizationTypeRepository.saveAll(buildOrganizationTypes());
             organizationRepository.saveAll(buildOrganizations());
+            planRepository.saveAll(buildPlans());
+            subscriptionRepository.saveAll(buildSubscriptions());
             resourceRepository.saveAll(buildResources());
             appointmentTypeRepository.saveAll(buildAppointmentTypes());
             customerRepository.saveAll(buildCustomers());
@@ -83,6 +108,118 @@ public class DataInitializer {
         return List.of(
                 new OrganizationType(ORG_TYPE_RETAIL_ID, "Reseau Retail", "Centres de services physiques"),
                 new OrganizationType(ORG_TYPE_PUBLIC_ID, "Collectivite", "Partenaires publics et collectivites")
+        );
+    }
+
+    private List<Plan> buildPlans() {
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+
+        Plan trial30 = new Plan(
+                PLAN_TRIAL_30D_ID,
+                PLAN_TRIAL_30D_CODE,
+                "Trial 30 days",
+                "Free 30-day trial (default)",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.MONTHLY,
+                30,
+                true,
+                now
+        );
+        Plan trial180 = new Plan(
+                PLAN_TRIAL_180D_ID,
+                PLAN_TRIAL_180D_CODE,
+                "Trial 180 days",
+                "Extended 180-day trial",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.MONTHLY,
+                180,
+                true,
+                now
+        );
+        Plan trial360 = new Plan(
+                PLAN_TRIAL_360D_ID,
+                PLAN_TRIAL_360D_CODE,
+                "Trial 360 days",
+                "Extended 360-day trial",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.MONTHLY,
+                360,
+                true,
+                now
+        );
+        Plan subscriptionMonthly = new Plan(
+                PLAN_SUB_MONTHLY_ID,
+                PLAN_SUB_MONTHLY_CODE,
+                "Subscription monthly",
+                "Paid subscription billed monthly",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.MONTHLY,
+                0,
+                true,
+                now
+        );
+        Plan subscription90 = new Plan(
+                PLAN_SUB_90D_ID,
+                PLAN_SUB_90D_CODE,
+                "Subscription 90 days",
+                "Prepaid subscription for 90 days",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.ANNUAL,
+                0,
+                true,
+                now
+        );
+        Plan subscription180 = new Plan(
+                PLAN_SUB_180D_ID,
+                PLAN_SUB_180D_CODE,
+                "Subscription 180 days",
+                "Prepaid subscription for 180 days",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.ANNUAL,
+                0,
+                true,
+                now
+        );
+        Plan subscription360 = new Plan(
+                PLAN_SUB_360D_ID,
+                PLAN_SUB_360D_CODE,
+                "Subscription 360 days",
+                "Prepaid subscription for 360 days",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.ANNUAL,
+                0,
+                true,
+                now
+        );
+        Plan subscription720 = new Plan(
+                PLAN_SUB_720D_ID,
+                PLAN_SUB_720D_CODE,
+                "Subscription 720 days",
+                "Prepaid subscription for 720 days",
+                BigDecimal.ZERO,
+                "EUR",
+                BillingCycle.ANNUAL,
+                0,
+                true,
+                now
+        );
+
+        return List.of(
+                trial30,
+                trial180,
+                trial360,
+                subscriptionMonthly,
+                subscription90,
+                subscription180,
+                subscription360,
+                subscription720
         );
     }
 
@@ -101,6 +238,7 @@ public class DataInitializer {
         Organization aurora = new Organization(
                 ORG_AURORA_ID,
                 "Aurora Service Center",
+                "Aurora",
                 "Retail & Services",
                 ORG_TYPE_RETAIL_ID,
                 "+33 1 86 65 00 11",
@@ -109,6 +247,7 @@ public class DataInitializer {
                 scheduleConfig,
                 null
         );
+        aurora.setCreatedBy("system");
 
         Address rivieraAddress = new Address(
                 "25 Avenue du Prado",
@@ -124,6 +263,7 @@ public class DataInitializer {
         Organization riviera = new Organization(
                 ORG_RIVIERA_ID,
                 "Riviera Community Hub",
+                "Riviera",
                 "Services publics & culture",
                 ORG_TYPE_PUBLIC_ID,
                 "+33 4 91 23 45 67",
@@ -132,7 +272,33 @@ public class DataInitializer {
                 rivieraSchedule,
                 null
         );
+        riviera.setCreatedBy("system");
 
+        return List.of(aurora, riviera);
+    }
+
+    private List<Subscription> buildSubscriptions() {
+        LocalDateTime now = LocalDateTime.now();
+        Subscription aurora = new Subscription(
+                SUB_AURORA_ID,
+                ORG_AURORA_ID,
+                PLAN_TRIAL_30D_CODE,
+                SubscriptionStatus.ACTIVE,
+                now.minusDays(10),
+                now.plusMonths(6),
+                "system",
+                now.minusDays(10)
+        );
+        Subscription riviera = new Subscription(
+                SUB_RIVIERA_ID,
+                ORG_RIVIERA_ID,
+                PLAN_TRIAL_30D_CODE,
+                SubscriptionStatus.TRIAL,
+                now.minusDays(5),
+                now.plusDays(20),
+                "system",
+                now.minusDays(5)
+        );
         return List.of(aurora, riviera);
     }
 

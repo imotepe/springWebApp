@@ -4,6 +4,7 @@ import com.exampleproject.model.Organization;
 import com.exampleproject.repository.OrganizationRepository;
 import com.exampleproject.repository.OrganizationTypeRepository;
 import com.exampleproject.security.OrganizationAccessManager;
+import com.exampleproject.service.SubscriptionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -16,13 +17,16 @@ public class OrganizationService {
     private final OrganizationRepository repository;
     private final OrganizationTypeRepository typeRepository;
     private final OrganizationAccessManager organizationAccessManager;
+    private final SubscriptionService subscriptionService;
 
     public OrganizationService(OrganizationRepository repository,
                                OrganizationTypeRepository typeRepository,
-                               OrganizationAccessManager organizationAccessManager) {
+                               OrganizationAccessManager organizationAccessManager,
+                               SubscriptionService subscriptionService) {
         this.repository = repository;
         this.typeRepository = typeRepository;
         this.organizationAccessManager = organizationAccessManager;
+        this.subscriptionService = subscriptionService;
     }
 
     public List<Organization> findAll() {
@@ -50,7 +54,10 @@ public class OrganizationService {
         }
         validateType(org.getType());
         org.setId(null);
-        return repository.save(org);
+        org.setCreatedBy(context.user().getId());
+        Organization saved = repository.save(org);
+        subscriptionService.createDefaultForOrg(saved.getId());
+        return saved;
     }
 
     public Organization update(String id, Organization org) {
@@ -60,6 +67,7 @@ public class OrganizationService {
         validateType(org.getType());
         org.setId(id);
         org.setDatabaseName(existing.getDatabaseName());
+        org.setCreatedBy(existing.getCreatedBy());
         return repository.save(org);
     }
 

@@ -10,6 +10,7 @@ public class Organization {
     @Id
     private String id;
     private String name;
+    private String marketingName;
     private String industry;
     private String type;
     private String phone;
@@ -17,15 +18,17 @@ public class Organization {
     private GeoLocation location;
     private ScheduleConfig scheduleConfig;
     private String databaseName;
+    private String createdBy;
 
     public Organization() {}
 
-    public Organization(String id, String name, String industry, String type,
+    public Organization(String id, String name, String marketingName, String industry, String type,
                         String phone,
                         Address address, GeoLocation location, ScheduleConfig scheduleConfig,
                         String databaseName) {
         this.id = id;
         this.name = name;
+        this.marketingName = marketingName;
         this.industry = industry;
         this.type = type;
         this.phone = phone;
@@ -40,6 +43,9 @@ public class Organization {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getMarketingName() { return marketingName; }
+    public void setMarketingName(String marketingName) { this.marketingName = marketingName; }
 
     public String getIndustry() { return industry; }
     public void setIndustry(String industry) { this.industry = industry; }
@@ -62,6 +68,9 @@ public class Organization {
     public String getDatabaseName() { return databaseName; }
     public void setDatabaseName(String databaseName) { this.databaseName = databaseName; }
 
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -78,11 +87,13 @@ public class Organization {
         return "Organization{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", marketingName='" + marketingName + '\'' +
                 ", industry='" + industry + '\'' +
                 ", type='" + type + '\'' +
                 ", phone='" + phone + '\'' +
                 ", address=" + address +
                 ", location=" + location +
+                ", createdBy='" + createdBy + '\'' +
                 ", databaseName='" + databaseName + '\'' +
                 '}';
     }

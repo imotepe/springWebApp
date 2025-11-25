@@ -35,6 +35,8 @@ _Tip_: the seeded demo users all share the default password `ChangeMe123!`.
 You can also provide `email` instead of `username`; both values are evaluated case-insensitively but only one identifier is required alongside the password.  
 JWT payloads now include `homeOrganizationId` so downstream services can scope UI/session logic without an additional lookup. Accounts whose status is not `ACTIVE` cannot authenticate; they produce `403 FORBIDDEN`. If a user's optional `expiresAt` timestamp (ISO-8601) is reached, the platform automatically marks them `EXPIRED` on the next login attempt and denies authentication.
 
+Organization-scoped users also require an active subscription for their home organization. If the subscription is expired, suspended, or cancelled the API returns `403 FORBIDDEN` for every `/api/**` request.
+
 ---
 
 ### Organization Scoping
@@ -88,6 +90,9 @@ Customers now carry an orgId attribute. Platform administrators must provide it 
 
 Standard CRUD (GET collection, GET item, POST, PUT, DELETE). Organizations reference addresses, schedule configs, etc. Validation ensures type names exist.
 
+- Creating an organization automatically provisions a default subscription (30-day trial, plan `TRIAL_30D`). Platform administrators can later change status/plan through internal tooling or direct DB edits (no public API yet).
+- Organization-scoped users cannot access `/api/**` when their organization's subscription status is `EXPIRED`, `SUSPENDED`, or `CANCELLED`; the API responds `403 FORBIDDEN`.
+- Seeded plan catalog (codes): `TRIAL_30D` (default 30-day trial), `TRIAL_180D`, `TRIAL_360D`, `SUB_MONTHLY`, `SUB_90D`, `SUB_180D`, `SUB_360D`, `SUB_720D`. Prices are seeded to `0 EUR`; adjust as needed in production.
 - `databaseName` is reserved for future multi-tenant sharding. All organizations currently share the same Mongo database, so the field will be `null` in responses and can be ignored.
 - Deleting an organization only removes its document from the primary collection; no dedicated tenant databases are created or dropped.
 

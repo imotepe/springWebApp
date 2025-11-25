@@ -10,6 +10,7 @@ package "Organizations" {
   class Organization {
     +id: String
     +name: String
+    +marketingName: String
     +industry: String
     +type: String
     +phone: String
@@ -17,6 +18,7 @@ package "Organizations" {
     +location: GeoLocation
     +scheduleConfig: ScheduleConfig
     +databaseName: String
+    +createdBy: String
   }
 
   class OrganizationType {
@@ -193,6 +195,46 @@ package "Operations" {
   }
 }
 
+package "Billing" {
+  class Plan {
+    +id: String
+    +code: String
+    +name: String
+    +description: String
+    +priceAmount: BigDecimal
+    +priceCurrency: String
+    +billingCycle: BillingCycle
+    +trialDays: Integer
+    +active: boolean
+    +createdAt: LocalDateTime
+  }
+
+  class Subscription {
+    +id: String
+    +orgId: String
+    +planCode: String
+    +status: SubscriptionStatus
+    +startAt: LocalDateTime
+    +endsAt: LocalDateTime
+    +createdBy: String
+    +createdAt: LocalDateTime
+  }
+
+  enum BillingCycle {
+    MONTHLY
+    ANNUAL
+  }
+
+  enum SubscriptionStatus {
+    PREACTIVE
+    TRIAL
+    ACTIVE
+    SUSPENDED
+    CANCELLED
+    EXPIRED
+  }
+}
+
 Organization "1" o- "1" ScheduleConfig : scheduleConfig
 Resource "0..1" o- "1" ScheduleConfig : scheduleOverride
 ScheduleConfig "1" o- "*" TimeWindow : businessHours/breaks
@@ -228,5 +270,9 @@ User "*" --> "*" UserRole : roles
 User "*" <-- "0..1" Resource : practitioner
 User "*" --> "0..1" Organization : homeOrganization
 User "*" --> "1" UserStatus : status
+Subscription "1" --> "1" Organization : orgId
+Subscription ..> SubscriptionStatus
+Plan "1" --> "*" Subscription : planCode
+Plan ..> BillingCycle
 
 @enduml
