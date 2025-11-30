@@ -35,9 +35,13 @@ public class SubscriptionGuardFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/actuator")
+        if (!path.startsWith("/api")) {
+            return true;
+        }
+        return path.startsWith("/api/auth")
+                || path.startsWith("/api/public")
+                || path.startsWith("/actuator")
                 || path.startsWith("/docs")
-                || path.startsWith("/api/auth")
                 || path.startsWith("/error");
     }
 

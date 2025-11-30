@@ -13,6 +13,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -21,6 +22,8 @@ import java.util.Optional;
 @Component
 @SuppressWarnings("null")
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
@@ -33,10 +36,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/actuator")
-                || path.startsWith("/docs")
-                || path.startsWith("/api/auth")
-                || path.startsWith("/error");
+        // CORS preflight should not be blocked
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        for (String pattern : SecurityPaths.PUBLIC) {
+            if (PATH_MATCHER.match(pattern, path)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

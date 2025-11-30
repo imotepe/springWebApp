@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+frontend/.parcel-cache/

@@ -43,6 +43,27 @@ public class AvailabilityService {
             LocalDateTime from,
             LocalDateTime to
     ) {
+        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, true);
+    }
+
+    public List<AvailabilitySlot> findAvailableSlotsPublic(
+            String orgId,
+            String appointmentTypeId,
+            String resourceId,
+            LocalDateTime from,
+            LocalDateTime to
+    ) {
+        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, false);
+    }
+
+    private List<AvailabilitySlot> computeAvailableSlots(
+            String orgId,
+            String appointmentTypeId,
+            String resourceId,
+            LocalDateTime from,
+            LocalDateTime to,
+            boolean enforceOrgAccess
+    ) {
         if (orgId == null || orgId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required");
         }
@@ -52,7 +73,9 @@ public class AvailabilityService {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
-        organizationAccessManager.currentContext().checkOrgAccess(orgId);
+        if (enforceOrgAccess) {
+            organizationAccessManager.currentContext().checkOrgAccess(orgId);
+        }
 
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));

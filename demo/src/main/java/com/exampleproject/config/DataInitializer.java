@@ -533,7 +533,7 @@ public class DataInitializer {
                 ilyesPassword,
                 EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN),
                 ORG_RIVIERA_ID,
-                UserStatus.SUSPENDED,
+                UserStatus.ACTIVE,
                 null,
                 LocalDateTime.now().minusDays(40)
         );

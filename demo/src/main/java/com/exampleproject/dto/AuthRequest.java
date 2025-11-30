@@ -1,9 +1,18 @@
 package com.exampleproject.dto;
 
 public class AuthRequest {
+    private String identifier;
     private String email;
     private String username;
     private String password;
+
+    public String getIdentifier() {
+        return firstNonBlank(identifier, username, email);
+    }
+
+    public void setIdentifier(String identifier) {
+        this.identifier = identifier;
+    }
 
     public String getEmail() {
         return email;
@@ -27,10 +36,6 @@ public class AuthRequest {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getIdentifier() {
-        return firstNonBlank(username, email);
     }
 
     private static String firstNonBlank(String... values) {
