@@ -59,10 +59,22 @@ type Organization = {
   type: string;
   phone?: string;
   databaseName?: string;
+  createdBy?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  location?: {
+    latitude?: number;
+    longitude?: number;
+  };
 };
 
 type OrganizationType = {
-  id: string;
+  id?: string;
   name: string;
   description?: string;
 };
@@ -75,6 +87,13 @@ type OrgFormState = {
   type: string;
   phone: string;
   databaseName: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  latitude: string;
+  longitude: string;
 };
 
 const DEFAULT_API_BASE =
@@ -308,6 +327,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeSaving, setTypeSaving] = useState(false);
+  const [typeMessage, setTypeMessage] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  const [typeSearch, setTypeSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'orgs' | 'types'>('orgs');
 
   const [form, setForm] = useState<OrgFormState>({
     id: null,
@@ -317,6 +342,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     type: '',
     phone: '',
     databaseName: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: '',
+    latitude: '',
+    longitude: '',
+  });
+
+  const [typeForm, setTypeForm] = useState<OrganizationType>({
+    id: '',
+    name: '',
+    description: '',
   });
 
   const authHeaders = useMemo(
@@ -350,6 +388,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!form.type && data.length > 0) {
       setForm((prev) => ({ ...prev, type: data[0].name }));
     }
+    if (!typeForm.id && data.length > 0) {
+      // keep type form empty unless editing
+      setTypeForm((prev) => ({ ...prev, id: '', name: '', description: '' }));
+    }
   }, [authFetch, form.type]);
 
   const loadOrganizations = useCallback(async () => {
@@ -373,6 +415,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       type: orgTypes[0]?.name ?? '',
       phone: '',
       databaseName: '',
+      street: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: '',
+      latitude: '',
+      longitude: '',
     });
     setFormError(null);
   }, [orgTypes]);
@@ -394,10 +443,34 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       type: org.type ?? '',
       phone: org.phone ?? '',
       databaseName: org.databaseName ?? '',
+      street: org.address?.street ?? '',
+      city: org.address?.city ?? '',
+      state: org.address?.state ?? '',
+      postalCode: org.address?.postalCode ?? '',
+      country: org.address?.country ?? '',
+      latitude: org.location?.latitude != null ? String(org.location.latitude) : '',
+      longitude: org.location?.longitude != null ? String(org.location.longitude) : '',
     });
     setFormError(null);
     setMessage(`Editing ${org.name}`);
   };
+
+  const filteredOrgs = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return orgs;
+    return orgs.filter((org) => {
+      return [
+        org.id,
+        org.name,
+        org.marketingName,
+        org.phone,
+        org.createdBy,
+        org.type,
+      ]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term));
+    });
+  }, [orgs, searchQuery]);
 
   const validateForm = () => {
     if (!form.name.trim()) {
@@ -417,6 +490,29 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setMessage('Saving organization...');
     setFormError(null);
 
+    const addressFilled = [form.street, form.city, form.state, form.postalCode, form.country].some(
+      (value) => value.trim().length > 0,
+    );
+    const address = addressFilled
+      ? {
+          street: form.street.trim(),
+          city: form.city.trim(),
+          state: form.state.trim(),
+          postalCode: form.postalCode.trim(),
+          country: form.country.trim(),
+        }
+      : undefined;
+
+    const lat = form.latitude.trim();
+    const lng = form.longitude.trim();
+    const location =
+      lat || lng
+        ? {
+            latitude: lat ? Number(lat) : undefined,
+            longitude: lng ? Number(lng) : undefined,
+          }
+        : undefined;
+
     const payload: Organization = {
       name: form.name.trim(),
       marketingName: form.marketingName.trim(),
@@ -424,6 +520,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       type: form.type.trim(),
       phone: form.phone.trim(),
       databaseName: form.databaseName.trim(),
+      address,
+      location,
     };
 
     const path = form.id ? `/api/organizations/${form.id}` : '/api/organizations';
@@ -483,6 +581,94 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     ]);
   };
 
+  const resetTypeForm = () => {
+    setTypeForm({ id: '', name: '', description: '' });
+    setTypeError(null);
+    setTypeMessage(null);
+  };
+
+  const startTypeEdit = (type: OrganizationType) => {
+    setTypeForm(type);
+    setTypeError(null);
+    setTypeMessage(`Editing type ${type.name}`);
+  };
+
+  const handleTypeSave = async () => {
+    if (!typeForm.name.trim()) {
+      setTypeError('Name is required.');
+      return;
+    }
+    setTypeSaving(true);
+    setTypeError(null);
+    setTypeMessage(typeForm.id ? 'Updating type...' : 'Creating type...');
+    const payload: OrganizationType = {
+      name: typeForm.name.trim(),
+      description: typeForm.description?.trim() ?? '',
+    };
+    const path = typeForm.id ? `/api/organization-types/${typeForm.id}` : '/api/organization-types';
+    const method = typeForm.id ? 'PUT' : 'POST';
+    try {
+      const res = await authFetch(path, { method, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        setTypeError(await parseErrorMessage(res));
+        setTypeMessage(null);
+        return;
+      }
+      setTypeMessage(typeForm.id ? 'Type updated.' : 'Type created.');
+      await loadOrgTypes();
+      await loadOrganizations(); // refresh org list if types changed
+      resetTypeForm();
+    } catch (error) {
+      setTypeError(error instanceof Error ? error.message : 'Unable to save type.');
+    } finally {
+      setTypeSaving(false);
+    }
+  };
+
+  const handleTypeDelete = (type: OrganizationType) => {
+    if (!type.id) return;
+
+    const executeDelete = async () => {
+      setTypeMessage(`Deleting type ${type.name}...`);
+      try {
+        const res = await authFetch(`/api/organization-types/${type.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          setTypeMessage(await parseErrorMessage(res));
+          return;
+        }
+        await loadOrgTypes();
+        setTypeMessage(`Deleted type ${type.name}`);
+        if (form.type === type.name) {
+          setForm((prev) => ({ ...prev, type: orgTypes.find((t) => t.id !== type.id)?.name ?? '' }));
+        }
+        resetTypeForm();
+      } catch (error) {
+        setTypeMessage(error instanceof Error ? error.message : 'Unable to delete type.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Delete type ${type.name}?`);
+      if (confirmed) {
+        void executeDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete organization type', `Delete ${type.name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
+    ]);
+  };
+
+  const filteredTypes = useMemo(() => {
+    const term = typeSearch.trim().toLowerCase();
+    if (!term) return orgTypes;
+    return orgTypes.filter((type) =>
+      [type.name, type.description, type.id].filter(Boolean).some((value) => value!.toLowerCase().includes(term)),
+    );
+  }, [orgTypes, typeSearch]);
+
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
@@ -505,139 +691,341 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       </View>
 
       <View style={[styles.card, styles.cardWide]}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Organizations ({orgs.length})</Text>
-          <View style={styles.sectionActions}>
-            <Pressable onPress={resetForm} style={styles.secondaryChip}>
-              <Text style={styles.secondaryChipText}>New</Text>
-            </Pressable>
-            <Pressable onPress={loadOrganizations} style={styles.secondaryChip}>
-              <Text style={styles.secondaryChipText}>Refresh</Text>
-            </Pressable>
-          </View>
+        <View style={styles.tabRow}>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'orgs' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('orgs')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'orgs' && styles.tabButtonTextActive]}>
+              Organizations
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'types' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('types')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'types' && styles.tabButtonTextActive]}>
+              Organization types
+            </Text>
+          </Pressable>
         </View>
 
-        {message ? (
-          <View style={styles.statusPill}>
-            <Text style={styles.statusText}>{message}</Text>
-          </View>
-        ) : null}
+        {activeTab === 'orgs' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Organizations ({filteredOrgs.length}/{orgs.length})</Text>
+                <View style={styles.sectionActions}>
+                  <Pressable onPress={resetForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New</Text>
+                  </Pressable>
+                  <Pressable onPress={loadOrganizations} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.searchBox}>
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search by id, name, marketing name, phone, createdBy"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  style={styles.searchInput}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
 
-        {loading ? (
-          <View style={styles.loadingInline}>
-            <ActivityIndicator color="#7dd3fc" />
-            <Text style={styles.statusText}>Loading...</Text>
-          </View>
-        ) : (
-          <View style={styles.orgList}>
-            {orgs.map((org) => (
-              <Pressable
-                key={org.id ?? org.name}
-                style={styles.orgCard}
-                onPress={() => startEdit(org)}
-              >
-                <View style={styles.orgHeader}>
-                  <Text style={styles.orgName}>{org.name}</Text>
-                  <Text style={styles.orgType}>{org.type}</Text>
-                </View>
-                <Text style={styles.orgMeta}>
-                  {org.marketingName || 'No marketing name'} • {org.industry || 'No industry'}
-                </Text>
-                <Text style={styles.orgMeta}>
-                  {org.phone || 'No phone'} • DB: {org.databaseName || 'N/A'}
-                </Text>
-                <View style={styles.orgActions}>
-                  <Pressable onPress={() => startEdit(org)} style={styles.orgAction}>
-                    <Text style={styles.link}>Edit</Text>
-                  </Pressable>
-                  <Pressable onPress={() => handleDelete(org)} style={styles.orgAction}>
-                    <Text style={styles.deleteText}>Delete</Text>
-                  </Pressable>
-                </View>
-              </Pressable>
-            ))}
-            {orgs.length === 0 ? (
-              <Text style={styles.statusText}>No organizations yet.</Text>
+            {message ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{message}</Text>
+              </View>
             ) : null}
-          </View>
-        )}
-      </View>
 
-      <View style={[styles.card, styles.cardWide]}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{form.id ? 'Edit organization' : 'Create organization'}</Text>
-          {form.id ? (
-            <Pressable onPress={resetForm} style={styles.secondaryChip}>
-              <Text style={styles.secondaryChipText}>Reset</Text>
-            </Pressable>
-          ) : null}
-        </View>
+            {loading ? (
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#7dd3fc" />
+                <Text style={styles.statusText}>Loading...</Text>
+              </View>
+            ) : (
+              <View style={styles.orgList}>
+                {filteredOrgs.map((org) => (
+                  <Pressable
+                    key={org.id ?? org.name}
+                    style={styles.orgCard}
+                    onPress={() => startEdit(org)}
+                  >
+                    <View style={styles.orgHeader}>
+                      <Text style={styles.orgName}>{org.name}</Text>
+                      <Text style={styles.orgType}>{org.type}</Text>
+                    </View>
+                    <Text style={styles.orgMeta}>
+                      {org.marketingName || 'No marketing name'} • {org.industry || 'No industry'}
+                    </Text>
+                    <Text style={styles.orgMeta}>
+                      {org.phone || 'No phone'} • DB: {org.databaseName || 'N/A'}
+                    </Text>
+                    <View style={styles.orgActions}>
+                      <Pressable onPress={() => startEdit(org)} style={styles.orgAction}>
+                        <Text style={styles.link}>Edit</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleDelete(org)} style={styles.orgAction}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                ))}
+                {orgs.length === 0 ? (
+                  <Text style={styles.statusText}>No organizations yet.</Text>
+                ) : null}
+              </View>
+            )}
 
-        {formError ? (
-          <View style={[styles.statusPill, styles.errorPill]}>
-            <Text style={styles.errorText}>{formError}</Text>
-          </View>
-        ) : null}
+            <View style={styles.divider} />
 
-        <InputField
-          label="Name"
-          placeholder="Legal name"
-          value={form.name}
-          onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
-        />
-        <InputField
-          label="Marketing name"
-          placeholder="Public-facing name"
-          value={form.marketingName}
-          onChangeText={(marketingName) => setForm((prev) => ({ ...prev, marketingName }))}
-        />
-        <InputField
-          label="Industry"
-          placeholder="Industry"
-          value={form.industry}
-          onChangeText={(industry) => setForm((prev) => ({ ...prev, industry }))}
-        />
-        <View style={styles.inputField}>
-          <Text style={styles.label}>Organization type</Text>
-          <View style={styles.typeChips}>
-            {orgTypes.map((type) => {
-              const selected = form.type === type.name;
-              return (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{form.id ? 'Edit organization' : 'Create organization'}</Text>
+              {form.id ? (
+                <Pressable onPress={resetForm} style={styles.secondaryChip}>
+                  <Text style={styles.secondaryChipText}>Reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            {formError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{formError}</Text>
+              </View>
+            ) : null}
+
+            <InputField
+              label="Name"
+              placeholder="Legal name"
+              value={form.name}
+              onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
+            />
+            <InputField
+              label="Marketing name"
+              placeholder="Public-facing name"
+              value={form.marketingName}
+              onChangeText={(marketingName) => setForm((prev) => ({ ...prev, marketingName }))}
+            />
+            <InputField
+              label="Industry"
+              placeholder="Industry"
+              value={form.industry}
+              onChangeText={(industry) => setForm((prev) => ({ ...prev, industry }))}
+            />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Organization type</Text>
+              <View style={styles.typeChips}>
+                {orgTypes.map((type) => {
+                  const selected = form.type === type.name;
+                  return (
+                    <Pressable
+                      key={type.id}
+                      onPress={() => setForm((prev) => ({ ...prev, type: type.name }))}
+                      style={[styles.typeChip, selected && styles.typeChipSelected]}
+                    >
+                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                        {type.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                {orgTypes.length === 0 ? (
+                  <Text style={styles.statusText}>No organization types available.</Text>
+                ) : null}
+              </View>
+            </View>
+            <InputField
+              label="Phone"
+              placeholder="+33 1 23 45 67 89"
+              value={form.phone}
+              onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
+              keyboardType="default"
+            />
+            <InputField
+              label="Database name"
+              placeholder="org-database-name"
+              value={form.databaseName}
+              onChangeText={(databaseName) => setForm((prev) => ({ ...prev, databaseName }))}
+            />
+
+            <View style={styles.addressRow}>
+              <InputField
+                label="Street"
+                placeholder="123 Main St"
+                value={form.street}
+                onChangeText={(street) => setForm((prev) => ({ ...prev, street }))}
+              />
+            </View>
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="City"
+                  placeholder="City"
+                  value={form.city}
+                  onChangeText={(city) => setForm((prev) => ({ ...prev, city }))}
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="State / Region"
+                  placeholder="State or region"
+                  value={form.state}
+                  onChangeText={(state) => setForm((prev) => ({ ...prev, state }))}
+                />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="Postal code"
+                  placeholder="Postal code"
+                  value={form.postalCode}
+                  onChangeText={(postalCode) => setForm((prev) => ({ ...prev, postalCode }))}
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="Country"
+                  placeholder="Country"
+                  value={form.country}
+                  onChangeText={(country) => setForm((prev) => ({ ...prev, country }))}
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="Latitude"
+                  placeholder="48.8566"
+                  value={form.latitude}
+                  onChangeText={(latitude) => setForm((prev) => ({ ...prev, latitude }))}
+                  keyboardType="default"
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <InputField
+                  label="Longitude"
+                  placeholder="2.3522"
+                  value={form.longitude}
+                  onChangeText={(longitude) => setForm((prev) => ({ ...prev, longitude }))}
+                  keyboardType="default"
+                />
+              </View>
+            </View>
+
+            <PrimaryButton
+              label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
+              onPress={handleSave}
+              disabled={saving}
+            />
+          </>
+        ) : (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeaderLeft}>
+                  <Text style={styles.sectionTitle}>
+                    {typeForm.id ? 'Edit organization type' : 'Organization types'} ({filteredTypes.length}/
+                    {orgTypes.length})
+                  </Text>
+                </View>
+                <View style={styles.sectionActions}>
+                  <Pressable onPress={resetTypeForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New type</Text>
+                  </Pressable>
+                  <Pressable onPress={loadOrgTypes} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.searchBox}>
+              <TextInput
+                value={typeSearch}
+                onChangeText={setTypeSearch}
+                placeholder="Search types by id, name, description"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                style={styles.searchInput}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {typeMessage ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{typeMessage}</Text>
+              </View>
+            ) : null}
+            {typeError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{typeError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.orgList}>
+              {filteredTypes.map((type) => (
                 <Pressable
                   key={type.id}
-                  onPress={() => setForm((prev) => ({ ...prev, type: type.name }))}
-                  style={[styles.typeChip, selected && styles.typeChipSelected]}
+                  style={styles.orgCard}
+                  onPress={() => startTypeEdit(type)}
                 >
-                  <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
-                    {type.name}
-                  </Text>
+                  <View style={styles.orgHeader}>
+                    <Text style={styles.orgName}>{type.name}</Text>
+                    <View style={styles.orgActions}>
+                      <Pressable onPress={() => startTypeEdit(type)} style={styles.orgAction}>
+                        <Text style={styles.link}>Edit</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleTypeDelete(type)} style={styles.orgAction}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                  <Text style={styles.orgMeta}>{type.description || 'No description'}</Text>
                 </Pressable>
-              );
-            })}
-            {orgTypes.length === 0 ? (
-              <Text style={styles.statusText}>No organization types available.</Text>
-            ) : null}
-          </View>
-        </View>
-        <InputField
-          label="Phone"
-          placeholder="+33 1 23 45 67 89"
-          value={form.phone}
-          onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
-          keyboardType="default"
-        />
-        <InputField
-          label="Database name"
-          placeholder="org-database-name"
-          value={form.databaseName}
-          onChangeText={(databaseName) => setForm((prev) => ({ ...prev, databaseName }))}
-        />
+              ))}
+              {orgTypes.length === 0 ? (
+                <Text style={styles.statusText}>No organization types yet.</Text>
+              ) : null}
+            </View>
 
-        <PrimaryButton
-          label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
-          onPress={handleSave}
-          disabled={saving}
-        />
+            <View style={styles.divider} />
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {typeForm.id ? 'Edit organization type' : 'Create organization type'}
+              </Text>
+              {typeForm.id ? (
+                <Pressable onPress={resetTypeForm} style={styles.secondaryChip}>
+                  <Text style={styles.secondaryChipText}>Reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <InputField
+              label="Type name"
+              placeholder="Retail, Public, etc."
+              value={typeForm.name}
+              onChangeText={(name) => setTypeForm((prev) => ({ ...prev, name }))}
+            />
+            <InputField
+              label="Description"
+              placeholder="Short description"
+              value={typeForm.description ?? ''}
+              onChangeText={(description) => setTypeForm((prev) => ({ ...prev, description }))}
+            />
+
+            <PrimaryButton
+              label={typeSaving ? 'Saving type...' : typeForm.id ? 'Update type' : 'Create type'}
+              onPress={handleTypeSave}
+              disabled={typeSaving}
+            />
+          </>
+        )}
       </View>
     </ScrollView>
   );
@@ -782,6 +1170,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  flexHalf: {
+    flex: 1,
+  },
+  addressRow: {
+    width: '100%',
+  },
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -901,19 +1295,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    width: '100%',
+    flexDirection: 'column',
+    gap: 8,
     marginBottom: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionHeaderLeft: {
+    flex: 1,
+    gap: 8,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  tabButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  tabButtonActive: {
+    borderColor: '#7dd3fc',
+    backgroundColor: 'rgba(125,211,252,0.16)',
+  },
+  tabButtonText: {
+    color: '#e5e7eb',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 14,
+  },
+  tabButtonTextActive: {
+    color: '#0b1124',
   },
   sectionTitle: {
     color: '#e5e7eb',
     fontFamily: 'Manrope_700Bold',
     fontSize: 18,
   },
+  searchBox: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  searchInput: {
+    color: '#e5e7eb',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 16,
+  },
   sectionActions: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
   },
   secondaryChip: {
     paddingHorizontal: 10,
