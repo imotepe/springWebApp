@@ -192,6 +192,111 @@ type CustomerFormState = {
   dateOfBirth: string;
 };
 
+type CustomerInteractionFormState = {
+  id?: string | null;
+  type: NonNullable<CustomerInteraction['type']>;
+  status: NonNullable<CustomerInteraction['status']>;
+  comment: string;
+  appointmentId: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+type Resource = {
+  id?: string;
+  orgId?: string;
+  name?: string;
+  type?: string;
+  allowedAppointmentTypeIds?: string[];
+  capacity?: number;
+  active?: boolean;
+  kind?: 'HUMAN' | 'ASSET';
+  practitionerUserId?: string;
+};
+
+type ResourceFormState = {
+  id?: string | null;
+  orgId: string;
+  name: string;
+  type: string;
+  allowedAppointmentTypeIds: string;
+  capacity: string;
+  active: boolean;
+  kind: 'HUMAN' | 'ASSET';
+  practitionerUserId: string;
+};
+
+type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+type AppointmentEventType =
+  | 'CUSTOMER_COMMENT'
+  | 'CUSTOMER_CANCEL'
+  | 'CUSTOMER_UPDATE'
+  | 'INTERNAL_NOTE'
+  | 'PRACTITIONER_NOTE';
+
+type AppointmentEvent = {
+  id?: string;
+  type?: AppointmentEventType;
+  status?: AppointmentStatus;
+  comment?: string;
+  createdBy?: string;
+  createdAt?: string;
+};
+
+type Appointment = {
+  id?: string;
+  orgId?: string;
+  customerId?: string;
+  resourceId?: string;
+  appointmentTypeId?: string;
+  start?: string;
+  end?: string;
+  status?: AppointmentStatus;
+  events?: AppointmentEvent[];
+};
+
+type AppointmentFormState = {
+  id?: string | null;
+  orgId: string;
+  customerId: string;
+  resourceId: string;
+  appointmentTypeId: string;
+  start: string;
+  end: string;
+  status: AppointmentStatus;
+};
+
+type AppointmentEventFormState = {
+  id?: string | null;
+  type: AppointmentEventType;
+  status: AppointmentStatus;
+  comment: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+type AppointmentTypeDto = {
+  id?: string;
+  orgId?: string;
+  name?: string;
+  category?: string;
+  defaultDurationMinutes?: number;
+  allowedDurations?: number[];
+  requiresResource?: boolean;
+  active?: boolean;
+};
+
+type AppointmentTypeFormState = {
+  id?: string | null;
+  orgId: string;
+  name: string;
+  category: string;
+  defaultDurationMinutes: string;
+  allowedDurations: string;
+  requiresResource: boolean;
+  active: boolean;
+};
+
 const DEFAULT_API_BASE =
   Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
 
@@ -234,6 +339,24 @@ const USER_ROLES: UserRole[] = [
 ];
 const PLATFORM_ROLES: UserRole[] = ['SUPER_PLATFORM_ADMIN', 'PLATFORM_ADMIN'];
 const USER_STATUSES: UserStatus[] = ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'BLOCKED'];
+const INTERACTION_TYPES: CustomerInteractionFormState['type'][] = [
+  'CUSTOMER_COMMENT',
+  'CUSTOMER_CANCEL',
+  'CUSTOMER_UPDATE',
+  'INTERNAL_NOTE',
+  'PRACTITIONER_NOTE',
+];
+const INTERACTION_STATUSES: CustomerInteractionFormState['status'][] = ['SCHEDULED', 'COMPLETED', 'CANCELLED'];
+const RESOURCE_KINDS: ResourceFormState['kind'][] = ['HUMAN', 'ASSET'];
+const APPOINTMENT_STATUSES: AppointmentStatus[] = ['SCHEDULED', 'COMPLETED', 'CANCELLED'];
+const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
+  'CUSTOMER_COMMENT',
+  'CUSTOMER_CANCEL',
+  'CUSTOMER_UPDATE',
+  'INTERNAL_NOTE',
+  'PRACTITIONER_NOTE',
+];
+const APPOINTMENT_TYPE_STATUSES = ['active'];
 
 const emptyDayMap = () =>
   DAY_NAMES.reduce(
@@ -506,7 +629,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [typeMessage, setTypeMessage] = useState<string | null>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [typeSearch, setTypeSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'orgs' | 'types' | 'schedule' | 'users' | 'customers'>('orgs');
+  const [activeTab, setActiveTab] = useState<
+    'orgs' | 'types' | 'schedule' | 'users' | 'customers' | 'resources' | 'appointments' | 'appointmentTypes'
+  >('orgs');
   const [scheduleOrgId, setScheduleOrgId] = useState<string | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
   const [activeDay, setActiveDay] = useState<DayName>('MONDAY');
@@ -576,6 +701,78 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     phone: '',
     notes: '',
     dateOfBirth: '',
+  });
+  const [interactionSearch, setInteractionSearch] = useState('');
+  const [interactionsWorking, setInteractionsWorking] = useState<CustomerInteraction[]>([]);
+  const [interactionForm, setInteractionForm] = useState<CustomerInteractionFormState>({
+    id: null,
+    type: INTERACTION_TYPES[0],
+    status: INTERACTION_STATUSES[0],
+    comment: '',
+    appointmentId: '',
+    createdBy: '',
+    createdAt: new Date().toISOString(),
+  });
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [resourceLoading, setResourceLoading] = useState(false);
+  const [resourceSaving, setResourceSaving] = useState(false);
+  const [resourceMessage, setResourceMessage] = useState<string | null>(null);
+  const [resourceError, setResourceError] = useState<string | null>(null);
+  const [resourceSearch, setResourceSearch] = useState('');
+  const [resourceOrgFilter, setResourceOrgFilter] = useState('');
+  const [resourceForm, setResourceForm] = useState<ResourceFormState>({
+    id: null,
+    orgId: '',
+    name: '',
+    type: '',
+    allowedAppointmentTypeIds: '',
+    capacity: '',
+    active: true,
+    kind: 'ASSET',
+    practitionerUserId: '',
+  });
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
+  const [appointmentSaving, setAppointmentSaving] = useState(false);
+  const [appointmentMessage, setAppointmentMessage] = useState<string | null>(null);
+  const [appointmentError, setAppointmentError] = useState<string | null>(null);
+  const [appointmentSearch, setAppointmentSearch] = useState('');
+  const [appointmentOrgFilter, setAppointmentOrgFilter] = useState('');
+  const [appointmentForm, setAppointmentForm] = useState<AppointmentFormState>({
+    id: null,
+    orgId: '',
+    customerId: '',
+    resourceId: '',
+    appointmentTypeId: '',
+    start: '',
+    end: '',
+    status: 'SCHEDULED',
+  });
+  const [appointmentEventsWorking, setAppointmentEventsWorking] = useState<AppointmentEvent[]>([]);
+  const [appointmentEventForm, setAppointmentEventForm] = useState<AppointmentEventFormState>({
+    id: null,
+    type: APPOINTMENT_EVENT_TYPES[0],
+    status: 'SCHEDULED',
+    comment: '',
+    createdBy: '',
+    createdAt: new Date().toISOString(),
+  });
+  const [appointmentTypes, setAppointmentTypes] = useState<AppointmentTypeDto[]>([]);
+  const [appointmentTypeLoading, setAppointmentTypeLoading] = useState(false);
+  const [appointmentTypeSaving, setAppointmentTypeSaving] = useState(false);
+  const [appointmentTypeMessage, setAppointmentTypeMessage] = useState<string | null>(null);
+  const [appointmentTypeError, setAppointmentTypeError] = useState<string | null>(null);
+  const [appointmentTypeSearch, setAppointmentTypeSearch] = useState('');
+  const [appointmentTypeOrgFilter, setAppointmentTypeOrgFilter] = useState('');
+  const [appointmentTypeForm, setAppointmentTypeForm] = useState<AppointmentTypeFormState>({
+    id: null,
+    orgId: '',
+    name: '',
+    category: '',
+    defaultDurationMinutes: '',
+    allowedDurations: '',
+    requiresResource: false,
+    active: true,
   });
 
   const authHeaders = useMemo(
@@ -679,6 +876,84 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [authFetch, customerOrgFilter],
   );
 
+  const loadResources = useCallback(
+    async (orgFilter?: string) => {
+      const filter = (orgFilter ?? resourceOrgFilter).trim();
+      setResourceLoading(true);
+      setResourceMessage('Loading resources...');
+      setResourceError(null);
+      try {
+        const query = filter ? `?orgId=${encodeURIComponent(filter)}` : '';
+        const res = await authFetch(`/api/resources${query}`);
+        if (!res.ok) {
+          setResourceError(await parseErrorMessage(res));
+          setResourceMessage(null);
+          return;
+        }
+        const data = (await res.json()) as Resource[];
+        setResources(data);
+        setResourceMessage(null);
+      } catch (error) {
+        setResourceError(error instanceof Error ? error.message : 'Unable to load resources.');
+      } finally {
+        setResourceLoading(false);
+      }
+    },
+    [authFetch, resourceOrgFilter],
+  );
+
+  const loadAppointments = useCallback(
+    async (orgFilter?: string) => {
+      const filter = (orgFilter ?? appointmentOrgFilter).trim();
+      setAppointmentLoading(true);
+      setAppointmentMessage('Loading appointments...');
+      setAppointmentError(null);
+      try {
+        const query = filter ? `?orgId=${encodeURIComponent(filter)}` : '';
+        const res = await authFetch(`/api/appointments${query}`);
+        if (!res.ok) {
+          setAppointmentError(await parseErrorMessage(res));
+          setAppointmentMessage(null);
+          return;
+        }
+        const data = (await res.json()) as Appointment[];
+        setAppointments(data);
+        setAppointmentMessage(null);
+      } catch (error) {
+        setAppointmentError(error instanceof Error ? error.message : 'Unable to load appointments.');
+      } finally {
+        setAppointmentLoading(false);
+      }
+    },
+    [authFetch, appointmentOrgFilter],
+  );
+
+  const loadAppointmentTypes = useCallback(
+    async (orgFilter?: string) => {
+      const filter = (orgFilter ?? appointmentTypeOrgFilter).trim();
+      setAppointmentTypeLoading(true);
+      setAppointmentTypeMessage('Loading appointment types...');
+      setAppointmentTypeError(null);
+      try {
+        const query = filter ? `?orgId=${encodeURIComponent(filter)}` : '';
+        const res = await authFetch(`/api/appointment-types${query}`);
+        if (!res.ok) {
+          setAppointmentTypeError(await parseErrorMessage(res));
+          setAppointmentTypeMessage(null);
+          return;
+        }
+        const data = (await res.json()) as AppointmentTypeDto[];
+        setAppointmentTypes(data);
+        setAppointmentTypeMessage(null);
+      } catch (error) {
+        setAppointmentTypeError(error instanceof Error ? error.message : 'Unable to load appointment types.');
+      } finally {
+        setAppointmentTypeLoading(false);
+      }
+    },
+    [authFetch, appointmentTypeOrgFilter],
+  );
+
   const resetForm = useCallback(() => {
     setForm({
       id: null,
@@ -704,9 +979,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setLoading(true);
       await Promise.all([loadOrgTypes(), loadOrganizations()]);
       setLoading(false);
-      await Promise.all([loadUsers(), loadCustomers()]);
+      await Promise.all([loadUsers(), loadCustomers(), loadResources(), loadAppointments(), loadAppointmentTypes()]);
     })();
-  }, [loadOrgTypes, loadOrganizations, loadUsers, loadCustomers]);
+  }, [loadOrgTypes, loadOrganizations, loadUsers, loadCustomers, loadResources, loadAppointments, loadAppointmentTypes]);
 
   const resetUserForm = useCallback(() => {
     setUserForm({
@@ -738,6 +1013,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setCustomerError(null);
     setCustomerMessage(null);
+    setInteractionsWorking([]);
+    setInteractionForm({
+      id: null,
+      type: INTERACTION_TYPES[0],
+      status: INTERACTION_STATUSES[0],
+      comment: '',
+      appointmentId: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+    setInteractionSearch('');
   }, []);
 
   const startUserEdit = (user: User) => {
@@ -770,6 +1056,98 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setCustomerError(null);
     setCustomerMessage(`Editing ${customer.name || customer.email || customer.id || 'customer'}`);
+    setInteractionsWorking(customer.interactions ?? []);
+    setInteractionForm({
+      id: null,
+      type: INTERACTION_TYPES[0],
+      status: INTERACTION_STATUSES[0],
+      comment: '',
+      appointmentId: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+    setInteractionSearch('');
+  };
+
+  const resetResourceForm = useCallback(() => {
+    setResourceForm({
+      id: null,
+      orgId: '',
+      name: '',
+      type: '',
+      allowedAppointmentTypeIds: '',
+      capacity: '',
+      active: true,
+      kind: 'ASSET',
+      practitionerUserId: '',
+    });
+    setResourceError(null);
+    setResourceMessage(null);
+  }, []);
+
+  const resetAppointmentForm = useCallback(() => {
+    setAppointmentForm({
+      id: null,
+      orgId: '',
+      customerId: '',
+      resourceId: '',
+      appointmentTypeId: '',
+      start: '',
+      end: '',
+      status: 'SCHEDULED',
+    });
+    setAppointmentEventsWorking([]);
+    setAppointmentEventForm({
+      id: null,
+      type: APPOINTMENT_EVENT_TYPES[0],
+      status: 'SCHEDULED',
+      comment: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+    setAppointmentError(null);
+    setAppointmentMessage(null);
+    setAppointmentSearch('');
+  }, []);
+
+  const startResourceEdit = (resource: Resource) => {
+    setResourceForm({
+      id: resource.id ?? null,
+      orgId: resource.orgId ?? '',
+      name: resource.name ?? '',
+      type: resource.type ?? '',
+      allowedAppointmentTypeIds: (resource.allowedAppointmentTypeIds ?? []).join(','),
+      capacity: resource.capacity != null ? String(resource.capacity) : '',
+      active: resource.active ?? true,
+      kind: resource.kind ?? 'ASSET',
+      practitionerUserId: resource.practitionerUserId ?? '',
+    });
+    setResourceError(null);
+    setResourceMessage(`Editing ${resource.name || resource.id || 'resource'}`);
+  };
+
+  const startAppointmentEdit = (appointment: Appointment) => {
+    setAppointmentForm({
+      id: appointment.id ?? null,
+      orgId: appointment.orgId ?? '',
+      customerId: appointment.customerId ?? '',
+      resourceId: appointment.resourceId ?? '',
+      appointmentTypeId: appointment.appointmentTypeId ?? '',
+      start: appointment.start ?? '',
+      end: appointment.end ?? '',
+      status: appointment.status ?? 'SCHEDULED',
+    });
+    setAppointmentEventsWorking(appointment.events ?? []);
+    setAppointmentEventForm({
+      id: null,
+      type: APPOINTMENT_EVENT_TYPES[0],
+      status: 'SCHEDULED',
+      comment: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+    setAppointmentError(null);
+    setAppointmentMessage(`Editing appointment ${appointment.id ?? ''}`.trim());
   };
 
   const startEdit = (org: Organization) => {
@@ -828,8 +1206,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.trim().toLowerCase();
-    if (!term) return users;
+    const orgFilter = userOrgFilter.trim().toLowerCase();
     return users.filter((user) => {
+      if (orgFilter && (user.homeOrganizationId ?? '').toLowerCase() !== orgFilter) {
+        return false;
+      }
+      if (!term) return true;
       const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
       const fields = [
         user.username,
@@ -844,7 +1226,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       const roleMatch = (user.roles ?? []).some((role) => role.toLowerCase().includes(term));
       return fields || roleMatch;
     });
-  }, [userSearch, users]);
+  }, [userOrgFilter, userSearch, users]);
 
   const filteredCustomers = useMemo(() => {
     const term = customerSearch.trim().toLowerCase();
@@ -860,6 +1242,63 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     () => customers.find((c) => c.id === customerForm.id),
     [customers, customerForm.id],
   );
+
+  const filteredInteractions = useMemo(() => {
+    const term = interactionSearch.trim().toLowerCase();
+    if (!term) return interactionsWorking;
+    return interactionsWorking.filter((interaction) =>
+      [
+        interaction.id,
+        interaction.type,
+        interaction.status,
+        interaction.comment,
+        interaction.createdBy,
+        interaction.appointmentId,
+        interaction.createdAt,
+      ]
+        .filter(Boolean)
+        .some((value) => value!.toString().toLowerCase().includes(term)),
+    );
+  }, [interactionSearch, interactionsWorking]);
+
+  const filteredResources = useMemo(() => {
+    const term = resourceSearch.trim().toLowerCase();
+    if (!term) return resources;
+    return resources.filter((res) =>
+      [res.id, res.name, res.type, res.orgId, res.kind, res.practitionerUserId]
+        .filter(Boolean)
+        .some((value) => value!.toString().toLowerCase().includes(term)),
+    );
+  }, [resourceSearch, resources]);
+
+  const filteredAppointments = useMemo(() => {
+    const term = appointmentSearch.trim().toLowerCase();
+    if (!term) return appointments;
+    return appointments.filter((appt) =>
+      [
+        appt.id,
+        appt.orgId,
+        appt.customerId,
+        appt.resourceId,
+        appt.appointmentTypeId,
+        appt.status,
+        appt.start,
+        appt.end,
+      ]
+        .filter(Boolean)
+        .some((value) => value!.toString().toLowerCase().includes(term)),
+    );
+  }, [appointmentSearch, appointments]);
+
+  const filteredAppointmentTypes = useMemo(() => {
+    const term = appointmentTypeSearch.trim().toLowerCase();
+    if (!term) return appointmentTypes;
+    return appointmentTypes.filter((type) =>
+      [type.id, type.name, type.category, type.orgId, type.defaultDurationMinutes]
+        .filter(Boolean)
+        .some((value) => value!.toString().toLowerCase().includes(term)),
+    );
+  }, [appointmentTypeSearch, appointmentTypes]);
 
   const filteredScheduleOrgs = useMemo(() => {
     const term = scheduleSearch.trim().toLowerCase();
@@ -1214,6 +1653,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       phone: customerForm.phone.trim(),
       notes: customerForm.notes.trim(),
       dateOfBirth: customerForm.dateOfBirth.trim() || undefined,
+      interactions: interactionsWorking,
     };
     const orgId = customerForm.orgId.trim();
     if (orgId) {
@@ -1275,6 +1715,456 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
 
     Alert.alert('Delete customer', `Delete ${customer.name || customer.email || 'customer'}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
+    ]);
+  };
+
+  const validateResourceForm = () => {
+    if (!resourceForm.name.trim()) {
+      setResourceError('Name is required.');
+      return false;
+    }
+    if (!resourceForm.type.trim()) {
+      setResourceError('Type is required.');
+      return false;
+    }
+    setResourceError(null);
+    return true;
+  };
+
+  const handleResourceSave = async () => {
+    if (!validateResourceForm()) return;
+    setResourceSaving(true);
+    setResourceMessage('Saving resource...');
+
+    const payload: Resource = {
+      name: resourceForm.name.trim(),
+      type: resourceForm.type.trim(),
+      kind: resourceForm.kind,
+      active: resourceForm.active,
+      practitionerUserId: resourceForm.practitionerUserId.trim() || undefined,
+    };
+    const orgId = resourceForm.orgId.trim();
+    if (orgId) {
+      payload.orgId = orgId;
+    }
+    const allowed = resourceForm.allowedAppointmentTypeIds
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (allowed.length > 0) {
+      payload.allowedAppointmentTypeIds = allowed;
+    }
+    const capacityNum = resourceForm.capacity.trim();
+    if (capacityNum) {
+      const parsed = Number(capacityNum);
+      if (!Number.isNaN(parsed)) {
+        payload.capacity = parsed;
+      }
+    }
+
+    const path = resourceForm.id ? `/api/resources/${resourceForm.id}` : '/api/resources';
+    const method = resourceForm.id ? 'PUT' : 'POST';
+
+    try {
+      const res = await authFetch(path, { method, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        setResourceError(await parseErrorMessage(res));
+        setResourceMessage(null);
+        return;
+      }
+      const saved = (await res.json()) as Resource;
+      setResourceMessage(resourceForm.id ? `Updated ${saved.name}` : `Created ${saved.name}`);
+      await loadResources();
+      if (resourceForm.id) {
+        startResourceEdit(saved);
+      } else {
+        resetResourceForm();
+      }
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : 'Unable to save resource.');
+    } finally {
+      setResourceSaving(false);
+    }
+  };
+
+  const handleResourceDelete = (resource: Resource) => {
+    if (!resource.id) return;
+
+    const executeDelete = async () => {
+      setResourceMessage(`Deleting ${resource.name || resource.id || 'resource'}...`);
+      try {
+        const res = await authFetch(`/api/resources/${resource.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          setResourceMessage(await parseErrorMessage(res));
+          return;
+        }
+        await loadResources();
+        if (resourceForm.id === resource.id) {
+          resetResourceForm();
+        }
+        setResourceMessage(`Deleted ${resource.name || resource.id || 'resource'}`);
+      } catch (error) {
+        setResourceMessage(error instanceof Error ? error.message : 'Unable to delete resource.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Delete ${resource.name || resource.id || 'resource'}?`);
+      if (confirmed) {
+        void executeDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete resource', `Delete ${resource.name || resource.id || 'resource'}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
+    ]);
+  };
+
+  const validateAppointmentForm = () => {
+    if (!appointmentForm.customerId.trim() && !appointmentForm.resourceId.trim()) {
+      setAppointmentError('Provide a customerId or resourceId.');
+      return false;
+    }
+    if (!appointmentForm.appointmentTypeId.trim()) {
+      setAppointmentError('Appointment type is required.');
+      return false;
+    }
+    if (!appointmentForm.start.trim() || !appointmentForm.end.trim()) {
+      setAppointmentError('Start and end are required.');
+      return false;
+    }
+    setAppointmentError(null);
+    return true;
+  };
+
+  const handleAppointmentSave = async () => {
+    if (!validateAppointmentForm()) return;
+    setAppointmentSaving(true);
+    setAppointmentMessage('Saving appointment...');
+
+    const payload: Appointment = {
+      orgId: appointmentForm.orgId.trim() || undefined,
+      customerId: appointmentForm.customerId.trim() || undefined,
+      resourceId: appointmentForm.resourceId.trim() || undefined,
+      appointmentTypeId: appointmentForm.appointmentTypeId.trim(),
+      start: appointmentForm.start.trim(),
+      end: appointmentForm.end.trim(),
+      status: appointmentForm.status,
+      events: appointmentEventsWorking,
+    };
+
+    const path = appointmentForm.id ? `/api/appointments/${appointmentForm.id}` : '/api/appointments';
+    const method = appointmentForm.id ? 'PUT' : 'POST';
+
+    try {
+      const res = await authFetch(path, { method, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        setAppointmentError(await parseErrorMessage(res));
+        setAppointmentMessage(null);
+        return;
+      }
+      const saved = (await res.json()) as Appointment;
+      setAppointmentMessage(appointmentForm.id ? `Updated ${saved.id}` : `Created ${saved.id}`);
+      await loadAppointments();
+      if (appointmentForm.id) {
+        startAppointmentEdit(saved);
+      } else {
+        resetAppointmentForm();
+      }
+    } catch (error) {
+      setAppointmentError(error instanceof Error ? error.message : 'Unable to save appointment.');
+    } finally {
+      setAppointmentSaving(false);
+    }
+  };
+
+  const handleAppointmentDelete = (appointment: Appointment) => {
+    if (!appointment.id) return;
+
+    const executeDelete = async () => {
+      setAppointmentMessage(`Deleting ${appointment.id}...`);
+      try {
+        const res = await authFetch(`/api/appointments/${appointment.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          setAppointmentMessage(await parseErrorMessage(res));
+          return;
+        }
+        await loadAppointments();
+        if (appointmentForm.id === appointment.id) {
+          resetAppointmentForm();
+        }
+        setAppointmentMessage(`Deleted ${appointment.id}`);
+      } catch (error) {
+        setAppointmentMessage(error instanceof Error ? error.message : 'Unable to delete appointment.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Delete appointment ${appointment.id}?`);
+      if (confirmed) {
+        void executeDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete appointment', `Delete appointment ${appointment.id}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
+    ]);
+  };
+
+  const resetInteractionForm = () => {
+    setInteractionForm({
+      id: null,
+      type: INTERACTION_TYPES[0],
+      status: INTERACTION_STATUSES[0],
+      comment: '',
+      appointmentId: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  const startInteractionEdit = (interaction: CustomerInteraction) => {
+    setInteractionForm({
+      id: interaction.id ?? null,
+      type: interaction.type ?? INTERACTION_TYPES[0],
+      status: interaction.status ?? INTERACTION_STATUSES[0],
+      comment: interaction.comment ?? '',
+      appointmentId: interaction.appointmentId ?? '',
+      createdBy: interaction.createdBy ?? '',
+      createdAt: interaction.createdAt ?? new Date().toISOString(),
+    });
+  };
+
+  const handleInteractionSave = () => {
+    if (!customerForm.id && !customerForm.name.trim() && !customerForm.email.trim() && !customerForm.phone.trim()) {
+      setCustomerError('Select or create a customer first before adding interactions.');
+      return;
+    }
+    if (!interactionForm.comment.trim()) {
+      setCustomerError('Interaction comment is required.');
+      return;
+    }
+    setCustomerError(null);
+    const normalized: CustomerInteraction = {
+      id: interactionForm.id ?? `interaction-${Date.now()}`,
+      type: interactionForm.type,
+      status: interactionForm.status,
+      comment: interactionForm.comment.trim(),
+      appointmentId: interactionForm.appointmentId.trim() || undefined,
+      createdBy: interactionForm.createdBy.trim() || undefined,
+      createdAt: interactionForm.createdAt || new Date().toISOString(),
+    };
+    setInteractionsWorking((prev) => {
+      const exists = prev.find((i) => i.id === normalized.id);
+      if (exists) {
+        return prev.map((i) => (i.id === normalized.id ? normalized : i));
+      }
+      return [...prev, normalized];
+    });
+    resetInteractionForm();
+    setCustomerMessage('Interaction saved locally. Click "Save customer" to persist.');
+  };
+
+  const handleInteractionDelete = (interaction: CustomerInteraction) => {
+    setInteractionsWorking((prev) => prev.filter((i) => i.id !== interaction.id));
+    if (interactionForm.id === interaction.id) {
+      resetInteractionForm();
+    }
+    setCustomerMessage('Interaction removed locally. Click "Save customer" to persist.');
+  };
+
+  const resetAppointmentEventForm = () => {
+    setAppointmentEventForm({
+      id: null,
+      type: APPOINTMENT_EVENT_TYPES[0],
+      status: 'SCHEDULED',
+      comment: '',
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  const startAppointmentEventEdit = (event: AppointmentEvent) => {
+    setAppointmentEventForm({
+      id: event.id ?? null,
+      type: event.type ?? APPOINTMENT_EVENT_TYPES[0],
+      status: event.status ?? 'SCHEDULED',
+      comment: event.comment ?? '',
+      createdBy: event.createdBy ?? '',
+      createdAt: event.createdAt ?? new Date().toISOString(),
+    });
+  };
+
+  const handleAppointmentEventSave = () => {
+    if (!appointmentForm.customerId.trim() && !appointmentForm.resourceId.trim()) {
+      setAppointmentError('Provide at least customerId or resourceId before adding events.');
+      return;
+    }
+    if (!appointmentEventForm.comment.trim()) {
+      setAppointmentError('Event comment is required.');
+      return;
+    }
+    setAppointmentError(null);
+    const normalized: AppointmentEvent = {
+      id: appointmentEventForm.id ?? `event-${Date.now()}`,
+      type: appointmentEventForm.type,
+      status: appointmentEventForm.status,
+      comment: appointmentEventForm.comment.trim(),
+      createdBy: appointmentEventForm.createdBy.trim() || undefined,
+      createdAt: appointmentEventForm.createdAt || new Date().toISOString(),
+    };
+    setAppointmentEventsWorking((prev) => {
+      const exists = prev.find((e) => e.id === normalized.id);
+      if (exists) {
+        return prev.map((e) => (e.id === normalized.id ? normalized : e));
+      }
+      return [...prev, normalized];
+    });
+    resetAppointmentEventForm();
+    setAppointmentMessage('Event saved locally. Click "Save appointment" to persist.');
+  };
+
+  const handleAppointmentEventDelete = (event: AppointmentEvent) => {
+    setAppointmentEventsWorking((prev) => prev.filter((e) => e.id !== event.id));
+    if (appointmentEventForm.id === event.id) {
+      resetAppointmentEventForm();
+    }
+    setAppointmentMessage('Event removed locally. Click "Save appointment" to persist.');
+  };
+
+  const resetAppointmentTypeForm = useCallback(() => {
+    setAppointmentTypeForm({
+      id: null,
+      orgId: '',
+      name: '',
+      category: '',
+      defaultDurationMinutes: '',
+      allowedDurations: '',
+      requiresResource: false,
+      active: true,
+    });
+    setAppointmentTypeError(null);
+    setAppointmentTypeMessage(null);
+    setAppointmentTypeSearch('');
+  }, []);
+
+  const startAppointmentTypeEdit = (type: AppointmentTypeDto) => {
+    setAppointmentTypeForm({
+      id: type.id ?? null,
+      orgId: type.orgId ?? '',
+      name: type.name ?? '',
+      category: type.category ?? '',
+      defaultDurationMinutes: type.defaultDurationMinutes != null ? String(type.defaultDurationMinutes) : '',
+      allowedDurations: (type.allowedDurations ?? []).join(','),
+      requiresResource: type.requiresResource ?? false,
+      active: type.active ?? true,
+    });
+    setAppointmentTypeError(null);
+    setAppointmentTypeMessage(`Editing ${type.name || type.id || 'appointment type'}`);
+  };
+
+  const validateAppointmentTypeForm = () => {
+    if (!appointmentTypeForm.name.trim()) {
+      setAppointmentTypeError('Name is required.');
+      return false;
+    }
+    setAppointmentTypeError(null);
+    return true;
+  };
+
+  const handleAppointmentTypeSave = async () => {
+    if (!validateAppointmentTypeForm()) return;
+    setAppointmentTypeSaving(true);
+    setAppointmentTypeMessage('Saving appointment type...');
+
+    const payload: AppointmentTypeDto = {
+      name: appointmentTypeForm.name.trim(),
+      category: appointmentTypeForm.category.trim(),
+      requiresResource: appointmentTypeForm.requiresResource,
+      active: appointmentTypeForm.active,
+    };
+    const orgId = appointmentTypeForm.orgId.trim();
+    if (orgId) {
+      payload.orgId = orgId;
+    }
+    const defaultDuration = appointmentTypeForm.defaultDurationMinutes.trim();
+    if (defaultDuration) {
+      const parsed = Number(defaultDuration);
+      if (!Number.isNaN(parsed)) {
+        payload.defaultDurationMinutes = parsed;
+      }
+    }
+    const allowedDurations = appointmentTypeForm.allowedDurations
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => Number(d))
+      .filter((n) => !Number.isNaN(n));
+    if (allowedDurations.length > 0) {
+      payload.allowedDurations = allowedDurations;
+    }
+
+    const path = appointmentTypeForm.id ? `/api/appointment-types/${appointmentTypeForm.id}` : '/api/appointment-types';
+    const method = appointmentTypeForm.id ? 'PUT' : 'POST';
+
+    try {
+      const res = await authFetch(path, { method, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        setAppointmentTypeError(await parseErrorMessage(res));
+        setAppointmentTypeMessage(null);
+        return;
+      }
+      const saved = (await res.json()) as AppointmentTypeDto;
+      setAppointmentTypeMessage(appointmentTypeForm.id ? `Updated ${saved.name}` : `Created ${saved.name}`);
+      await loadAppointmentTypes();
+      if (appointmentTypeForm.id) {
+        startAppointmentTypeEdit(saved);
+      } else {
+        resetAppointmentTypeForm();
+      }
+    } catch (error) {
+      setAppointmentTypeError(error instanceof Error ? error.message : 'Unable to save appointment type.');
+    } finally {
+      setAppointmentTypeSaving(false);
+    }
+  };
+
+  const handleAppointmentTypeDelete = (type: AppointmentTypeDto) => {
+    if (!type.id) return;
+
+    const executeDelete = async () => {
+      setAppointmentTypeMessage(`Deleting ${type.name || type.id || 'appointment type'}...`);
+      try {
+        const res = await authFetch(`/api/appointment-types/${type.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          setAppointmentTypeMessage(await parseErrorMessage(res));
+          return;
+        }
+        await loadAppointmentTypes();
+        if (appointmentTypeForm.id === type.id) {
+          resetAppointmentTypeForm();
+        }
+        setAppointmentTypeMessage(`Deleted ${type.name || type.id || 'appointment type'}`);
+      } catch (error) {
+        setAppointmentTypeMessage(error instanceof Error ? error.message : 'Unable to delete appointment type.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Delete ${type.name || type.id || 'appointment type'}?`);
+      if (confirmed) {
+        void executeDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete appointment type', `Delete ${type.name || type.id || 'appointment type'}?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
     ]);
@@ -1486,7 +2376,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       </View>
 
       <View style={[styles.card, styles.cardWide]}>
-        <View style={styles.tabRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabRow}
+        >
           <Pressable
             style={[styles.tabButton, activeTab === 'orgs' && styles.tabButtonActive]}
             onPress={() => setActiveTab('orgs')}
@@ -1527,7 +2421,31 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               Customers
             </Text>
           </Pressable>
-        </View>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'resources' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('resources')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'resources' && styles.tabButtonTextActive]}>
+              Resources
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'appointments' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('appointments')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'appointments' && styles.tabButtonTextActive]}>
+              Appointments
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'appointmentTypes' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('appointmentTypes')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'appointmentTypes' && styles.tabButtonTextActive]}>
+              Appointment types
+            </Text>
+          </Pressable>
+        </ScrollView>
 
         {activeTab === 'orgs' ? (
           <>
@@ -2145,6 +3063,645 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               <Text style={styles.statusText}>Select an organization to edit its schedule.</Text>
             )}
           </>
+        ) : activeTab === 'resources' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Resources ({filteredResources.length}/{resources.length})</Text>
+                <View style={styles.sectionActions}>
+                  <Pressable onPress={resetResourceForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New</Text>
+                  </Pressable>
+                  <Pressable onPress={() => loadResources()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.searchBox}>
+                <TextInput
+                  value={resourceSearch}
+                  onChangeText={setResourceSearch}
+                  placeholder="Search by id, name, type, org, kind, practitioner"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  style={styles.searchInput}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.row}>
+                <View style={styles.flexHalf}>
+                  <InputField
+                    label="Org filter (optional)"
+                    placeholder="org-aurora-retail"
+                    value={resourceOrgFilter}
+                    onChangeText={setResourceOrgFilter}
+                  />
+                </View>
+                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
+                  <Pressable onPress={() => loadResources()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            {resourceMessage ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{resourceMessage}</Text>
+              </View>
+            ) : null}
+            {resourceError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{resourceError}</Text>
+              </View>
+            ) : null}
+
+            {resourceLoading ? (
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#7dd3fc" />
+                <Text style={styles.statusText}>Loading resources...</Text>
+              </View>
+            ) : (
+              <View style={styles.orgList}>
+                {filteredResources.map((resource) => (
+                  <Pressable
+                    key={resource.id ?? resource.name}
+                    style={[styles.orgCard, resourceForm.id === resource.id && styles.orgCardActive]}
+                    onPress={() => startResourceEdit(resource)}
+                  >
+                    <View style={styles.orgHeader}>
+                      <Text style={styles.orgName}>{resource.name || 'Untitled resource'}</Text>
+                      <Text style={styles.orgType}>{resource.type || 'Type N/A'}</Text>
+                    </View>
+                    <Text style={styles.orgMeta}>
+                      Org: {resource.orgId || 'N/A'} - Kind: {resource.kind || 'ASSET'} - Active:{' '}
+                      {resource.active ? 'Yes' : 'No'}
+                    </Text>
+                    <Text style={styles.orgMeta}>
+                      Allowed appt types: {(resource.allowedAppointmentTypeIds || []).join(', ') || 'Any'}
+                    </Text>
+                    {resource.practitionerUserId ? (
+                      <Text style={styles.orgMeta}>Practitioner user: {resource.practitionerUserId}</Text>
+                    ) : null}
+                    <View style={styles.orgActions}>
+                      <Pressable onPress={() => startResourceEdit(resource)} style={styles.orgAction}>
+                        <Text style={styles.link}>Edit</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleResourceDelete(resource)} style={styles.orgAction}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                ))}
+                {filteredResources.length === 0 ? (
+                  <Text style={styles.statusText}>No resources match the filters.</Text>
+                ) : null}
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{resourceForm.id ? 'Edit resource' : 'Create resource'}</Text>
+              {resourceForm.id ? (
+                <Pressable onPress={resetResourceForm} style={styles.secondaryChip}>
+                  <Text style={styles.secondaryChipText}>Reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <InputField
+              label="Name"
+              placeholder="MRI machine, Room 101, Dr. Smith"
+              value={resourceForm.name}
+              onChangeText={(name) => setResourceForm((prev) => ({ ...prev, name }))}
+            />
+            <InputField
+              label="Type"
+              placeholder="facility, equipment, practitioner"
+              value={resourceForm.type}
+              onChangeText={(type) => setResourceForm((prev) => ({ ...prev, type }))}
+            />
+            <InputField
+              label="Org id (required for platform admins)"
+              placeholder="org-aurora-retail"
+              value={resourceForm.orgId}
+              onChangeText={(orgId) => setResourceForm((prev) => ({ ...prev, orgId }))}
+            />
+            <InputField
+              label="Allowed appointment type ids (comma separated)"
+              placeholder="appt-consultation, appt-followup"
+              value={resourceForm.allowedAppointmentTypeIds}
+              onChangeText={(allowedAppointmentTypeIds) => setResourceForm((prev) => ({ ...prev, allowedAppointmentTypeIds }))}
+            />
+            <InputField
+              label="Capacity (optional)"
+              placeholder="1"
+              value={resourceForm.capacity}
+              onChangeText={(capacity) => setResourceForm((prev) => ({ ...prev, capacity }))}
+            />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Kind</Text>
+              <View style={styles.typeChips}>
+                {RESOURCE_KINDS.map((kind) => {
+                  const selected = resourceForm.kind === kind;
+                  return (
+                    <Pressable
+                      key={kind}
+                      onPress={() => setResourceForm((prev) => ({ ...prev, kind }))}
+                      style={[styles.typeChip, selected && styles.typeChipSelected]}
+                    >
+                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{kind}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <Pressable
+              onPress={() => setResourceForm((prev) => ({ ...prev, active: !prev.active }))}
+              style={styles.rememberRow}
+            >
+              <View style={[styles.checkbox, resourceForm.active && styles.checkboxChecked]}>
+                {resourceForm.active ? <View style={styles.checkboxDot} /> : null}
+              </View>
+              <Text style={styles.rememberText}>Active</Text>
+            </Pressable>
+            <InputField
+              label="Practitioner user id (optional, for HUMAN kind)"
+              placeholder="user-practitioner"
+              value={resourceForm.practitionerUserId}
+              onChangeText={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
+            />
+
+            <PrimaryButton
+              label={resourceSaving ? 'Saving resource...' : resourceForm.id ? 'Update resource' : 'Create resource'}
+              onPress={handleResourceSave}
+              disabled={resourceSaving}
+            />
+          </>
+        ) : activeTab === 'appointments' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Appointments ({filteredAppointments.length}/{appointments.length})</Text>
+                <View style={styles.sectionActions}>
+                  <Pressable onPress={resetAppointmentForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New</Text>
+                  </Pressable>
+                  <Pressable onPress={() => loadAppointments()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.searchBox}>
+                <TextInput
+                  value={appointmentSearch}
+                  onChangeText={setAppointmentSearch}
+                  placeholder="Search by id, org, customer, resource, type, status"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  style={styles.searchInput}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.row}>
+                <View style={styles.flexHalf}>
+                  <InputField
+                    label="Org filter (optional)"
+                    placeholder="org-aurora-retail"
+                    value={appointmentOrgFilter}
+                    onChangeText={setAppointmentOrgFilter}
+                  />
+                </View>
+                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
+                  <Pressable onPress={() => loadAppointments()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            {appointmentMessage ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{appointmentMessage}</Text>
+              </View>
+            ) : null}
+            {appointmentError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{appointmentError}</Text>
+              </View>
+            ) : null}
+
+            {appointmentLoading ? (
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#7dd3fc" />
+                <Text style={styles.statusText}>Loading appointments...</Text>
+              </View>
+            ) : (
+              <View style={styles.orgList}>
+                {filteredAppointments.map((appt) => (
+                  <Pressable
+                    key={appt.id ?? `${appt.customerId}-${appt.start}`}
+                    style={[styles.orgCard, appointmentForm.id === appt.id && styles.orgCardActive]}
+                    onPress={() => startAppointmentEdit(appt)}
+                  >
+                    <View style={styles.orgHeader}>
+                      <Text style={styles.orgName}>{appt.id || 'Appointment'}</Text>
+                      <Text style={styles.orgType}>{appt.status || 'SCHEDULED'}</Text>
+                    </View>
+                    <Text style={styles.orgMeta}>
+                      Customer: {appt.customerId || 'N/A'} - Resource: {appt.resourceId || 'N/A'}
+                    </Text>
+                    <Text style={styles.orgMeta}>
+                      Type: {appt.appointmentTypeId || 'N/A'} - {appt.start || '--'} to {appt.end || '--'}
+                    </Text>
+                    <View style={styles.orgActions}>
+                      <Pressable onPress={() => startAppointmentEdit(appt)} style={styles.orgAction}>
+                        <Text style={styles.link}>Edit</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleAppointmentDelete(appt)} style={styles.orgAction}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                ))}
+                {filteredAppointments.length === 0 ? (
+                  <Text style={styles.statusText}>No appointments match the filters.</Text>
+                ) : null}
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{appointmentForm.id ? 'Edit appointment' : 'Create appointment'}</Text>
+              {appointmentForm.id ? (
+                <Pressable onPress={resetAppointmentForm} style={styles.secondaryChip}>
+                  <Text style={styles.secondaryChipText}>Reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <InputField
+              label="Org id (required for platform admins)"
+              placeholder="org-aurora-retail"
+              value={appointmentForm.orgId}
+              onChangeText={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
+            />
+            <InputField
+              label="Customer id"
+              placeholder="customer-123"
+              value={appointmentForm.customerId}
+              onChangeText={(customerId) => setAppointmentForm((prev) => ({ ...prev, customerId }))}
+            />
+            <InputField
+              label="Resource id"
+              placeholder="resource-123"
+              value={appointmentForm.resourceId}
+              onChangeText={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
+            />
+            <InputField
+              label="Appointment type id"
+              placeholder="appt-consultation"
+              value={appointmentForm.appointmentTypeId}
+              onChangeText={(appointmentTypeId) => setAppointmentForm((prev) => ({ ...prev, appointmentTypeId }))}
+            />
+            <InputField
+              label="Start (ISO-8601)"
+              placeholder="2025-12-01T09:00:00"
+              value={appointmentForm.start}
+              onChangeText={(start) => setAppointmentForm((prev) => ({ ...prev, start }))}
+            />
+            <InputField
+              label="End (ISO-8601)"
+              placeholder="2025-12-01T09:30:00"
+              value={appointmentForm.end}
+              onChangeText={(end) => setAppointmentForm((prev) => ({ ...prev, end }))}
+            />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Status</Text>
+              <View style={styles.typeChips}>
+                {APPOINTMENT_STATUSES.map((status) => {
+                  const selected = appointmentForm.status === status;
+                  return (
+                    <Pressable
+                      key={status}
+                      onPress={() => setAppointmentForm((prev) => ({ ...prev, status }))}
+                      style={[styles.typeChip, selected && styles.typeChipSelected]}
+                    >
+                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <PrimaryButton
+              label={appointmentSaving ? 'Saving appointment...' : appointmentForm.id ? 'Update appointment' : 'Create appointment'}
+              onPress={handleAppointmentSave}
+              disabled={appointmentSaving}
+            />
+
+            {appointmentForm.id ? (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Events</Text>
+                  <Pressable onPress={resetAppointmentEventForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New event</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.searchBox}>
+                  <TextInput
+                    value={interactionSearch}
+                    onChangeText={setInteractionSearch}
+                    placeholder="Search events by type, status, comment, createdBy"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={styles.searchInput}
+                    autoCapitalize="none"
+                  />
+                </View>
+                <View style={styles.orgList}>
+                  {appointmentEventsWorking
+                    .filter((event) => {
+                      const term = interactionSearch.trim().toLowerCase();
+                      if (!term) return true;
+                      return [event.id, event.type, event.status, event.comment, event.createdBy, event.createdAt]
+                        .filter(Boolean)
+                        .some((value) => value!.toString().toLowerCase().includes(term));
+                    })
+                    .map((event) => (
+                      <Pressable
+                        key={event.id ?? event.createdAt}
+                        style={[styles.orgCard, appointmentEventForm.id === event.id && styles.orgCardActive]}
+                        onPress={() => startAppointmentEventEdit(event)}
+                      >
+                        <View style={styles.orgHeader}>
+                          <Text style={styles.orgName}>{event.type ?? 'Event'}</Text>
+                          <Text style={styles.orgType}>{event.status ?? 'N/A'}</Text>
+                        </View>
+                        <Text style={styles.orgMeta}>{event.comment || 'No comment'}</Text>
+                        <Text style={styles.orgMeta}>
+                          By {event.createdBy || 'unknown'}
+                          {event.createdAt ? ` - ${event.createdAt}` : ''}
+                        </Text>
+                        <View style={styles.orgActions}>
+                          <Pressable onPress={() => startAppointmentEventEdit(event)} style={styles.orgAction}>
+                            <Text style={styles.link}>Edit</Text>
+                          </Pressable>
+                          <Pressable onPress={() => handleAppointmentEventDelete(event)} style={styles.orgAction}>
+                            <Text style={styles.deleteText}>Delete</Text>
+                          </Pressable>
+                        </View>
+                      </Pressable>
+                    ))}
+                  {appointmentEventsWorking.length === 0 ? (
+                    <Text style={styles.statusText}>No events yet.</Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>
+                    {appointmentEventForm.id ? 'Edit event' : 'Add event'}
+                  </Text>
+                  <Pressable onPress={resetAppointmentEventForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Reset</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.inputField}>
+                  <Text style={styles.label}>Type</Text>
+                  <View style={styles.typeChips}>
+                    {APPOINTMENT_EVENT_TYPES.map((type) => {
+                      const selected = appointmentEventForm.type === type;
+                      return (
+                        <Pressable
+                          key={type}
+                          onPress={() => setAppointmentEventForm((prev) => ({ ...prev, type }))}
+                          style={[styles.typeChip, selected && styles.typeChipSelected]}
+                        >
+                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{type}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.inputField}>
+                  <Text style={styles.label}>Status</Text>
+                  <View style={styles.typeChips}>
+                    {APPOINTMENT_STATUSES.map((status) => {
+                      const selected = appointmentEventForm.status === status;
+                      return (
+                        <Pressable
+                          key={status}
+                          onPress={() => setAppointmentEventForm((prev) => ({ ...prev, status }))}
+                          style={[styles.typeChip, selected && styles.typeChipSelected]}
+                        >
+                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <InputField
+                  label="Comment"
+                  placeholder="Describe the event"
+                  value={appointmentEventForm.comment}
+                  onChangeText={(comment) => setAppointmentEventForm((prev) => ({ ...prev, comment }))}
+                />
+                <InputField
+                  label="Created by"
+                  placeholder="agent@example.com"
+                  value={appointmentEventForm.createdBy}
+                  onChangeText={(createdBy) => setAppointmentEventForm((prev) => ({ ...prev, createdBy }))}
+                />
+                <InputField
+                  label="Created at (ISO-8601)"
+                  placeholder={new Date().toISOString()}
+                  value={appointmentEventForm.createdAt}
+                  onChangeText={(createdAt) => setAppointmentEventForm((prev) => ({ ...prev, createdAt }))}
+                />
+
+                <PrimaryButton
+                  label={appointmentEventForm.id ? 'Update event' : 'Add event'}
+                  onPress={handleAppointmentEventSave}
+                  disabled={appointmentSaving}
+                />
+              </>
+            ) : null}
+          </>
+        ) : activeTab === 'appointmentTypes' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>
+                  Appointment types ({filteredAppointmentTypes.length}/{appointmentTypes.length})
+                </Text>
+                <View style={styles.sectionActions}>
+                  <Pressable onPress={resetAppointmentTypeForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New</Text>
+                  </Pressable>
+                  <Pressable onPress={() => loadAppointmentTypes()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.searchBox}>
+                <TextInput
+                  value={appointmentTypeSearch}
+                  onChangeText={setAppointmentTypeSearch}
+                  placeholder="Search by id, name, category, org, duration"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  style={styles.searchInput}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.row}>
+                <View style={styles.flexHalf}>
+                  <InputField
+                    label="Org filter (optional)"
+                    placeholder="org-aurora-retail"
+                    value={appointmentTypeOrgFilter}
+                    onChangeText={setAppointmentTypeOrgFilter}
+                  />
+                </View>
+                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
+                  <Pressable onPress={() => loadAppointmentTypes()} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            {appointmentTypeMessage ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{appointmentTypeMessage}</Text>
+              </View>
+            ) : null}
+            {appointmentTypeError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{appointmentTypeError}</Text>
+              </View>
+            ) : null}
+
+            {appointmentTypeLoading ? (
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#7dd3fc" />
+                <Text style={styles.statusText}>Loading appointment types...</Text>
+              </View>
+            ) : (
+              <View style={styles.orgList}>
+                {filteredAppointmentTypes.map((type) => (
+                  <Pressable
+                    key={type.id ?? type.name}
+                    style={[styles.orgCard, appointmentTypeForm.id === type.id && styles.orgCardActive]}
+                    onPress={() => startAppointmentTypeEdit(type)}
+                  >
+                    <View style={styles.orgHeader}>
+                      <Text style={styles.orgName}>{type.name || 'Appointment type'}</Text>
+                      <Text style={styles.orgType}>{type.category || 'No category'}</Text>
+                    </View>
+                    <Text style={styles.orgMeta}>
+                      Org: {type.orgId || 'N/A'} - Default duration: {type.defaultDurationMinutes ?? 'N/A'} mins
+                    </Text>
+                    <Text style={styles.orgMeta}>
+                      Allowed durations: {(type.allowedDurations ?? []).join(', ') || 'Any'} - Requires resource:{' '}
+                      {type.requiresResource ? 'Yes' : 'No'} - Active: {type.active ? 'Yes' : 'No'}
+                    </Text>
+                    <View style={styles.orgActions}>
+                      <Pressable onPress={() => startAppointmentTypeEdit(type)} style={styles.orgAction}>
+                        <Text style={styles.link}>Edit</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleAppointmentTypeDelete(type)} style={styles.orgAction}>
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                ))}
+                {filteredAppointmentTypes.length === 0 ? (
+                  <Text style={styles.statusText}>No appointment types match the filters.</Text>
+                ) : null}
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {appointmentTypeForm.id ? 'Edit appointment type' : 'Create appointment type'}
+              </Text>
+              {appointmentTypeForm.id ? (
+                <Pressable onPress={resetAppointmentTypeForm} style={styles.secondaryChip}>
+                  <Text style={styles.secondaryChipText}>Reset</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <InputField
+              label="Name"
+              placeholder="Consultation"
+              value={appointmentTypeForm.name}
+              onChangeText={(name) => setAppointmentTypeForm((prev) => ({ ...prev, name }))}
+            />
+            <InputField
+              label="Category"
+              placeholder="Medical"
+              value={appointmentTypeForm.category}
+              onChangeText={(category) => setAppointmentTypeForm((prev) => ({ ...prev, category }))}
+            />
+            <InputField
+              label="Org id (required for platform admins)"
+              placeholder="org-aurora-retail"
+              value={appointmentTypeForm.orgId}
+              onChangeText={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
+            />
+            <InputField
+              label="Default duration (minutes)"
+              placeholder="30"
+              value={appointmentTypeForm.defaultDurationMinutes}
+              onChangeText={(defaultDurationMinutes) =>
+                setAppointmentTypeForm((prev) => ({ ...prev, defaultDurationMinutes }))
+              }
+            />
+            <InputField
+              label="Allowed durations (comma separated minutes)"
+              placeholder="15,30,45,60"
+              value={appointmentTypeForm.allowedDurations}
+              onChangeText={(allowedDurations) => setAppointmentTypeForm((prev) => ({ ...prev, allowedDurations }))}
+            />
+            <Pressable
+              onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, requiresResource: !prev.requiresResource }))}
+              style={styles.rememberRow}
+            >
+              <View style={[styles.checkbox, appointmentTypeForm.requiresResource && styles.checkboxChecked]}>
+                {appointmentTypeForm.requiresResource ? <View style={styles.checkboxDot} /> : null}
+              </View>
+              <Text style={styles.rememberText}>Requires resource</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, active: !prev.active }))}
+              style={styles.rememberRow}
+            >
+              <View style={[styles.checkbox, appointmentTypeForm.active && styles.checkboxChecked]}>
+                {appointmentTypeForm.active ? <View style={styles.checkboxDot} /> : null}
+              </View>
+              <Text style={styles.rememberText}>Active</Text>
+            </Pressable>
+
+            <PrimaryButton
+              label={
+                appointmentTypeSaving
+                  ? 'Saving appointment type...'
+                  : appointmentTypeForm.id
+                    ? 'Update appointment type'
+                    : 'Create appointment type'
+              }
+              onPress={handleAppointmentTypeSave}
+              disabled={appointmentTypeSaving}
+            />
+          </>
         ) : activeTab === 'customers' ? (
           <>
             <View style={styles.sectionHeader}>
@@ -2294,13 +3851,35 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={customerSaving}
             />
 
-            {selectedCustomer?.interactions && selectedCustomer.interactions.length > 0 ? (
+            {customerForm.id ? (
               <>
                 <View style={styles.divider} />
-                <Text style={styles.sectionTitle}>Interactions</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Interactions</Text>
+                  <Pressable onPress={resetInteractionForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>New interaction</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.searchBox}>
+                  <TextInput
+                    value={interactionSearch}
+                    onChangeText={setInteractionSearch}
+                    placeholder="Search interactions by type, status, comment, createdBy, appointment"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={styles.searchInput}
+                    autoCapitalize="none"
+                  />
+                </View>
                 <View style={styles.orgList}>
-                  {selectedCustomer.interactions!.map((interaction) => (
-                    <View key={interaction.id ?? interaction.createdAt} style={styles.orgCard}>
+                  {filteredInteractions.map((interaction) => (
+                    <Pressable
+                      key={interaction.id ?? interaction.createdAt}
+                      style={[
+                        styles.orgCard,
+                        interactionForm.id === interaction.id && styles.orgCardActive,
+                      ]}
+                      onPress={() => startInteractionEdit(interaction)}
+                    >
                       <View style={styles.orgHeader}>
                         <Text style={styles.orgName}>{interaction.type ?? 'Interaction'}</Text>
                         <Text style={styles.orgType}>{interaction.status ?? 'N/A'}</Text>
@@ -2313,9 +3892,98 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       {interaction.appointmentId ? (
                         <Text style={styles.orgMeta}>Appointment: {interaction.appointmentId}</Text>
                       ) : null}
-                    </View>
+                      <View style={styles.orgActions}>
+                        <Pressable onPress={() => startInteractionEdit(interaction)} style={styles.orgAction}>
+                          <Text style={styles.link}>Edit</Text>
+                        </Pressable>
+                        <Pressable onPress={() => handleInteractionDelete(interaction)} style={styles.orgAction}>
+                          <Text style={styles.deleteText}>Delete</Text>
+                        </Pressable>
+                      </View>
+                    </Pressable>
                   ))}
+                  {filteredInteractions.length === 0 ? (
+                    <Text style={styles.statusText}>No interactions match the filters.</Text>
+                  ) : null}
                 </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>
+                    {interactionForm.id ? 'Edit interaction' : 'Add interaction'}
+                  </Text>
+                  <Pressable onPress={resetInteractionForm} style={styles.secondaryChip}>
+                    <Text style={styles.secondaryChipText}>Reset</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.inputField}>
+                  <Text style={styles.label}>Type</Text>
+                  <View style={styles.typeChips}>
+                    {INTERACTION_TYPES.map((type) => {
+                      const selected = interactionForm.type === type;
+                      return (
+                        <Pressable
+                          key={type}
+                          onPress={() => setInteractionForm((prev) => ({ ...prev, type }))}
+                          style={[styles.typeChip, selected && styles.typeChipSelected]}
+                        >
+                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{type}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.inputField}>
+                  <Text style={styles.label}>Status</Text>
+                  <View style={styles.typeChips}>
+                    {INTERACTION_STATUSES.map((status) => {
+                      const selected = interactionForm.status === status;
+                      return (
+                        <Pressable
+                          key={status}
+                          onPress={() => setInteractionForm((prev) => ({ ...prev, status }))}
+                          style={[styles.typeChip, selected && styles.typeChipSelected]}
+                        >
+                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <InputField
+                  label="Comment"
+                  placeholder="Describe the interaction"
+                  value={interactionForm.comment}
+                  onChangeText={(comment) => setInteractionForm((prev) => ({ ...prev, comment }))}
+                />
+                <InputField
+                  label="Appointment ID (optional)"
+                  placeholder="appt-123"
+                  value={interactionForm.appointmentId}
+                  onChangeText={(appointmentId) => setInteractionForm((prev) => ({ ...prev, appointmentId }))}
+                />
+                <InputField
+                  label="Created by"
+                  placeholder="agent@example.com"
+                  value={interactionForm.createdBy}
+                  onChangeText={(createdBy) => setInteractionForm((prev) => ({ ...prev, createdBy }))}
+                />
+                <InputField
+                  label="Created at (ISO-8601)"
+                  placeholder={new Date().toISOString()}
+                  value={interactionForm.createdAt}
+                  onChangeText={(createdAt) => setInteractionForm((prev) => ({ ...prev, createdAt }))}
+                />
+
+                <PrimaryButton
+                  label={interactionForm.id ? 'Update interaction' : 'Add interaction'}
+                  onPress={handleInteractionSave}
+                  disabled={customerSaving}
+                />
               </>
             ) : null}
           </>
@@ -2638,7 +4306,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 8,
   },
-  cardWide: { maxWidth: 900 },
+  cardWide: { maxWidth: 1100 },
   inputField: { gap: 6 },
   label: {
     color: '#e5e7eb',
@@ -2816,6 +4484,7 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 12,
   },
