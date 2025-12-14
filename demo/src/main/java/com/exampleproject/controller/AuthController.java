@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -42,15 +42,17 @@ public class AuthController {
         if (identifier == null || identifier.isBlank() || password == null || password.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identifier and password are required");
         }
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(identifier);
-        if (userOpt.isEmpty()) {
-            userOpt = userRepository.findByUsernameIgnoreCase(identifier);
-        }
-        User user = userOpt.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        String normalizedIdentifier = identifier.trim();
+        List<User> candidates = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(
+                normalizedIdentifier,
+                normalizedIdentifier
+        );
+        User user = candidates.stream()
+                .filter(candidate -> candidate.getPassword() != null
+                        && passwordEncoder.matches(password, candidate.getPassword()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
         enforceExpiration(user);
-        if (user.getPassword() == null || !passwordEncoder.matches(password, user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
-        }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is not active");
         }

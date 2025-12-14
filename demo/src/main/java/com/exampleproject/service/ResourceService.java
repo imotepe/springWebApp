@@ -22,8 +22,15 @@ public class ResourceService {
 
     public List<Resource> findAll() {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        if (context.isPlatformUser()) {
+        if (context.isSuperAdmin()) {
             return repository.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            List<String> orgIds = List.copyOf(context.permittedOrgIds(OrganizationAccessManager.AccessIntent.READ));
+            if (orgIds.isEmpty()) {
+                return List.of();
+            }
+            return repository.findByOrgIdIn(orgIds);
         }
         return repository.findByOrgId(context.requireOrgScope());
     }
@@ -48,6 +55,7 @@ public class ResourceService {
             if (resource.getOrgId() == null || resource.getOrgId().isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for resources");
             }
+            context.checkOrgAccess(resource.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         } else {
             resource.setOrgId(context.requireOrgScope());
         }
@@ -57,7 +65,7 @@ public class ResourceService {
     public Resource update(String id, Resource resource) {
         Resource existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         resource.setId(id);
         resource.setOrgId(existing.getOrgId());
         return repository.save(resource);
@@ -66,7 +74,7 @@ public class ResourceService {
     public void delete(String id) {
         Resource existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         repository.deleteById(id);
     }
 }

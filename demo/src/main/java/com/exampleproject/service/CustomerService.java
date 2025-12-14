@@ -22,8 +22,16 @@ public class CustomerService {
 
     public List<Customer> findAll() {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        if (context.isPlatformUser()) {
+        forbidPlatformAdmin(context);
+        if (context.isSuperAdmin()) {
             return repository.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            List<String> orgIds = List.copyOf(context.permittedOrgIds(OrganizationAccessManager.AccessIntent.READ));
+            if (orgIds.isEmpty()) {
+                return List.of();
+            }
+            return repository.findByOrgIdIn(orgIds);
         }
         return repository.findByOrgId(context.requireOrgScope());
     }
@@ -31,17 +39,21 @@ public class CustomerService {
     public Customer findById(String id) {
         Customer customer = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(customer.getOrgId());
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        forbidPlatformAdmin(context);
+        context.checkOrgAccess(customer.getOrgId());
         return customer;
     }
 
     public Customer create(Customer customer) {
         customer.setId(null);
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        forbidPlatformAdmin(context);
         if (context.isPlatformUser()) {
             if (customer.getOrgId() == null || customer.getOrgId().isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for customers");
             }
+            context.checkOrgAccess(customer.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         } else {
             customer.setOrgId(context.requireOrgScope());
         }
@@ -52,7 +64,8 @@ public class CustomerService {
         Customer existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        context.checkOrgAccess(existing.getOrgId());
+        forbidPlatformAdmin(context);
+        context.checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         customer.setId(id);
         if (context.isPlatformUser()) {
             if (customer.getOrgId() == null || customer.getOrgId().isBlank()) {
@@ -67,7 +80,15 @@ public class CustomerService {
     public void delete(String id) {
         Customer existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        forbidPlatformAdmin(context);
+        context.checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         repository.deleteById(id);
+    }
+
+    private void forbidPlatformAdmin(OrganizationAccessManager.OrganizationAccessContext context) {
+        if (!context.isSuperAdmin() && context.isPlatformAdmin()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admins cannot access customers");
+        }
     }
 }

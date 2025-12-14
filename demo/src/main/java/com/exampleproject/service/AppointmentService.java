@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -49,19 +50,29 @@ public class AppointmentService {
 
     public List<Appointment> findAll() {
         UserAccessContext context = resolveContext();
-        if (context.isPlatformUser()) {
+        forbidPlatformAdmin(context);
+        if (context.isSuperAdmin()) {
             return appointmentRepository.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            List<String> orgIds = List.copyOf(context.permittedOrgIds(OrganizationAccessManager.AccessIntent.READ));
+            if (orgIds.isEmpty()) {
+                return List.of();
+            }
+            return appointmentRepository.findByOrgIdIn(orgIds);
         }
         return appointmentRepository.findByOrgId(context.requireOrgScope());
     }
 
     public List<Appointment> findByCustomerId(String customerId) {
         UserAccessContext context = resolveContext();
+        forbidPlatformAdmin(context);
         return filterByOrgScope(appointmentRepository.findByCustomerId(customerId), context);
     }
 
     public List<Appointment> findByStartRange(LocalDateTime start, LocalDateTime end) {
         UserAccessContext context = resolveContext();
+        forbidPlatformAdmin(context);
         if (start == null || end == null) {
             return findAll();
         }
@@ -71,6 +82,7 @@ public class AppointmentService {
 
     public List<Appointment> search(String customerId, LocalDateTime from, LocalDateTime to) {
         UserAccessContext context = resolveContext();
+        forbidPlatformAdmin(context);
         if (context.isPractitioner()) {
             return findForPractitioner(context, customerId, from, to);
         }
@@ -88,13 +100,12 @@ public class AppointmentService {
             validateTimeRange(from, to);
             return filterByOrgScope(appointmentRepository.findByStartTimeBetween(from, to), context);
         }
-        return context.isPlatformUser()
-                ? appointmentRepository.findAll()
-                : appointmentRepository.findByOrgId(context.requireOrgScope());
+        return filterByOrgScope(appointmentRepository.findAll(), context);
     }
 
     public Appointment findByIdForUser(String id) {
         UserAccessContext context = resolveContext();
+        forbidPlatformAdmin(context);
         Appointment appointment = loadAccessibleAppointment(id, context);
         if (context.isPractitioner()) {
             sanitizeAppointmentForPractitioner(appointment, context);
@@ -104,6 +115,7 @@ public class AppointmentService {
 
     public Appointment create(Appointment appointment) {
         UserAccessContext context = resolveContext();
+        forbidPlatformAdmin(context);
         appointment.setId(null);
         ensureOrgForWrite(appointment, context, null);
         validateAppointment(appointment);
@@ -116,7 +128,8 @@ public class AppointmentService {
 
     public Appointment update(String id, Appointment appointment) {
         UserAccessContext context = resolveContext();
-        Appointment existing = loadAccessibleAppointment(id, context);
+        forbidPlatformAdmin(context);
+        Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
         ensureOrgForWrite(appointment, context, existing);
         validateAppointment(appointment);
         appointment.setId(id);
@@ -129,7 +142,8 @@ public class AppointmentService {
 
     public void delete(String id) {
         UserAccessContext context = resolveContext();
-        Appointment existing = loadAccessibleAppointment(id, context);
+        forbidPlatformAdmin(context);
+        Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
         appointmentRepository.deleteById(existing.getId());
     }
 
@@ -138,7 +152,8 @@ public class AppointmentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Event payload is required");
         }
         UserAccessContext context = resolveContext();
-        Appointment appointment = loadAccessibleAppointment(appointmentId, context);
+        forbidPlatformAdmin(context);
+        Appointment appointment = loadAccessibleAppointment(appointmentId, context, OrganizationAccessManager.AccessIntent.WRITE);
 
         ensureEventsCollection(appointment);
 
@@ -237,19 +252,26 @@ public class AppointmentService {
     }
 
     private List<Appointment> filterByOrgScope(List<Appointment> appointments, UserAccessContext context) {
-        if (context.isPlatformUser()) {
+        if (context.isSuperAdmin()) {
             return appointments;
         }
-        String orgId = context.requireOrgScope();
+        List<String> permitted = List.copyOf(context.permittedOrgIds(OrganizationAccessManager.AccessIntent.READ));
+        if (permitted.isEmpty()) {
+            return List.of();
+        }
         return appointments.stream()
-                .filter(appt -> orgId.equals(appt.getOrgId()))
+                .filter(appt -> permitted.contains(appt.getOrgId()))
                 .collect(Collectors.toList());
     }
 
     private Appointment loadAccessibleAppointment(String id, UserAccessContext context) {
+        return loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.READ);
+    }
+
+    private Appointment loadAccessibleAppointment(String id, UserAccessContext context, OrganizationAccessManager.AccessIntent intent) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found"));
-        context.checkOrgAccess(appointment.getOrgId());
+        context.checkOrgAccess(appointment.getOrgId(), intent);
         return appointment;
     }
 
@@ -262,6 +284,7 @@ public class AppointmentService {
             if (appointment.getOrgId() == null || appointment.getOrgId().isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for appointments");
             }
+            context.checkOrgAccess(appointment.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         } else {
             appointment.setOrgId(context.requireOrgScope());
         }
@@ -288,6 +311,12 @@ public class AppointmentService {
         String appointmentResourceId = appointment.getResourceId();
         if (appointmentResourceId == null || !appointmentResourceId.equals(resource.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Appointment not assigned to practitioner");
+        }
+    }
+
+    private void forbidPlatformAdmin(UserAccessContext context) {
+        if (!context.isSuperAdmin() && context.isPlatformAdmin()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admins cannot access appointments or events");
         }
     }
 
@@ -362,6 +391,14 @@ public class AppointmentService {
             return orgContext.isPlatformUser();
         }
 
+        boolean isSuperAdmin() {
+            return orgContext.isSuperAdmin();
+        }
+
+        boolean isPlatformAdmin() {
+            return orgContext.isPlatformAdmin();
+        }
+
         String requireOrgScope() {
             if (orgContext.isPlatformUser()) {
                 throw new IllegalStateException("Platform users are not scoped");
@@ -369,8 +406,8 @@ public class AppointmentService {
             return orgContext.requireOrgScope();
         }
 
-        void checkOrgAccess(String orgId) {
-            orgContext.checkOrgAccess(orgId);
+        void checkOrgAccess(String orgId, OrganizationAccessManager.AccessIntent intent) {
+            orgContext.checkOrgAccess(orgId, intent);
         }
 
         String userId() {
@@ -379,6 +416,10 @@ public class AppointmentService {
 
         Resource practitionerResource() {
             return practitionerResource;
+        }
+
+        Set<String> permittedOrgIds(OrganizationAccessManager.AccessIntent intent) {
+            return orgContext.permittedOrgIds(intent);
         }
     }
 }

@@ -3,6 +3,7 @@ package com.exampleproject.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Document("organizations")
@@ -19,6 +20,7 @@ public class Organization {
     private ScheduleConfig scheduleConfig;
     private String databaseName;
     private String createdBy;
+    private LocalDateTime createdAt;
 
     public Organization() {}
 
@@ -70,6 +72,14 @@ public class Organization {
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 
     @Override
     public boolean equals(Object o) {

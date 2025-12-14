@@ -23,8 +23,15 @@ public class AppointmentTypeService {
 
     public List<AppointmentType> findAll() {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        if (context.isPlatformUser()) {
+        if (context.isSuperAdmin()) {
             return repository.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            List<String> orgIds = repositoryOrgIds(context, OrganizationAccessManager.AccessIntent.READ);
+            if (orgIds.isEmpty()) {
+                return List.of();
+            }
+            return repository.findByOrgIdIn(orgIds);
         }
         return repository.findByOrgId(context.requireOrgScope());
     }
@@ -49,6 +56,7 @@ public class AppointmentTypeService {
             if (type.getOrgId() == null || type.getOrgId().isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orgId is required for appointment types");
             }
+            context.checkOrgAccess(type.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         } else {
             type.setOrgId(context.requireOrgScope());
         }
@@ -61,7 +69,7 @@ public class AppointmentTypeService {
     public AppointmentType update(String id, AppointmentType type) {
         AppointmentType existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment type not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         type.setId(id);
         type.setOrgId(existing.getOrgId());
         if (type.getDefaultDurationMinutes() == null) {
@@ -73,7 +81,12 @@ public class AppointmentTypeService {
     public void delete(String id) {
         AppointmentType existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment type not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId());
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         repository.deleteById(id);
+    }
+
+    private List<String> repositoryOrgIds(OrganizationAccessManager.OrganizationAccessContext context,
+                                          OrganizationAccessManager.AccessIntent intent) {
+        return List.copyOf(context.permittedOrgIds(intent));
     }
 }

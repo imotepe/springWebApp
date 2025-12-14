@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,8 +32,11 @@ public class OrganizationService {
 
     public List<Organization> findAll() {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        if (context.isPlatformUser()) {
+        if (context.isSuperAdmin()) {
             return repository.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            return repository.findByCreatedBy(context.user().getId());
         }
         return context.scopedOrgId()
                 .flatMap(repository::findById)
@@ -55,6 +59,7 @@ public class OrganizationService {
         validateType(org.getType());
         org.setId(null);
         org.setCreatedBy(context.user().getId());
+        org.setCreatedAt(LocalDateTime.now());
         Organization saved = repository.save(org);
         subscriptionService.createDefaultForOrg(saved.getId());
         return saved;
@@ -63,11 +68,12 @@ public class OrganizationService {
     public Organization update(String id, Organization org) {
         Organization existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
-        organizationAccessManager.currentContext().checkOrgAccess(existing.getId());
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
         validateType(org.getType());
         org.setId(id);
         org.setDatabaseName(existing.getDatabaseName());
         org.setCreatedBy(existing.getCreatedBy());
+        org.setCreatedAt(existing.getCreatedAt());
         return repository.save(org);
     }
 
@@ -78,6 +84,7 @@ public class OrganizationService {
         }
         Organization existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
         repository.deleteById(id);
     }
 

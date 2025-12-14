@@ -42,11 +42,22 @@ public class UserController {
     @GetMapping
     public List<User> all(@RequestParam(value = "orgId", required = false) String orgId) {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
-        if (context.isPlatformUser()) {
+        if (context.isSuperAdmin()) {
             if (orgId != null && !orgId.isBlank()) {
                 return repo.findByHomeOrganizationId(orgId);
             }
             return repo.findAll();
+        }
+        if (context.isPlatformAdmin()) {
+            if (orgId != null && !orgId.isBlank()) {
+                context.checkOrgAccess(orgId, OrganizationAccessManager.AccessIntent.READ);
+                return repo.findByHomeOrganizationId(orgId);
+            }
+            List<String> permitted = List.copyOf(context.permittedOrgIds(OrganizationAccessManager.AccessIntent.READ));
+            if (permitted.isEmpty()) {
+                return List.of();
+            }
+            return repo.findByHomeOrganizationIdIn(permitted);
         }
         return repo.findByHomeOrganizationId(context.requireOrgScope());
     }
@@ -55,7 +66,7 @@ public class UserController {
     public User get(@PathVariable @NonNull String id) {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
         User user = repo.findById(id).orElseThrow();
-        ensureAccessToUser(user, context);
+        ensureAccessToUser(user, context, OrganizationAccessManager.AccessIntent.READ);
         return user;
     }
 
@@ -63,6 +74,7 @@ public class UserController {
     public User create(@RequestBody User user) {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
         ensureRoleAssignmentAllowed(user, context);
+        normalizePlatformAdminHomeOrg(user);
         applyStatusDefaults(user);
         normalizeStatusForExpiration(user);
         if (context.isPlatformUser()) {
@@ -73,6 +85,9 @@ public class UserController {
                 if (user.getHomeOrganizationId() == null || user.getHomeOrganizationId().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "homeOrganizationId is required for organization users");
                 }
+            }
+            if (user.getHomeOrganizationId() != null && !user.getHomeOrganizationId().isBlank()) {
+                context.checkOrgAccess(user.getHomeOrganizationId(), OrganizationAccessManager.AccessIntent.WRITE);
             }
         } else {
             user.setHomeOrganizationId(context.requireOrgScope());
@@ -86,8 +101,9 @@ public class UserController {
         user.setId(id);
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
         User existing = repo.findById(id).orElseThrow();
-        ensureAccessToUser(existing, context);
+        ensureAccessToUser(existing, context, OrganizationAccessManager.AccessIntent.WRITE);
         ensureRoleAssignmentAllowed(user, context);
+        normalizePlatformAdminHomeOrg(user);
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             user.setPassword(existing.getPassword());
         } else {
@@ -99,6 +115,11 @@ public class UserController {
             }
         } else {
             user.setHomeOrganizationId(existing.getHomeOrganizationId());
+        }
+        if (context.isPlatformAdmin()
+                && user.getHomeOrganizationId() != null
+                && !user.getHomeOrganizationId().isBlank()) {
+            context.checkOrgAccess(user.getHomeOrganizationId(), OrganizationAccessManager.AccessIntent.WRITE);
         }
         if (user.getStatus() == null) {
             user.setStatus(existing.getStatus());
@@ -114,7 +135,7 @@ public class UserController {
     public void delete(@PathVariable String id) {
         OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
         User existing = repo.findById(id).orElseThrow();
-        ensureAccessToUser(existing, context);
+        ensureAccessToUser(existing, context, OrganizationAccessManager.AccessIntent.WRITE);
         repo.deleteById(id);
     }
 
@@ -124,8 +145,14 @@ public class UserController {
         }
     }
 
-    private void ensureAccessToUser(User target, OrganizationAccessManager.OrganizationAccessContext context) {
-        if (context.isPlatformUser()) {
+    private void ensureAccessToUser(User target,
+                                    OrganizationAccessManager.OrganizationAccessContext context,
+                                    OrganizationAccessManager.AccessIntent intent) {
+        if (context.isSuperAdmin()) {
+            return;
+        }
+        if (context.isPlatformAdmin()) {
+            context.checkOrgAccess(target.getHomeOrganizationId(), intent);
             return;
         }
         String scopedOrg = context.requireOrgScope();
@@ -136,12 +163,19 @@ public class UserController {
     }
 
     private void ensureRoleAssignmentAllowed(User user, OrganizationAccessManager.OrganizationAccessContext context) {
-        if (context.isPlatformUser()) {
-            return;
-        }
         boolean assigningPlatformRole = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(role -> role == UserRole.SUPER_PLATFORM_ADMIN
                         || role == UserRole.PLATFORM_ADMIN);
+
+        if (context.isSuperAdmin()) {
+            return;
+        }
+        if (context.isPlatformAdmin()) {
+            if (assigningPlatformRole) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admins cannot assign platform roles");
+            }
+            return;
+        }
         if (assigningPlatformRole) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Organization users cannot assign platform roles");
         }
@@ -156,6 +190,13 @@ public class UserController {
     private void normalizeStatusForExpiration(User user) {
         if (user.getExpiresAt() != null && LocalDateTime.now().isAfter(user.getExpiresAt())) {
             user.setStatus(UserStatus.EXPIRED);
+        }
+    }
+
+    private void normalizePlatformAdminHomeOrg(User user) {
+        if (user.getRoles() != null && user.getRoles().stream().anyMatch(role ->
+                role == UserRole.PLATFORM_ADMIN || role == UserRole.SUPER_PLATFORM_ADMIN)) {
+            user.setHomeOrganizationId(null);
         }
     }
 }

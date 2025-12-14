@@ -1,14 +1,18 @@
 package com.exampleproject.security;
 
+import com.exampleproject.model.Organization;
 import com.exampleproject.model.User;
 import com.exampleproject.model.UserRole;
+import com.exampleproject.repository.OrganizationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class OrganizationAccessManager {
@@ -19,26 +23,53 @@ public class OrganizationAccessManager {
     );
 
     private final CurrentUserProvider currentUserProvider;
+    private final OrganizationRepository organizationRepository;
 
-    public OrganizationAccessManager(CurrentUserProvider currentUserProvider) {
+    public OrganizationAccessManager(CurrentUserProvider currentUserProvider,
+                                     OrganizationRepository organizationRepository) {
         this.currentUserProvider = currentUserProvider;
+        this.organizationRepository = organizationRepository;
+    }
+
+    public enum AccessIntent {
+        READ,
+        WRITE
     }
 
     public OrganizationAccessContext currentContext() {
         User user = currentUserProvider.getCurrentUser();
-        boolean platformUser = user.getRoles().stream().anyMatch(PLATFORM_ROLES::contains);
-        return new OrganizationAccessContext(user, platformUser, user.getHomeOrganizationId());
+        Set<UserRole> roles = user.getRoles() == null ? EnumSet.noneOf(UserRole.class) : EnumSet.copyOf(user.getRoles());
+        boolean superAdmin = roles.contains(UserRole.SUPER_PLATFORM_ADMIN);
+        boolean platformAdmin = roles.contains(UserRole.PLATFORM_ADMIN);
+        boolean platformUser = roles.stream().anyMatch(PLATFORM_ROLES::contains);
+        return new OrganizationAccessContext(
+                user,
+                superAdmin,
+                platformAdmin,
+                platformUser,
+                user.getHomeOrganizationId()
+        );
     }
 
-    public static final class OrganizationAccessContext {
+    public final class OrganizationAccessContext {
         private final User user;
+        private final boolean superAdmin;
+        private final boolean platformAdmin;
         private final boolean platformUser;
         private final String homeOrganizationId;
+        private final OrganizationRepository organizationRepository;
 
-        private OrganizationAccessContext(User user, boolean platformUser, String homeOrganizationId) {
+        private OrganizationAccessContext(User user,
+                                          boolean superAdmin,
+                                          boolean platformAdmin,
+                                          boolean platformUser,
+                                          String homeOrganizationId) {
             this.user = user;
+            this.superAdmin = superAdmin;
+            this.platformAdmin = platformAdmin;
             this.platformUser = platformUser;
             this.homeOrganizationId = homeOrganizationId;
+            this.organizationRepository = OrganizationAccessManager.this.organizationRepository;
         }
 
         public User user() {
@@ -49,8 +80,19 @@ public class OrganizationAccessManager {
             return platformUser;
         }
 
+        public boolean isSuperAdmin() {
+            return superAdmin;
+        }
+
+        public boolean isPlatformAdmin() {
+            return platformAdmin;
+        }
+
         public Optional<String> scopedOrgId() {
-            return platformUser ? Optional.empty() : Optional.ofNullable(homeOrganizationId);
+            if (platformUser) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(homeOrganizationId);
         }
 
         public String requireOrgScope() {
@@ -64,13 +106,48 @@ public class OrganizationAccessManager {
         }
 
         public void checkOrgAccess(String orgId) {
-            if (platformUser) {
+            checkOrgAccess(orgId, AccessIntent.READ);
+        }
+
+        public void checkOrgAccess(String orgId, AccessIntent intent) {
+            if (orgId == null || orgId.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Organization id is required");
+            }
+            if (superAdmin) {
+                return;
+            }
+            if (platformAdmin) {
+                Organization org = organizationRepository.findById(orgId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Organization not found or not owned by caller"));
+                if (org.getCreatedBy() == null || !org.getCreatedBy().equals(user.getId())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admins can only access organizations they created");
+                }
+                if (intent == AccessIntent.WRITE) {
+                    LocalDateTime createdAt = org.getCreatedAt();
+                    if (createdAt == null || createdAt.isBefore(LocalDateTime.now().minusHours(24))) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Write window expired (24h after organization creation)");
+                    }
+                }
                 return;
             }
             String expected = requireOrgScope();
-            if (orgId == null || !orgId.equals(expected)) {
+            if (!orgId.equals(expected)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Resource belongs to another organization");
             }
+        }
+
+        public Set<String> permittedOrgIds(AccessIntent intent) {
+            if (superAdmin) {
+                return Set.of();
+            }
+            if (platformAdmin) {
+                return organizationRepository.findByCreatedBy(user.getId()).stream()
+                        .filter(org -> intent == AccessIntent.READ
+                                || (org.getCreatedAt() != null && !org.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))))
+                        .map(Organization::getId)
+                        .collect(Collectors.toSet());
+            }
+            return Set.of(requireOrgScope());
         }
     }
 }

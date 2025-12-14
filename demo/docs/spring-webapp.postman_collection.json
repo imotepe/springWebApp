@@ -21,7 +21,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"claire.dubois\",\n  \"password\": \"ChangeMe123!\"\n}",
+              "raw": "{\n  \"username\": \"nabil.haddad\",\n  \"password\": \"ChangeMe123!\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -110,14 +110,14 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/users/user-super-admin",
+              "raw": "{{baseUrl}}/api/users/user-super-admin-aitbelkacem",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "users",
-                "user-super-admin"
+                "user-super-admin-aitbelkacem"
               ]
             }
           }
@@ -1209,7 +1209,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"INTERNAL_NOTE\",\n  \"status\": \"SCHEDULED\",\n  \"comment\": \"Bring updated proposal\",\n  \"createdBy\": \"claire.dubois@example.com\",\n  \"createdAt\": \"2025-11-18T09:00:00\"\n}",
+              "raw": "{\n  \"type\": \"INTERNAL_NOTE\",\n  \"status\": \"SCHEDULED\",\n  \"comment\": \"Bring updated proposal\",\n  \"createdBy\": \"alex.martin@example.com\",\n  \"createdAt\": \"2025-11-18T09:00:00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

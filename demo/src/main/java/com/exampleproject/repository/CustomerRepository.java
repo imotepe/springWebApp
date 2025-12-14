@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface CustomerRepository extends MongoRepository<Customer, String> {
     List<Customer> findByOrgId(String orgId);
+    List<Customer> findByOrgIdIn(List<String> orgIds);
 
     Optional<Customer> findByOrgIdAndEmailIgnoreCase(String orgId, String email);
 }

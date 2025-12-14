@@ -16,7 +16,7 @@ Obtain a JWT:
 
 ```json
 {
-  "username": "claire.dubois",
+  "username": "nabil.haddad",
   "password": "ChangeMe123!"
 }
 ```
@@ -144,9 +144,9 @@ POST/PUT payloads include `username`, `firstName`, `lastName`, `email`, optional
   - View appointment events they personally created.
   - Add closing notes (`PRACTITIONER_NOTE`) that may mark appointments as `COMPLETED`.
 - Other roles (Agent, Service Manager, etc.) have unrestricted access to appointment and comment data subject to higher-level security configuration.
+- `PLATFORM_ADMIN` users are global (no `homeOrganizationId`) but are restricted to organizations they create. They may write/delete in those organizations for 24 hours after creation; afterward they retain read-only access. They also cannot create or update users with `PLATFORM_ADMIN` or `SUPER_PLATFORM_ADMIN` roles and are blocked from all customer/appointment data (including interactions and appointment events).
 - Organization-scoped callers cannot assign `SUPER_PLATFORM_ADMIN` or `PLATFORM_ADMIN` roles or manage users belonging to other organizations.
 - User statuses: `ACTIVE`, `SUSPENDED`, `EXPIRED`, `BLOCKED`. Only `ACTIVE` users may authenticate; others receive `403 FORBIDDEN`. Use `SUSPENDED`/`BLOCKED` to disable access temporarily/permanently and `EXPIRED` (manually or via `expiresAt`) to signal credentials need renewal.
 - `createdAt` is set automatically on creation and behaves as read-only metadata in responses.
 
 Refer to `docs/roles.md` for the full privilege hierarchy, and use `homeOrganizationId` to enforce tenant-level scoping in UI flows or custom endpoints.
-

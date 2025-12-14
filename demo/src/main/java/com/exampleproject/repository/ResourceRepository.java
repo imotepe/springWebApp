@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface ResourceRepository extends MongoRepository<Resource, String> {
     List<Resource> findByOrgId(String orgId);
+    List<Resource> findByOrgIdIn(List<String> orgIds);
 
     Optional<Resource> findByPractitionerUserId(String practitionerUserId);
 }

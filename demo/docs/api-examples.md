@@ -247,7 +247,7 @@ Accept: application/json
 PUT /api/users/user-dr-martin HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
-Authorization: Bearer <token-for-user-super-admin>
+Authorization: Bearer <token-for-user-super-admin-aitbelkacem>
 
 {
   "username": "paul.martin",

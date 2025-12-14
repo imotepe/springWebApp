@@ -202,6 +202,16 @@ type CustomerInteractionFormState = {
   createdAt: string;
 };
 
+type TabKey =
+  | 'orgs'
+  | 'types'
+  | 'schedule'
+  | 'users'
+  | 'customers'
+  | 'resources'
+  | 'appointments'
+  | 'appointmentTypes';
+
 type Resource = {
   id?: string;
   orgId?: string;
@@ -356,6 +366,22 @@ const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
   'INTERNAL_NOTE',
   'PRACTITIONER_NOTE',
 ];
+
+function decodeRolesFromToken(token: string): UserRole[] {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return [];
+    const base = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base + '='.repeat((4 - (base.length % 4 || 4)) % 4);
+    const decoded = typeof globalThis.atob === 'function' ? globalThis.atob(padded) : '';
+    if (!decoded) return [];
+    const payload = JSON.parse(decoded) as { roles?: unknown };
+    if (!Array.isArray(payload.roles)) return [];
+    return payload.roles.filter((role): role is UserRole => typeof role === 'string');
+  } catch {
+    return [];
+  }
+}
 const APPOINTMENT_TYPE_STATUSES = ['active'];
 
 const emptyDayMap = () =>
@@ -433,7 +459,7 @@ function InputField({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(255,255,255,0.5)"
+          placeholderTextColor="rgba(107,114,128,0.55)"
           style={styles.input}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
@@ -460,7 +486,7 @@ function PrimaryButton({ label, disabled, onPress }: PrimaryButtonProps) {
       ]}
     >
       <LinearGradient
-        colors={['#22d3ee', '#2563eb']}
+        colors={['#1D4ED8', '#1D4ED8']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.buttonGradient}
@@ -629,9 +655,37 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [typeMessage, setTypeMessage] = useState<string | null>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [typeSearch, setTypeSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<
-    'orgs' | 'types' | 'schedule' | 'users' | 'customers' | 'resources' | 'appointments' | 'appointmentTypes'
-  >('orgs');
+  const [activeTab, setActiveTab] = useState<TabKey>('orgs');
+  const [orgPage, setOrgPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+  const [customerPage, setCustomerPage] = useState(1);
+  const [resourcePage, setResourcePage] = useState(1);
+  const [appointmentPage, setAppointmentPage] = useState(1);
+  const [appointmentTypePage, setAppointmentTypePage] = useState(1);
+  const [typePage, setTypePage] = useState(1);
+  const [schedulePage, setSchedulePage] = useState(1);
+  const roles = useMemo(() => decodeRolesFromToken(token), [token]);
+  const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
+  const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
+  const canViewCustomers = !isPlatformAdminOnly;
+  const canViewAppointments = !isPlatformAdminOnly;
+  const availableTabs = useMemo<TabKey[]>(() => {
+    const tabs: TabKey[] = ['orgs', 'types', 'schedule', 'users'];
+    if (canViewCustomers) {
+      tabs.push('customers');
+    }
+    tabs.push('resources');
+    if (canViewAppointments) {
+      tabs.push('appointments');
+    }
+    tabs.push('appointmentTypes');
+    return tabs;
+  }, [canViewAppointments, canViewCustomers]);
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0] ?? 'orgs');
+    }
+  }, [activeTab, availableTabs]);
   const [scheduleOrgId, setScheduleOrgId] = useState<string | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
   const [activeDay, setActiveDay] = useState<DayName>('MONDAY');
@@ -852,6 +906,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const loadCustomers = useCallback(
     async (orgFilter?: string) => {
+      if (isPlatformAdminOnly && !isSuperAdmin) {
+        setCustomers([]);
+        setCustomerLoading(false);
+        setCustomerMessage(null);
+        setCustomerError(null);
+        return;
+      }
       const filter = (orgFilter ?? customerOrgFilter).trim();
       setCustomerLoading(true);
       setCustomerMessage('Loading customers...');
@@ -873,7 +934,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         setCustomerLoading(false);
       }
     },
-    [authFetch, customerOrgFilter],
+    [authFetch, customerOrgFilter, isPlatformAdminOnly, isSuperAdmin],
   );
 
   const loadResources = useCallback(
@@ -904,6 +965,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const loadAppointments = useCallback(
     async (orgFilter?: string) => {
+      if (isPlatformAdminOnly && !isSuperAdmin) {
+        setAppointments([]);
+        setAppointmentLoading(false);
+        setAppointmentMessage(null);
+        setAppointmentError(null);
+        return;
+      }
       const filter = (orgFilter ?? appointmentOrgFilter).trim();
       setAppointmentLoading(true);
       setAppointmentMessage('Loading appointments...');
@@ -925,7 +993,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         setAppointmentLoading(false);
       }
     },
-    [authFetch, appointmentOrgFilter],
+    [authFetch, appointmentOrgFilter, isPlatformAdminOnly, isSuperAdmin],
   );
 
   const loadAppointmentTypes = useCallback(
@@ -979,9 +1047,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setLoading(true);
       await Promise.all([loadOrgTypes(), loadOrganizations()]);
       setLoading(false);
-      await Promise.all([loadUsers(), loadCustomers(), loadResources(), loadAppointments(), loadAppointmentTypes()]);
+      const loaders = [loadUsers(), loadResources(), loadAppointmentTypes()];
+      if (canViewCustomers) {
+        loaders.push(loadCustomers());
+      }
+      if (canViewAppointments) {
+        loaders.push(loadAppointments());
+      }
+      await Promise.all(loaders);
     })();
-  }, [loadOrgTypes, loadOrganizations, loadUsers, loadCustomers, loadResources, loadAppointments, loadAppointmentTypes]);
+  }, [
+    loadOrgTypes,
+    loadOrganizations,
+    loadUsers,
+    loadCustomers,
+    loadResources,
+    loadAppointments,
+    loadAppointmentTypes,
+    canViewCustomers,
+    canViewAppointments,
+  ]);
 
   const resetUserForm = useCallback(() => {
     setUserForm({
@@ -1204,6 +1289,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   }, [orgs, searchQuery]);
 
+  useEffect(() => {
+    setOrgPage(1);
+  }, [searchQuery]);
+
   const filteredUsers = useMemo(() => {
     const term = userSearch.trim().toLowerCase();
     const orgFilter = userOrgFilter.trim().toLowerCase();
@@ -1222,21 +1311,228 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         user.id,
       ]
         .filter(Boolean)
-        .some((value) => value!.toString().toLowerCase().includes(term));
+        .map((v) => v!.toLowerCase());
       const roleMatch = (user.roles ?? []).some((role) => role.toLowerCase().includes(term));
-      return fields || roleMatch;
+      return roleMatch || fields.some((field) => field.includes(term));
     });
-  }, [userOrgFilter, userSearch, users]);
+  }, [users, userSearch, userOrgFilter]);
 
   const filteredCustomers = useMemo(() => {
     const term = customerSearch.trim().toLowerCase();
-    if (!term) return customers;
+    const orgFilter = customerOrgFilter.trim().toLowerCase();
     return customers.filter((customer) => {
-      return [customer.id, customer.name, customer.firstName, customer.email, customer.phone, customer.orgId]
+      if (orgFilter && (customer.orgId ?? '').toLowerCase() !== orgFilter) {
+        return false;
+      }
+      if (!term) return true;
+      return [customer.id, customer.name, customer.firstName, customer.email, customer.phone]
         .filter(Boolean)
-        .some((value) => value!.toString().toLowerCase().includes(term));
+        .map((v) => v!.toLowerCase())
+        .some((val) => val.includes(term));
     });
-  }, [customerSearch, customers]);
+  }, [customers, customerSearch, customerOrgFilter]);
+
+  const filteredResources = useMemo(() => {
+    const term = resourceSearch.trim().toLowerCase();
+    const orgFilter = resourceOrgFilter.trim().toLowerCase();
+    return resources.filter((resource) => {
+      if (orgFilter && (resource.orgId ?? '').toLowerCase() !== orgFilter) {
+        return false;
+      }
+      if (!term) return true;
+      return [
+        resource.id,
+        resource.name,
+        resource.type,
+        resource.orgId,
+        resource.kind,
+        resource.practitionerUserId,
+      ]
+        .filter(Boolean)
+        .map((v) => v!.toLowerCase())
+        .some((val) => val.includes(term));
+    });
+  }, [resources, resourceSearch, resourceOrgFilter]);
+
+  const filteredAppointments = useMemo(() => {
+    const term = appointmentSearch.trim().toLowerCase();
+    const orgFilter = appointmentOrgFilter.trim().toLowerCase();
+    return appointments.filter((appt) => {
+      if (orgFilter && (appt.orgId ?? '').toLowerCase() !== orgFilter) {
+        return false;
+      }
+      if (!term) return true;
+      return [
+        appt.id,
+        appt.orgId,
+        appt.customerId,
+        appt.resourceId,
+        appt.appointmentTypeId,
+        appt.status,
+        appt.start,
+        appt.end,
+      ]
+        .filter(Boolean)
+        .map((v) => v!.toLowerCase())
+        .some((val) => val.includes(term));
+    });
+  }, [appointments, appointmentSearch, appointmentOrgFilter]);
+
+  const filteredAppointmentTypes = useMemo(() => {
+    const term = appointmentTypeSearch.trim().toLowerCase();
+    const orgFilter = appointmentTypeOrgFilter.trim().toLowerCase();
+    return appointmentTypes.filter((type) => {
+      if (orgFilter && (type.orgId ?? '').toLowerCase() !== orgFilter) {
+        return false;
+      }
+      if (!term) return true;
+      return [type.id, type.name, type.category, type.orgId, type.defaultDurationMinutes]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase())
+        .some((val) => val.includes(term));
+    });
+  }, [appointmentTypes, appointmentTypeSearch, appointmentTypeOrgFilter]);
+
+  const sortedUsers = useMemo(() => {
+    return [...filteredUsers].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredUsers]);
+
+  const sortedCustomers = useMemo(() => {
+    return [...filteredCustomers].sort((a, b) => {
+      const aTime = (a as any).createdAt ? Date.parse((a as any).createdAt) : 0;
+      const bTime = (b as any).createdAt ? Date.parse((b as any).createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredCustomers]);
+
+  const sortedResources = useMemo(() => {
+    return [...filteredResources].sort((a, b) => {
+      const aTime = (a as any).createdAt ? Date.parse((a as any).createdAt) : 0;
+      const bTime = (b as any).createdAt ? Date.parse((b as any).createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredResources]);
+
+  const sortedAppointments = useMemo(() => {
+    return [...filteredAppointments].sort((a, b) => {
+      const aTime = a.start ? Date.parse(a.start) : 0;
+      const bTime = b.start ? Date.parse(b.start) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredAppointments]);
+
+  const sortedAppointmentTypes = useMemo(() => {
+    return [...filteredAppointmentTypes].sort((a, b) => {
+      const aTime = (a as any).createdAt ? Date.parse((a as any).createdAt) : 0;
+      const bTime = (b as any).createdAt ? Date.parse((b as any).createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredAppointmentTypes]);
+
+  const sortedFilteredOrgs = useMemo(() => {
+    return [...filteredOrgs].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredOrgs]);
+
+  const ORG_PAGE_SIZE = 10;
+  const PAGE_SIZE = 10;
+  const totalOrgPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedFilteredOrgs.length / ORG_PAGE_SIZE)),
+    [sortedFilteredOrgs.length],
+  );
+
+  useEffect(() => {
+    if (orgPage > totalOrgPages) {
+      setOrgPage(totalOrgPages);
+    }
+  }, [orgPage, totalOrgPages]);
+
+  const visibleOrgs = useMemo(
+    () => sortedFilteredOrgs.slice((orgPage - 1) * ORG_PAGE_SIZE, orgPage * ORG_PAGE_SIZE),
+    [sortedFilteredOrgs, orgPage],
+  );
+
+  const totalUserPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE)),
+    [sortedUsers.length],
+  );
+  const visibleUsers = useMemo(
+    () => sortedUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE),
+    [sortedUsers, userPage],
+  );
+  useEffect(() => {
+    setUserPage(1);
+  }, [filteredUsers]);
+  useEffect(() => {
+    if (userPage > totalUserPages) setUserPage(totalUserPages);
+  }, [userPage, totalUserPages]);
+
+  const totalCustomerPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedCustomers.length / PAGE_SIZE)),
+    [sortedCustomers.length],
+  );
+  const visibleCustomers = useMemo(
+    () => sortedCustomers.slice((customerPage - 1) * PAGE_SIZE, customerPage * PAGE_SIZE),
+    [sortedCustomers, customerPage],
+  );
+  useEffect(() => {
+    setCustomerPage(1);
+  }, [filteredCustomers]);
+  useEffect(() => {
+    if (customerPage > totalCustomerPages) setCustomerPage(totalCustomerPages);
+  }, [customerPage, totalCustomerPages]);
+
+  const totalResourcePages = useMemo(
+    () => Math.max(1, Math.ceil(sortedResources.length / PAGE_SIZE)),
+    [sortedResources.length],
+  );
+  const visibleResources = useMemo(
+    () => sortedResources.slice((resourcePage - 1) * PAGE_SIZE, resourcePage * PAGE_SIZE),
+    [sortedResources, resourcePage],
+  );
+  useEffect(() => {
+    setResourcePage(1);
+  }, [filteredResources]);
+  useEffect(() => {
+    if (resourcePage > totalResourcePages) setResourcePage(totalResourcePages);
+  }, [resourcePage, totalResourcePages]);
+
+  const totalAppointmentPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedAppointments.length / PAGE_SIZE)),
+    [sortedAppointments.length],
+  );
+  const visibleAppointments = useMemo(
+    () => sortedAppointments.slice((appointmentPage - 1) * PAGE_SIZE, appointmentPage * PAGE_SIZE),
+    [sortedAppointments, appointmentPage],
+  );
+  useEffect(() => {
+    setAppointmentPage(1);
+  }, [filteredAppointments]);
+  useEffect(() => {
+    if (appointmentPage > totalAppointmentPages) setAppointmentPage(totalAppointmentPages);
+  }, [appointmentPage, totalAppointmentPages]);
+
+  const totalAppointmentTypePages = useMemo(
+    () => Math.max(1, Math.ceil(sortedAppointmentTypes.length / PAGE_SIZE)),
+    [sortedAppointmentTypes.length],
+  );
+  const visibleAppointmentTypes = useMemo(
+    () => sortedAppointmentTypes.slice((appointmentTypePage - 1) * PAGE_SIZE, appointmentTypePage * PAGE_SIZE),
+    [sortedAppointmentTypes, appointmentTypePage],
+  );
+  useEffect(() => {
+    setAppointmentTypePage(1);
+  }, [filteredAppointmentTypes]);
+  useEffect(() => {
+    if (appointmentTypePage > totalAppointmentTypePages) setAppointmentTypePage(totalAppointmentTypePages);
+  }, [appointmentTypePage, totalAppointmentTypePages]);
 
   const selectedCustomer = useMemo(
     () => customers.find((c) => c.id === customerForm.id),
@@ -1261,45 +1557,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     );
   }, [interactionSearch, interactionsWorking]);
 
-  const filteredResources = useMemo(() => {
-    const term = resourceSearch.trim().toLowerCase();
-    if (!term) return resources;
-    return resources.filter((res) =>
-      [res.id, res.name, res.type, res.orgId, res.kind, res.practitionerUserId]
-        .filter(Boolean)
-        .some((value) => value!.toString().toLowerCase().includes(term)),
-    );
-  }, [resourceSearch, resources]);
-
-  const filteredAppointments = useMemo(() => {
-    const term = appointmentSearch.trim().toLowerCase();
-    if (!term) return appointments;
-    return appointments.filter((appt) =>
-      [
-        appt.id,
-        appt.orgId,
-        appt.customerId,
-        appt.resourceId,
-        appt.appointmentTypeId,
-        appt.status,
-        appt.start,
-        appt.end,
-      ]
-        .filter(Boolean)
-        .some((value) => value!.toString().toLowerCase().includes(term)),
-    );
-  }, [appointmentSearch, appointments]);
-
-  const filteredAppointmentTypes = useMemo(() => {
-    const term = appointmentTypeSearch.trim().toLowerCase();
-    if (!term) return appointmentTypes;
-    return appointmentTypes.filter((type) =>
-      [type.id, type.name, type.category, type.orgId, type.defaultDurationMinutes]
-        .filter(Boolean)
-        .some((value) => value!.toString().toLowerCase().includes(term)),
-    );
-  }, [appointmentTypeSearch, appointmentTypes]);
-
   const filteredScheduleOrgs = useMemo(() => {
     const term = scheduleSearch.trim().toLowerCase();
     if (!term) return orgs;
@@ -1307,6 +1564,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       [org.id, org.name, org.marketingName, org.type].filter(Boolean).some((value) => value!.toLowerCase().includes(term)),
     );
   }, [orgs, scheduleSearch]);
+
+  const sortedScheduleOrgs = useMemo(() => {
+    return [...filteredScheduleOrgs].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [filteredScheduleOrgs]);
+
+  const totalSchedulePages = useMemo(
+    () => Math.max(1, Math.ceil(sortedScheduleOrgs.length / PAGE_SIZE)),
+    [sortedScheduleOrgs.length],
+  );
+  const visibleScheduleOrgs = useMemo(
+    () => sortedScheduleOrgs.slice((schedulePage - 1) * PAGE_SIZE, schedulePage * PAGE_SIZE),
+    [sortedScheduleOrgs, schedulePage],
+  );
+  useEffect(() => setSchedulePage(1), [filteredScheduleOrgs]);
+  useEffect(() => {
+    if (schedulePage > totalSchedulePages) setSchedulePage(totalSchedulePages);
+  }, [schedulePage, totalSchedulePages]);
 
   const selectedScheduleOrg = useMemo(
     () => orgs.find((org) => org.id === scheduleOrgId),
@@ -2178,6 +2456,23 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     );
   }, [orgTypes, typeSearch]);
 
+  const sortedTypes = useMemo(() => {
+    return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
+  }, [filteredTypes]);
+
+  const totalTypePages = useMemo(
+    () => Math.max(1, Math.ceil(sortedTypes.length / PAGE_SIZE)),
+    [sortedTypes.length],
+  );
+  const visibleTypes = useMemo(
+    () => sortedTypes.slice((typePage - 1) * PAGE_SIZE, typePage * PAGE_SIZE),
+    [sortedTypes, typePage],
+  );
+  useEffect(() => setTypePage(1), [filteredTypes]);
+  useEffect(() => {
+    if (typePage > totalTypePages) setTypePage(totalTypePages);
+  }, [typePage, totalTypePages]);
+
   const toggleWorkingDay = (day: DayName) => {
     setScheduleForm((prev) => {
       const exists = prev.workingDays.includes(day);
@@ -2363,7 +2658,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>SUPER_PLATFORM_ADMIN</Text>
+            <Text style={styles.badgeText}>{roles.join(', ') || 'Authenticated'}</Text>
           </View>
           <Text style={styles.title}>Platform control center</Text>
           <Text style={styles.subtitle}>
@@ -2413,14 +2708,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               Users
             </Text>
           </Pressable>
-          <Pressable
-            style={[styles.tabButton, activeTab === 'customers' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('customers')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'customers' && styles.tabButtonTextActive]}>
-              Customers
-            </Text>
-          </Pressable>
+          {canViewCustomers ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'customers' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('customers')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'customers' && styles.tabButtonTextActive]}>
+                Customers
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.tabButton, activeTab === 'resources' && styles.tabButtonActive]}
             onPress={() => setActiveTab('resources')}
@@ -2429,14 +2726,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               Resources
             </Text>
           </Pressable>
-          <Pressable
-            style={[styles.tabButton, activeTab === 'appointments' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('appointments')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'appointments' && styles.tabButtonTextActive]}>
-              Appointments
-            </Text>
-          </Pressable>
+          {canViewAppointments ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'appointments' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('appointments')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'appointments' && styles.tabButtonTextActive]}>
+                Appointments
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.tabButton, activeTab === 'appointmentTypes' && styles.tabButtonActive]}
             onPress={() => setActiveTab('appointmentTypes')}
@@ -2451,7 +2750,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Organizations ({filteredOrgs.length}/{orgs.length})</Text>
+                <Text style={styles.sectionTitle}>Organizations ({visibleOrgs.length}/{orgs.length})</Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetForm} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>New</Text>
@@ -2466,10 +2765,31 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="Search by id, name, marketing name, phone, createdBy"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
+              </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {orgPage} / {totalOrgPages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={orgPage <= 1}
+                    onPress={() => setOrgPage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, orgPage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={orgPage >= totalOrgPages}
+                    onPress={() => setOrgPage((p) => Math.min(totalOrgPages, p + 1))}
+                    style={[styles.secondaryChip, orgPage >= totalOrgPages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
@@ -2481,12 +2801,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {loading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredOrgs.map((org) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleOrgs.map((org) => (
                   <Pressable
                     key={org.id ?? org.name}
                     style={[styles.orgCard, form.id === org.id && styles.orgCardActive]}
@@ -2502,6 +2822,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     <Text style={styles.orgMeta}>
                       {org.phone || 'No phone'} - DB: {org.databaseName || 'N/A'}
                     </Text>
+                    <Text style={styles.orgMeta}>
+                      Created: {org.createdAt ? new Date(org.createdAt).toLocaleString() : 'Unknown'} by{' '}
+                      {org.createdBy || 'unknown'}
+                    </Text>
                     <View style={styles.orgActions}>
                       <Pressable onPress={() => startEdit(org)} style={styles.orgAction}>
                         <Text style={styles.link}>Edit</Text>
@@ -2512,10 +2836,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {orgs.length === 0 ? (
-                  <Text style={styles.statusText}>No organizations yet.</Text>
+                {visibleOrgs.length === 0 ? (
+                  <Text style={styles.statusText}>No organizations match the filters.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -2666,7 +2990,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>
-                  Organization types ({filteredTypes.length}/{orgTypes.length})
+                  Organization types ({visibleTypes.length}/{orgTypes.length})
                 </Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetTypeForm} style={styles.secondaryChip}>
@@ -2682,10 +3006,31 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={typeSearch}
                   onChangeText={setTypeSearch}
                   placeholder="Search types by id, name, description"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
+              </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {typePage} / {totalTypePages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={typePage <= 1}
+                    onPress={() => setTypePage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, typePage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={typePage >= totalTypePages}
+                    onPress={() => setTypePage((p) => Math.min(totalTypePages, p + 1))}
+                    style={[styles.secondaryChip, typePage >= totalTypePages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
@@ -2697,12 +3042,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {loading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredTypes.map((type) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleTypes.map((type) => (
                   <Pressable
                     key={type.id}
                     style={[styles.orgCard, typeForm.id === type.id && styles.orgCardActive]}
@@ -2723,10 +3068,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {orgTypes.length === 0 ? (
+                {visibleTypes.length === 0 ? (
                   <Text style={styles.statusText}>No organization types yet.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -2788,10 +3133,31 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={scheduleSearch}
                   onChangeText={setScheduleSearch}
                   placeholder="Search organizations to edit schedule"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
+              </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {schedulePage} / {totalSchedulePages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={schedulePage <= 1}
+                    onPress={() => setSchedulePage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, schedulePage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={schedulePage >= totalSchedulePages}
+                    onPress={() => setSchedulePage((p) => Math.min(totalSchedulePages, p + 1))}
+                    style={[styles.secondaryChip, schedulePage >= totalSchedulePages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
@@ -2808,12 +3174,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {loading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredScheduleOrgs.map((org) => {
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleScheduleOrgs.map((org) => {
                   const isSelected = scheduleOrgId === org.id;
                   const holidaysCount = org.scheduleConfig?.holidays?.length ?? 0;
                   const workingCount = org.scheduleConfig?.workingDays?.length ?? 0;
@@ -2838,10 +3204,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </Pressable>
                   );
                 })}
-                {orgs.length === 0 ? (
+                {visibleScheduleOrgs.length === 0 ? (
                   <Text style={styles.statusText}>No organizations yet.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -3067,7 +3433,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Resources ({filteredResources.length}/{resources.length})</Text>
+                <Text style={styles.sectionTitle}>Resources ({visibleResources.length}/{resources.length})</Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetResourceForm} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>New</Text>
@@ -3082,7 +3448,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={resourceSearch}
                   onChangeText={setResourceSearch}
                   placeholder="Search by id, name, type, org, kind, practitioner"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
@@ -3102,6 +3468,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {resourcePage} / {totalResourcePages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={resourcePage <= 1}
+                    onPress={() => setResourcePage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, resourcePage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={resourcePage >= totalResourcePages}
+                    onPress={() => setResourcePage((p) => Math.min(totalResourcePages, p + 1))}
+                    style={[styles.secondaryChip, resourcePage >= totalResourcePages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {resourceMessage ? (
@@ -3117,12 +3504,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {resourceLoading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading resources...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredResources.map((resource) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleResources.map((resource) => (
                   <Pressable
                     key={resource.id ?? resource.name}
                     style={[styles.orgCard, resourceForm.id === resource.id && styles.orgCardActive]}
@@ -3152,10 +3539,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {filteredResources.length === 0 ? (
+                {visibleResources.length === 0 ? (
                   <Text style={styles.statusText}>No resources match the filters.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -3238,11 +3625,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={resourceSaving}
             />
           </>
-        ) : activeTab === 'appointments' ? (
+        ) : activeTab === 'appointments' && canViewAppointments ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Appointments ({filteredAppointments.length}/{appointments.length})</Text>
+                <Text style={styles.sectionTitle}>Appointments ({visibleAppointments.length}/{appointments.length})</Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetAppointmentForm} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>New</Text>
@@ -3257,7 +3644,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={appointmentSearch}
                   onChangeText={setAppointmentSearch}
                   placeholder="Search by id, org, customer, resource, type, status"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
@@ -3277,6 +3664,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {appointmentPage} / {totalAppointmentPages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={appointmentPage <= 1}
+                    onPress={() => setAppointmentPage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, appointmentPage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={appointmentPage >= totalAppointmentPages}
+                    onPress={() => setAppointmentPage((p) => Math.min(totalAppointmentPages, p + 1))}
+                    style={[styles.secondaryChip, appointmentPage >= totalAppointmentPages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {appointmentMessage ? (
@@ -3292,12 +3700,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {appointmentLoading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading appointments...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredAppointments.map((appt) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleAppointments.map((appt) => (
                   <Pressable
                     key={appt.id ?? `${appt.customerId}-${appt.start}`}
                     style={[styles.orgCard, appointmentForm.id === appt.id && styles.orgCardActive]}
@@ -3323,10 +3731,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {filteredAppointments.length === 0 ? (
+                {visibleAppointments.length === 0 ? (
                   <Text style={styles.statusText}>No appointments match the filters.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -3414,7 +3822,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     value={interactionSearch}
                     onChangeText={setInteractionSearch}
                     placeholder="Search events by type, status, comment, createdBy"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
                     style={styles.searchInput}
                     autoCapitalize="none"
                   />
@@ -3537,7 +3945,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>
-                  Appointment types ({filteredAppointmentTypes.length}/{appointmentTypes.length})
+                  Appointment types ({visibleAppointmentTypes.length}/{appointmentTypes.length})
                 </Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetAppointmentTypeForm} style={styles.secondaryChip}>
@@ -3553,7 +3961,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={appointmentTypeSearch}
                   onChangeText={setAppointmentTypeSearch}
                   placeholder="Search by id, name, category, org, duration"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
@@ -3573,6 +3981,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {appointmentTypePage} / {totalAppointmentTypePages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={appointmentTypePage <= 1}
+                    onPress={() => setAppointmentTypePage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, appointmentTypePage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={appointmentTypePage >= totalAppointmentTypePages}
+                    onPress={() => setAppointmentTypePage((p) => Math.min(totalAppointmentTypePages, p + 1))}
+                    style={[styles.secondaryChip, appointmentTypePage >= totalAppointmentTypePages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {appointmentTypeMessage ? (
@@ -3588,12 +4017,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {appointmentTypeLoading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading appointment types...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredAppointmentTypes.map((type) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleAppointmentTypes.map((type) => (
                   <Pressable
                     key={type.id ?? type.name}
                     style={[styles.orgCard, appointmentTypeForm.id === type.id && styles.orgCardActive]}
@@ -3620,10 +4049,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {filteredAppointmentTypes.length === 0 ? (
+                {visibleAppointmentTypes.length === 0 ? (
                   <Text style={styles.statusText}>No appointment types match the filters.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -3702,11 +4131,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={appointmentTypeSaving}
             />
           </>
-        ) : activeTab === 'customers' ? (
+        ) : activeTab === 'customers' && canViewCustomers ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Customers ({filteredCustomers.length}/{customers.length})</Text>
+                <Text style={styles.sectionTitle}>Customers ({visibleCustomers.length}/{customers.length})</Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetCustomerForm} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>New</Text>
@@ -3721,7 +4150,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={customerSearch}
                   onChangeText={setCustomerSearch}
                   placeholder="Search by id, name, email, phone"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
@@ -3741,6 +4170,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {customerPage} / {totalCustomerPages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={customerPage <= 1}
+                    onPress={() => setCustomerPage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, customerPage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={customerPage >= totalCustomerPages}
+                    onPress={() => setCustomerPage((p) => Math.min(totalCustomerPages, p + 1))}
+                    style={[styles.secondaryChip, customerPage >= totalCustomerPages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {customerMessage ? (
@@ -3756,12 +4206,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {customerLoading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading customers...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredCustomers.map((customer) => (
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleCustomers.map((customer) => (
                   <Pressable
                     key={customer.id ?? customer.email ?? customer.phone}
                     style={[styles.orgCard, customerForm.id === customer.id && styles.orgCardActive]}
@@ -3783,10 +4233,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </View>
                   </Pressable>
                 ))}
-                {filteredCustomers.length === 0 ? (
+                {visibleCustomers.length === 0 ? (
                   <Text style={styles.statusText}>No customers match the filters.</Text>
                 ) : null}
-              </View>
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -3865,7 +4315,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     value={interactionSearch}
                     onChangeText={setInteractionSearch}
                     placeholder="Search interactions by type, status, comment, createdBy, appointment"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
                     style={styles.searchInput}
                     autoCapitalize="none"
                   />
@@ -3991,7 +4441,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Users ({filteredUsers.length}/{users.length})</Text>
+                <Text style={styles.sectionTitle}>Users ({visibleUsers.length}/{users.length})</Text>
                 <View style={styles.sectionActions}>
                   <Pressable onPress={resetUserForm} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>New</Text>
@@ -4006,7 +4456,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={userSearch}
                   onChangeText={setUserSearch}
                   placeholder="Search by username, email, name, org, status, role"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  placeholderTextColor="rgba(107,114,128,0.7)"
                   style={styles.searchInput}
                   autoCapitalize="none"
                 />
@@ -4026,6 +4476,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
+              <View style={styles.paginationRow}>
+                <Text style={styles.statusText}>
+                  Page {userPage} / {totalUserPages}
+                </Text>
+                <View style={styles.paginationButtons}>
+                  <Pressable
+                    disabled={userPage <= 1}
+                    onPress={() => setUserPage((p) => Math.max(1, p - 1))}
+                    style={[styles.secondaryChip, userPage <= 1 && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={userPage >= totalUserPages}
+                    onPress={() => setUserPage((p) => Math.min(totalUserPages, p + 1))}
+                    style={[styles.secondaryChip, userPage >= totalUserPages && styles.secondaryChipDisabled]}
+                  >
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {userMessage ? (
@@ -4041,12 +4512,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             {userLoading ? (
               <View style={styles.loadingInline}>
-                <ActivityIndicator color="#7dd3fc" />
+                <ActivityIndicator color="#1D4ED8" />
                 <Text style={styles.statusText}>Loading users...</Text>
               </View>
             ) : (
-              <View style={styles.orgList}>
-                {filteredUsers.map((user) => {
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+                {visibleUsers.map((user) => {
                   const name =
                     user.firstName || user.lastName
                       ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
@@ -4080,8 +4551,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </Pressable>
                   );
                 })}
-                {filteredUsers.length === 0 ? <Text style={styles.statusText}>No users match the filters.</Text> : null}
-              </View>
+                {visibleUsers.length === 0 ? <Text style={styles.statusText}>No users match the filters.</Text> : null}
+              </ScrollView>
             )}
 
             <View style={styles.divider} />
@@ -4212,14 +4683,14 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#7dd3fc" />
+        <ActivityIndicator color="#1D4ED8" />
       </View>
     );
   }
 
   return (
-    <LinearGradient colors={['#0a1124', '#0c1a3a', '#0f274c']} style={styles.background}>
-      <StatusBar style="light" />
+    <LinearGradient colors={['#F9FAFB', '#F9FAFB', '#F9FAFB']} style={styles.background}>
+      <StatusBar style="dark" />
       <SafeAreaView style={styles.safeArea}>
         {authToken ? (
           <OrganizationAdminScreen token={authToken} onLogout={() => setAuthToken(null)} />
@@ -4238,8 +4709,8 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  background: { flex: 1 },
-  safeArea: { flex: 1 },
+  background: { flex: 1, backgroundColor: '#F9FAFB' },
+  safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
@@ -4255,7 +4726,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0a1124',
+    backgroundColor: '#F9FAFB',
   },
   hero: {
     width: '100%',
@@ -4267,25 +4738,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#E5E7EB',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#E5E7EB',
   },
   badgeText: {
-    color: '#a5f3fc',
+    color: '#1D4ED8',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 12,
     letterSpacing: 0.5,
   },
   title: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_700Bold',
     fontSize: 28,
     textAlign: 'center',
     lineHeight: 32,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.76)',
+    color: '#6B7280',
     fontFamily: 'Manrope_400Regular',
     fontSize: 15,
     lineHeight: 22,
@@ -4294,42 +4765,42 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 22,
     gap: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 24,
-    elevation: 8,
+    borderColor: '#E5E7EB',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 16,
+    elevation: 4,
   },
   cardWide: { maxWidth: 1100 },
   inputField: { gap: 6 },
   label: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 14,
     letterSpacing: 0.2,
   },
   inputShell: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  inputShellError: { borderColor: '#fca5a5' },
+  inputShellError: { borderColor: '#DC2626' },
   input: {
-    color: '#f8fafc',
+    color: '#0F172A',
     fontFamily: 'Manrope_500Medium',
     fontSize: 16,
   },
   errorText: {
-    color: '#fca5a5',
+    color: '#DC2626',
     fontFamily: 'Manrope_500Medium',
     fontSize: 13,
   },
@@ -4355,28 +4826,28 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    borderColor: '#38bdf8',
-    backgroundColor: 'rgba(56,189,248,0.16)',
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
   },
   checkboxDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#38bdf8',
+    backgroundColor: '#1D4ED8',
   },
   rememberText: {
-    color: 'rgba(255,255,255,0.88)',
+    color: '#0F172A',
     fontFamily: 'Manrope_500Medium',
     fontSize: 14,
   },
   link: {
-    color: '#7dd3fc',
+    color: '#1D4ED8',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 14,
   },
@@ -4385,41 +4856,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(125,211,252,0.6)',
-    backgroundColor: 'rgba(125,211,252,0.08)',
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
   },
   statusText: {
-    color: '#e0f2fe',
+    color: '#0F172A',
     fontFamily: 'Manrope_500Medium',
     fontSize: 13,
   },
   helperText: {
-    color: 'rgba(255,255,255,0.72)',
+    color: '#6B7280',
     fontFamily: 'Manrope_400Regular',
     fontSize: 12,
     marginTop: -6,
     marginBottom: 6,
   },
   errorPill: {
-    borderColor: '#fca5a5',
-    backgroundColor: 'rgba(252,165,165,0.12)',
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
   },
   tokenBox: {
     borderWidth: 1,
-    borderColor: 'rgba(125,211,252,0.5)',
-    backgroundColor: 'rgba(125,211,252,0.08)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     padding: 12,
     gap: 6,
   },
   tokenLabel: {
-    color: 'rgba(255,255,255,0.75)',
+    color: '#6B7280',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 12,
     letterSpacing: 0.3,
   },
   tokenValue: {
-    color: '#e0f2fe',
+    color: '#0F172A',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 13,
   },
@@ -4435,14 +4906,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    color: '#0b1124',
+    color: '#FFFFFF',
     fontFamily: 'Manrope_700Bold',
     fontSize: 16,
     letterSpacing: 0.3,
   },
   footerText: {
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.75)',
+    color: '#6B7280',
     fontFamily: 'Manrope_400Regular',
     fontSize: 13,
     marginTop: 2,
@@ -4461,12 +4932,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#E5E7EB',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#E5E7EB',
   },
   logoutLabel: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 14,
   },
@@ -4493,44 +4964,44 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   tabButtonActive: {
-    borderColor: '#7dd3fc',
-    backgroundColor: 'rgba(125,211,252,0.16)',
+    borderColor: '#1D4ED8',
+    backgroundColor: '#1D4ED8',
   },
   tabButtonText: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 14,
   },
   tabButtonTextActive: {
-    color: '#0b1124',
+    color: '#FFFFFF',
   },
   sectionTitle: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_700Bold',
     fontSize: 18,
   },
   searchBox: {
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#FFFFFF',
   },
   searchInput: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_500Medium',
     fontSize: 14,
   },
   divider: {
     height: 1,
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#E5E7EB',
     marginVertical: 16,
   },
   sectionActions: {
@@ -4538,36 +5009,53 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 12,
+  },
+  paginationButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   secondaryChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F97316',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: '#F97316',
   },
   secondaryChipText: {
-    color: '#e5e7eb',
+    color: '#FFFFFF',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 12,
+  },
+  secondaryChipDisabled: {
+    opacity: 0.4,
   },
   loadingInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  orgListScroll: {
+    maxHeight: 520,
+  },
   orgList: { gap: 12 },
   orgCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E5E7EB',
     borderRadius: 16,
     padding: 14,
     gap: 6,
   },
   orgCardActive: {
-    borderColor: '#7dd3fc',
-    backgroundColor: 'rgba(125,211,252,0.14)',
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
   },
   orgHeader: {
     flexDirection: 'row',
@@ -4575,17 +5063,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   orgName: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_700Bold',
     fontSize: 16,
   },
   orgType: {
-    color: '#7dd3fc',
+    color: '#1D4ED8',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 13,
   },
   orgMeta: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#6B7280',
     fontFamily: 'Manrope_400Regular',
     fontSize: 13,
   },
@@ -4596,7 +5084,7 @@ const styles = StyleSheet.create({
   },
   orgAction: { paddingVertical: 4 },
   deleteText: {
-    color: '#fca5a5',
+    color: '#DC2626',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 13,
   },
@@ -4610,19 +5098,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   typeChipSelected: {
-    borderColor: '#7dd3fc',
-    backgroundColor: 'rgba(125,211,252,0.16)',
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
   },
   typeChipText: {
-    color: '#e5e7eb',
+    color: '#0F172A',
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 13,
   },
-  typeChipTextSelected: { color: '#0b1124' },
+  typeChipTextSelected: { color: '#0F172A' },
   windowRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
