@@ -21,6 +21,12 @@ public class Organization {
     private String databaseName;
     private String createdBy;
     private LocalDateTime createdAt;
+    private String mapsLink;
+    private String facebookPage;
+    private String facebookGroup;
+    private String instagram;
+    private String whatsappContact;
+    private String logoImage;
 
     public Organization() {}
 
@@ -81,6 +87,24 @@ public class Organization {
         this.createdAt = createdAt;
     }
 
+    public String getMapsLink() { return mapsLink; }
+    public void setMapsLink(String mapsLink) { this.mapsLink = mapsLink; }
+
+    public String getFacebookPage() { return facebookPage; }
+    public void setFacebookPage(String facebookPage) { this.facebookPage = facebookPage; }
+
+    public String getFacebookGroup() { return facebookGroup; }
+    public void setFacebookGroup(String facebookGroup) { this.facebookGroup = facebookGroup; }
+
+    public String getInstagram() { return instagram; }
+    public void setInstagram(String instagram) { this.instagram = instagram; }
+
+    public String getWhatsappContact() { return whatsappContact; }
+    public void setWhatsappContact(String whatsappContact) { this.whatsappContact = whatsappContact; }
+
+    public String getLogoImage() { return logoImage; }
+    public void setLogoImage(String logoImage) { this.logoImage = logoImage; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -105,6 +129,12 @@ public class Organization {
                 ", location=" + location +
                 ", createdBy='" + createdBy + '\'' +
                 ", databaseName='" + databaseName + '\'' +
+                ", mapsLink='" + mapsLink + '\'' +
+                ", facebookPage='" + facebookPage + '\'' +
+                ", facebookGroup='" + facebookGroup + '\'' +
+                ", instagram='" + instagram + '\'' +
+                ", whatsappContact='" + whatsappContact + '\'' +
+                ", logoImage='" + logoImage + '\'' +
                 '}';
     }
 }

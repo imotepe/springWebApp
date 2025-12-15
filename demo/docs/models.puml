@@ -19,6 +19,13 @@ package "Organizations" {
     +scheduleConfig: ScheduleConfig
     +databaseName: String
     +createdBy: String
+    +createdAt: LocalDateTime
+    +mapsLink: String
+    +facebookPage: String
+    +facebookGroup: String
+    +instagram: String
+    +whatsappContact: String
+    +logoImage: String
   }
 
   class OrganizationType {

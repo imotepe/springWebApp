@@ -89,6 +89,12 @@ public class DataInitializer {
     private static final String APPOINTMENT_TYPE_WORKSHOP_ID = "appt-community-workshop";
     private static final String APPOINTMENT_TYPE_TELECONSULT_ID = "appt-teleconsultation";
     private static final String APPOINTMENT_TYPE_CHECKUP_ID = "appt-checkup";
+    private static final String APPOINTMENT_TYPE_NOVA_SPRINT_ID = "appt-nova-innovation-sprint";
+    private static final String APPOINTMENT_TYPE_ATLAS_REVIEW_ID = "appt-atlas-fleet-review";
+    private static final String APPOINTMENT_TYPE_PULSE_SESSION_ID = "appt-pulse-wellness";
+    private static final String APPOINTMENT_TYPE_TERRA_AUDIT_ID = "appt-terra-audit";
+    private static final String APPOINTMENT_TYPE_HORIZON_BRIEFING_ID = "appt-horizon-briefing";
+    private static final String APPOINTMENT_TYPE_ORBIT_TUNEUP_ID = "appt-orbit-tuneup";
     private static final String CUSTOMER_JEAN_ID = "customer-jean-dupont";
     private static final String CUSTOMER_EMMA_ID = "customer-emma-leroy";
     private static final String CUSTOMER_INES_ID = "customer-ines-perez";
@@ -99,6 +105,12 @@ public class DataInitializer {
     private static final String APPOINTMENT_HELIX_TELECONSULT_ID = "appt-helix-teleconsult";
     private static final String APPOINTMENT_HELIX_CHECKUP_ID = "appt-helix-checkup";
     private static final String APPOINTMENT_AURORA_REVIEW_ID = "appt-aurora-review";
+    private static final String APPOINTMENT_NOVA_SPRINT_ID = "appt-nova-sprint-session";
+    private static final String APPOINTMENT_ATLAS_REVIEW_ID = "appt-atlas-fleet-session";
+    private static final String APPOINTMENT_PULSE_WELLNESS_ID = "appt-pulse-wellness-session";
+    private static final String APPOINTMENT_TERRA_AUDIT_ID = "appt-terra-audit-session";
+    private static final String APPOINTMENT_HORIZON_BRIEFING_ID = "appt-horizon-briefing-session";
+    private static final String APPOINTMENT_ORBIT_TUNEUP_ID = "appt-orbit-tuneup-session";
     private static final String USER_PRACTITIONER_ID = "user-practitioner";
     private static final String SUB_AURORA_ID = "sub-aurora-default";
     private static final String SUB_RIVIERA_ID = "sub-riviera-default";
@@ -313,6 +325,12 @@ public class DataInitializer {
         );
         aurora.setCreatedBy("system");
         aurora.setCreatedAt(LocalDateTime.now().minusDays(60));
+        aurora.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        aurora.setFacebookPage("https://www.facebook.com/aurora.service");
+        aurora.setFacebookGroup("https://www.facebook.com/groups/aurora.service");
+        aurora.setInstagram("https://www.instagram.com/aurora.service");
+        aurora.setWhatsappContact("+33600001111");
+        aurora.setLogoImage("https://cdn.example.com/logos/aurora.png");
 
         Address rivieraAddress = new Address(
                 "25 Avenue du Prado",
@@ -339,6 +357,12 @@ public class DataInitializer {
         );
         riviera.setCreatedBy("system");
         riviera.setCreatedAt(LocalDateTime.now().minusDays(45));
+        riviera.setMapsLink("https://maps.google.com/?q=43.2857,5.3830");
+        riviera.setFacebookPage("https://www.facebook.com/riviera.hub");
+        riviera.setFacebookGroup("https://www.facebook.com/groups/riviera.hub");
+        riviera.setInstagram("https://www.instagram.com/riviera.hub");
+        riviera.setWhatsappContact("+33491000000");
+        riviera.setLogoImage("https://cdn.example.com/logos/riviera.png");
 
         Address helixAddress = new Address(
                 "7 Rue de la Croix-Rousse",
@@ -378,6 +402,12 @@ public class DataInitializer {
         );
         helix.setCreatedBy("system");
         helix.setCreatedAt(LocalDateTime.now().minusDays(30));
+        helix.setMapsLink("https://maps.google.com/?q=45.7790,4.8320");
+        helix.setFacebookPage("https://www.facebook.com/helix.medical");
+        helix.setFacebookGroup("https://www.facebook.com/groups/helix.patients");
+        helix.setInstagram("https://www.instagram.com/helix.medical");
+        helix.setWhatsappContact("+33478000000");
+        helix.setLogoImage("https://cdn.example.com/logos/helix.png");
 
         Organization nova = new Organization(
                 ORG_NOVA_ID,
@@ -393,6 +423,12 @@ public class DataInitializer {
         );
         nova.setCreatedBy("user-platform-admin");
         nova.setCreatedAt(LocalDateTime.now().minusDays(5));
+        nova.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        nova.setFacebookPage("https://www.facebook.com/nova.tech");
+        nova.setFacebookGroup("https://www.facebook.com/groups/nova.tech");
+        nova.setInstagram("https://www.instagram.com/nova.tech");
+        nova.setWhatsappContact("+33177223344");
+        nova.setLogoImage("https://cdn.example.com/logos/nova.png");
 
         Organization atlas = new Organization(
                 ORG_ATLAS_ID,
@@ -408,6 +444,12 @@ public class DataInitializer {
         );
         atlas.setCreatedBy("user-platform-admin");
         atlas.setCreatedAt(LocalDateTime.now().minusDays(4));
+        atlas.setMapsLink("https://maps.google.com/?q=43.2857,5.3830");
+        atlas.setFacebookPage("https://www.facebook.com/atlas.services");
+        atlas.setFacebookGroup("https://www.facebook.com/groups/atlas.services");
+        atlas.setInstagram("https://www.instagram.com/atlas.services");
+        atlas.setWhatsappContact("+33155667788");
+        atlas.setLogoImage("https://cdn.example.com/logos/atlas.png");
 
         Organization lumen = new Organization(
                 ORG_LUMEN_ID,
@@ -423,6 +465,12 @@ public class DataInitializer {
         );
         lumen.setCreatedBy("user-platform-admin");
         lumen.setCreatedAt(LocalDateTime.now().minusDays(3));
+        lumen.setMapsLink("https://maps.google.com/?q=45.7790,4.8320");
+        lumen.setFacebookPage("https://www.facebook.com/lumen.digital");
+        lumen.setFacebookGroup("https://www.facebook.com/groups/lumen.digital");
+        lumen.setInstagram("https://www.instagram.com/lumen.digital");
+        lumen.setWhatsappContact("+33122334455");
+        lumen.setLogoImage("https://cdn.example.com/logos/lumen.png");
 
         Organization pulse = new Organization(
                 ORG_PULSE_ID,
@@ -438,6 +486,12 @@ public class DataInitializer {
         );
         pulse.setCreatedBy("user-platform-admin");
         pulse.setCreatedAt(LocalDateTime.now().minusDays(2));
+        pulse.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        pulse.setFacebookPage("https://www.facebook.com/pulse.care");
+        pulse.setFacebookGroup("https://www.facebook.com/groups/pulse.care");
+        pulse.setInstagram("https://www.instagram.com/pulse.care");
+        pulse.setWhatsappContact("+33188664422");
+        pulse.setLogoImage("https://cdn.example.com/logos/pulse.png");
 
         Organization terra = new Organization(
                 ORG_TERRA_ID,
@@ -453,6 +507,12 @@ public class DataInitializer {
         );
         terra.setCreatedBy("user-platform-admin");
         terra.setCreatedAt(LocalDateTime.now().minusDays(7));
+        terra.setMapsLink("https://maps.google.com/?q=43.2857,5.3830");
+        terra.setFacebookPage("https://www.facebook.com/terra.green");
+        terra.setFacebookGroup("https://www.facebook.com/groups/terra.green");
+        terra.setInstagram("https://www.instagram.com/terra.green");
+        terra.setWhatsappContact("+33190807060");
+        terra.setLogoImage("https://cdn.example.com/logos/terra.png");
 
         Organization orbit = new Organization(
                 ORG_ORBIT_ID,
@@ -468,6 +528,12 @@ public class DataInitializer {
         );
         orbit.setCreatedBy("user-platform-admin");
         orbit.setCreatedAt(LocalDateTime.now().minusDays(6));
+        orbit.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        orbit.setFacebookPage("https://www.facebook.com/orbit.connect");
+        orbit.setFacebookGroup("https://www.facebook.com/groups/orbit.connect");
+        orbit.setInstagram("https://www.instagram.com/orbit.connect");
+        orbit.setWhatsappContact("+33145464748");
+        orbit.setLogoImage("https://cdn.example.com/logos/orbit.png");
 
         Organization horizon = new Organization(
                 ORG_HORIZON_ID,
@@ -483,6 +549,12 @@ public class DataInitializer {
         );
         horizon.setCreatedBy("user-platform-admin");
         horizon.setCreatedAt(LocalDateTime.now().minusDays(8));
+        horizon.setMapsLink("https://maps.google.com/?q=45.7790,4.8320");
+        horizon.setFacebookPage("https://www.facebook.com/horizon.consulting");
+        horizon.setFacebookGroup("https://www.facebook.com/groups/horizon.consulting");
+        horizon.setInstagram("https://www.instagram.com/horizon.consulting");
+        horizon.setWhatsappContact("+33111223344");
+        horizon.setLogoImage("https://cdn.example.com/logos/horizon.png");
 
         Organization vertex = new Organization(
                 ORG_VERTEX_ID,
@@ -498,6 +570,12 @@ public class DataInitializer {
         );
         vertex.setCreatedBy("user-platform-admin");
         vertex.setCreatedAt(LocalDateTime.now().minusDays(9));
+        vertex.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        vertex.setFacebookPage("https://www.facebook.com/vertex.solutions");
+        vertex.setFacebookGroup("https://www.facebook.com/groups/vertex.solutions");
+        vertex.setInstagram("https://www.instagram.com/vertex.solutions");
+        vertex.setWhatsappContact("+33133445566");
+        vertex.setLogoImage("https://cdn.example.com/logos/vertex.png");
 
         Organization momentum = new Organization(
                 ORG_MOMENTUM_ID,
@@ -513,6 +591,12 @@ public class DataInitializer {
         );
         momentum.setCreatedBy("user-platform-admin");
         momentum.setCreatedAt(LocalDateTime.now().minusDays(12));
+        momentum.setMapsLink("https://maps.google.com/?q=43.2857,5.3830");
+        momentum.setFacebookPage("https://www.facebook.com/momentum.labs");
+        momentum.setFacebookGroup("https://www.facebook.com/groups/momentum.labs");
+        momentum.setInstagram("https://www.instagram.com/momentum.labs");
+        momentum.setWhatsappContact("+33199887766");
+        momentum.setLogoImage("https://cdn.example.com/logos/momentum.png");
 
         Organization aster = new Organization(
                 ORG_ASTER_ID,
@@ -528,6 +612,12 @@ public class DataInitializer {
         );
         aster.setCreatedBy("user-platform-admin");
         aster.setCreatedAt(LocalDateTime.now().minusDays(10));
+        aster.setMapsLink("https://maps.google.com/?q=48.8765,2.3541");
+        aster.setFacebookPage("https://www.facebook.com/aster.network");
+        aster.setFacebookGroup("https://www.facebook.com/groups/aster.network");
+        aster.setInstagram("https://www.instagram.com/aster.network");
+        aster.setWhatsappContact("+33166778899");
+        aster.setLogoImage("https://cdn.example.com/logos/aster.png");
 
         return List.of(
                 aurora,
@@ -1006,7 +1096,117 @@ public class DataInitializer {
                 businessHoursTemplate()
         );
 
-        return List.of(consultation, installation, communityWorkshop, teleconsultation, preventiveCheckup);
+        AppointmentType novaInnovationSprint = new AppointmentType(
+                APPOINTMENT_TYPE_NOVA_SPRINT_ID,
+                ORG_NOVA_ID,
+                "Sprint innovation",
+                "Produit",
+                120,
+                List.of(90, 120, 150),
+                true,
+                true,
+                EnumSet.of(
+                        DayOfWeek.MONDAY,
+                        DayOfWeek.TUESDAY,
+                        DayOfWeek.THURSDAY
+                ),
+                businessHoursTemplate()
+        );
+
+        AppointmentType atlasFleetReview = new AppointmentType(
+                APPOINTMENT_TYPE_ATLAS_REVIEW_ID,
+                ORG_ATLAS_ID,
+                "Revue flotte",
+                "Operations",
+                60,
+                List.of(45, 60, 90),
+                true,
+                true,
+                weekDays,
+                businessHoursTemplate()
+        );
+
+        AppointmentType pulseWellnessSession = new AppointmentType(
+                APPOINTMENT_TYPE_PULSE_SESSION_ID,
+                ORG_PULSE_ID,
+                "Session bien-etre",
+                "Sante",
+                45,
+                List.of(30, 45, 60),
+                false,
+                true,
+                EnumSet.of(
+                        DayOfWeek.MONDAY,
+                        DayOfWeek.WEDNESDAY,
+                        DayOfWeek.FRIDAY,
+                        DayOfWeek.SATURDAY
+                ),
+                businessHoursTemplate()
+        );
+
+        AppointmentType terraSustainabilityAudit = new AppointmentType(
+                APPOINTMENT_TYPE_TERRA_AUDIT_ID,
+                ORG_TERRA_ID,
+                "Audit durabilite",
+                "Sustainability",
+                90,
+                List.of(60, 90, 120),
+                true,
+                true,
+                EnumSet.of(
+                        DayOfWeek.TUESDAY,
+                        DayOfWeek.THURSDAY
+                ),
+                businessHoursTemplate()
+        );
+
+        AppointmentType horizonExecutiveBriefing = new AppointmentType(
+                APPOINTMENT_TYPE_HORIZON_BRIEFING_ID,
+                ORG_HORIZON_ID,
+                "Briefing executif",
+                "Strategie",
+                30,
+                List.of(30, 45),
+                false,
+                true,
+                EnumSet.of(
+                        DayOfWeek.MONDAY,
+                        DayOfWeek.THURSDAY,
+                        DayOfWeek.FRIDAY
+                ),
+                businessHoursTemplate()
+        );
+
+        AppointmentType orbitNetworkTuneUp = new AppointmentType(
+                APPOINTMENT_TYPE_ORBIT_TUNEUP_ID,
+                ORG_ORBIT_ID,
+                "Optimisation reseau",
+                "Technique",
+                75,
+                List.of(60, 75, 90),
+                true,
+                true,
+                EnumSet.of(
+                        DayOfWeek.TUESDAY,
+                        DayOfWeek.WEDNESDAY,
+                        DayOfWeek.FRIDAY
+                ),
+                businessHoursTemplate()
+        );
+
+        return List.of(
+                consultation,
+                installation,
+                communityWorkshop,
+                teleconsultation,
+                preventiveCheckup,
+                novaInnovationSprint,
+                atlasFleetReview,
+                pulseWellnessSession,
+                terraSustainabilityAudit,
+                horizonExecutiveBriefing,
+                orbitNetworkTuneUp
+        );
     }
 
     private List<Customer> buildCustomers() {
@@ -1095,7 +1295,122 @@ public class DataInitializer {
                 martinInteractions
         );
 
-        return List.of(jean, emma, ines, martin);
+        List<Customer> customers = new ArrayList<>(List.of(jean, emma, ines, martin));
+
+        customers.addAll(List.of(
+                new Customer(
+                        "customer-sophia-ward",
+                        ORG_NOVA_ID,
+                        "Ward",
+                        "Sophia",
+                        "sophia.ward@nova-tech.io",
+                        "+1 415 222 1100",
+                        "Early adopter of Nova beta features",
+                        LocalDate.of(1991, 9, 14),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-liam-hart",
+                        ORG_ATLAS_ID,
+                        "Hart",
+                        "Liam",
+                        "liam.hart@atlas-services.com",
+                        "+1 312 404 7788",
+                        "Prefers onsite visits on Fridays",
+                        LocalDate.of(1986, 12, 2),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-amelia-ross",
+                        ORG_LUMEN_ID,
+                        "Ross",
+                        "Amelia",
+                        "amelia.ross@lumen.digital",
+                        "+44 7700 900111",
+                        "API integration pilot customer",
+                        LocalDate.of(1995, 3, 28),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-noah-blake",
+                        ORG_PULSE_ID,
+                        "Blake",
+                        "Noah",
+                        "noah.blake@pulse-care.com",
+                        "+1 617 455 9020",
+                        "Remote monitoring enrollment",
+                        LocalDate.of(1989, 8, 19),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-isabella-flores",
+                        ORG_TERRA_ID,
+                        "Flores",
+                        "Isabella",
+                        "isabella.flores@terra-green.org",
+                        "+34 600 112 778",
+                        "Interested in sustainability workshops",
+                        LocalDate.of(1993, 6, 4),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-ethan-cole",
+                        ORG_ORBIT_ID,
+                        "Cole",
+                        "Ethan",
+                        "ethan.cole@orbit-connect.net",
+                        "+1 347 880 4455",
+                        "Pilot for satellite support queue",
+                        LocalDate.of(1987, 1, 22),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-mia-danvers",
+                        ORG_HORIZON_ID,
+                        "Danvers",
+                        "Mia",
+                        "mia.danvers@horizon-consult.io",
+                        "+1 206 744 3300",
+                        "Consulting retainer renewal Q1",
+                        LocalDate.of(1994, 10, 9),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-james-nolan",
+                        ORG_VERTEX_ID,
+                        "Nolan",
+                        "James",
+                        "james.nolan@vertex-solutions.com",
+                        "+1 646 220 1188",
+                        "Requests quarterly architecture reviews",
+                        LocalDate.of(1983, 5, 17),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-charlotte-yu",
+                        ORG_MOMENTUM_ID,
+                        "Yu",
+                        "Charlotte",
+                        "charlotte.yu@momentum-labs.ai",
+                        "+1 650 333 7711",
+                        "AI lab access pending compliance",
+                        LocalDate.of(1996, 2, 6),
+                        new ArrayList<>()
+                ),
+                new Customer(
+                        "customer-benjamin-khalil",
+                        ORG_ASTER_ID,
+                        "Khalil",
+                        "Benjamin",
+                        "benjamin.khalil@aster-network.org",
+                        "+33 7 90 22 33 44",
+                        "Community hub volunteer lead",
+                        LocalDate.of(1985, 11, 25),
+                        new ArrayList<>()
+                )
+        ));
+
+        return customers;
     }
 
     private List<User> buildUsers() {
@@ -1538,14 +1853,213 @@ public class DataInitializer {
                 checkupEvents
         );
 
-        return List.of(
-                discoveryCall,
-                onsiteInstall,
-                auroraContractReview,
-                rivieraWorkshop,
-                helixTeleconsult,
-                helixCheckup
+        List<AppointmentEvent> novaSprintEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-7",
+                        AppointmentEventType.INTERNAL_NOTE,
+                        AppointmentStatus.SCHEDULED,
+                        "Kickoff innovation sprint",
+                        "nova.pm@example.com",
+                        now.plusDays(1)
+                ),
+                new AppointmentEvent(
+                        "appt-event-7b",
+                        AppointmentEventType.CUSTOMER_COMMENT,
+                        AppointmentStatus.SCHEDULED,
+                        "Sophia partage les maquettes",
+                        "sophia.ward@nova-tech.io",
+                        now.plusDays(1).plusHours(2)
+                )
         );
+
+        Appointment novaSprint = new Appointment(
+                APPOINTMENT_NOVA_SPRINT_ID,
+                ORG_NOVA_ID,
+                "customer-sophia-ward",
+                APPOINTMENT_TYPE_NOVA_SPRINT_ID,
+                RESOURCE_NOVA_ROOM_ID,
+                now.plusDays(4).withHour(13).withMinute(0),
+                now.plusDays(4).withHour(15).withMinute(0),
+                AppointmentStatus.SCHEDULED,
+                "Session innovation produit Nova",
+                novaSprintEvents
+        );
+
+        List<AppointmentEvent> atlasFleetEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-8",
+                        AppointmentEventType.INTERNAL_NOTE,
+                        AppointmentStatus.SCHEDULED,
+                        "Equipe operations valide la checklist",
+                        "atlas.ops@example.com",
+                        now.plusDays(2)
+                ),
+                new AppointmentEvent(
+                        "appt-event-8b",
+                        AppointmentEventType.CUSTOMER_UPDATE,
+                        AppointmentStatus.SCHEDULED,
+                        "Liam partage les donnees de terrain",
+                        "liam.hart@atlas-services.com",
+                        now.plusDays(2).plusHours(3)
+                )
+        );
+
+        Appointment atlasFleetReview = new Appointment(
+                APPOINTMENT_ATLAS_REVIEW_ID,
+                ORG_ATLAS_ID,
+                "customer-liam-hart",
+                APPOINTMENT_TYPE_ATLAS_REVIEW_ID,
+                RESOURCE_ATLAS_FLEET_ID,
+                now.plusDays(6).withHour(9).withMinute(30),
+                now.plusDays(6).withHour(10).withMinute(30),
+                AppointmentStatus.SCHEDULED,
+                "Revue trimestrielle flotte Atlas",
+                atlasFleetEvents
+        );
+
+        List<AppointmentEvent> pulseWellnessEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-9",
+                        AppointmentEventType.CUSTOMER_COMMENT,
+                        AppointmentStatus.SCHEDULED,
+                        "Noah prefere une salle calme",
+                        "noah.blake@pulse-care.com",
+                        now.plusDays(1).plusHours(4)
+                )
+        );
+
+        Appointment pulseWellness = new Appointment(
+                APPOINTMENT_PULSE_WELLNESS_ID,
+                ORG_PULSE_ID,
+                "customer-noah-blake",
+                APPOINTMENT_TYPE_PULSE_SESSION_ID,
+                RESOURCE_PULSE_CLINIC_ID,
+                now.plusDays(8).withHour(16).withMinute(0),
+                now.plusDays(8).withHour(16).withMinute(45),
+                AppointmentStatus.SCHEDULED,
+                "Session bien-etre personnalisee",
+                pulseWellnessEvents
+        );
+
+        List<AppointmentEvent> terraAuditEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-10",
+                        AppointmentEventType.INTERNAL_NOTE,
+                        AppointmentStatus.SCHEDULED,
+                        "Equipe terrain confirme l'audit",
+                        "terra.audit@terra-green.org",
+                        now.plusDays(5)
+                ),
+                new AppointmentEvent(
+                        "appt-event-10b",
+                        AppointmentEventType.CUSTOMER_UPDATE,
+                        AppointmentStatus.SCHEDULED,
+                        "Isabella ajoute des plans du site",
+                        "isabella.flores@terra-green.org",
+                        now.plusDays(5).plusHours(1)
+                )
+        );
+
+        Appointment terraAudit = new Appointment(
+                APPOINTMENT_TERRA_AUDIT_ID,
+                ORG_TERRA_ID,
+                "customer-isabella-flores",
+                APPOINTMENT_TYPE_TERRA_AUDIT_ID,
+                RESOURCE_TERRA_FIELD_ID,
+                now.plusDays(11).withHour(9).withMinute(0),
+                now.plusDays(11).withHour(10).withMinute(30),
+                AppointmentStatus.SCHEDULED,
+                "Audit durabilite du site Terra",
+                terraAuditEvents
+        );
+
+        List<AppointmentEvent> horizonBriefingEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-11",
+                        AppointmentEventType.INTERNAL_NOTE,
+                        AppointmentStatus.SCHEDULED,
+                        "Slides de briefing pretes",
+                        "horizon.pm@horizon-consult.io",
+                        now.plusDays(3)
+                ),
+                new AppointmentEvent(
+                        "appt-event-11b",
+                        AppointmentEventType.CUSTOMER_COMMENT,
+                        AppointmentStatus.SCHEDULED,
+                        "Mia demande un focus ROI",
+                        "mia.danvers@horizon-consult.io",
+                        now.plusDays(3).plusHours(2)
+                )
+        );
+
+        Appointment horizonBriefing = new Appointment(
+                APPOINTMENT_HORIZON_BRIEFING_ID,
+                ORG_HORIZON_ID,
+                "customer-mia-danvers",
+                APPOINTMENT_TYPE_HORIZON_BRIEFING_ID,
+                RESOURCE_HORIZON_SUITE_ID,
+                now.plusDays(10).withHour(12).withMinute(0),
+                now.plusDays(10).withHour(12).withMinute(30),
+                AppointmentStatus.SCHEDULED,
+                "Briefing executif Horizon",
+                horizonBriefingEvents
+        );
+
+        List<AppointmentEvent> orbitTuneUpEvents = List.of(
+                new AppointmentEvent(
+                        "appt-event-12",
+                        AppointmentEventType.INTERNAL_NOTE,
+                        AppointmentStatus.SCHEDULED,
+                        "Diagnostic reseau programme",
+                        "orbit.network@orbit-connect.net",
+                        now.plusDays(7)
+                ),
+                new AppointmentEvent(
+                        "appt-event-12b",
+                        AppointmentEventType.CUSTOMER_UPDATE,
+                        AppointmentStatus.SCHEDULED,
+                        "Ethan partage les logs",
+                        "ethan.cole@orbit-connect.net",
+                        now.plusDays(7).plusHours(2)
+                )
+        );
+
+        Appointment orbitTuneUp = new Appointment(
+                APPOINTMENT_ORBIT_TUNEUP_ID,
+                ORG_ORBIT_ID,
+                "customer-ethan-cole",
+                APPOINTMENT_TYPE_ORBIT_TUNEUP_ID,
+                RESOURCE_ORBIT_STATION_ID,
+                now.plusDays(12).withHour(14).withMinute(0),
+                now.plusDays(12).withHour(15).withMinute(15),
+                AppointmentStatus.SCHEDULED,
+                "Optimisation reseau Orbit",
+                orbitTuneUpEvents
+        );
+
+        List<Appointment> appointments = new ArrayList<>(
+                List.of(
+                        discoveryCall,
+                        onsiteInstall,
+                        auroraContractReview,
+                        rivieraWorkshop,
+                        helixTeleconsult,
+                        helixCheckup
+                )
+        );
+
+        appointments.addAll(
+                List.of(
+                        novaSprint,
+                        atlasFleetReview,
+                        pulseWellness,
+                        terraAudit,
+                        horizonBriefing,
+                        orbitTuneUp
+                )
+        );
+
+        return appointments;
     }
 
     private ScheduleConfig defaultScheduleConfig() {

@@ -86,6 +86,12 @@ type Organization = {
   databaseName?: string;
   createdBy?: string;
   scheduleConfig?: ScheduleConfigDto;
+  mapsLink?: string;
+  facebookPage?: string;
+  facebookGroup?: string;
+  instagram?: string;
+  whatsappContact?: string;
+  logoImage?: string;
   address?: {
     street?: string;
     city?: string;
@@ -664,6 +670,56 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [appointmentTypePage, setAppointmentTypePage] = useState(1);
   const [typePage, setTypePage] = useState(1);
   const [schedulePage, setSchedulePage] = useState(1);
+  const renderPagination = (
+    currentPage: number,
+    totalPages: number,
+    onChange: (page: number) => void
+  ) => {
+    if (totalPages <= 1) return null;
+    const maxButtons = 10;
+    const start = Math.max(1, Math.min(currentPage - 4, totalPages - maxButtons + 1));
+    const end = Math.min(totalPages, start + maxButtons - 1);
+    const pages = [];
+    for (let p = start; p <= end; p++) {
+      pages.push(p);
+    }
+    const goTo = (p: number) => onChange(Math.min(totalPages, Math.max(1, p)));
+    return (
+      <View style={styles.paginationRow}>
+        <Pressable
+          disabled={currentPage <= 1}
+          onPress={() => goTo(currentPage - 1)}
+          style={[styles.paginationLink, currentPage <= 1 && styles.paginationLinkDisabled]}
+        >
+          <Text style={[styles.paginationText, currentPage <= 1 && styles.paginationTextDisabled]}>{'< prev'}</Text>
+        </Pressable>
+        <View style={styles.paginationNumbers}>
+          {pages.map((page) => {
+            const active = page === currentPage;
+            return (
+              <Pressable
+                key={page}
+                onPress={() => goTo(page)}
+                style={[styles.paginationNumber, active && styles.paginationNumberActive]}
+              >
+                <Text style={[styles.paginationText, active && styles.paginationTextActive]}>
+                  {page}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Pressable
+          disabled={currentPage >= totalPages}
+          onPress={() => goTo(currentPage + 1)}
+          style={[styles.paginationLink, currentPage >= totalPages && styles.paginationLinkDisabled]}
+        >
+          <Text style={[styles.paginationText, currentPage >= totalPages && styles.paginationTextDisabled]}>{'next >'}</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   const roles = useMemo(() => decodeRolesFromToken(token), [token]);
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
@@ -2770,27 +2826,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   autoCapitalize="none"
                 />
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {orgPage} / {totalOrgPages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={orgPage <= 1}
-                    onPress={() => setOrgPage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, orgPage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={orgPage >= totalOrgPages}
-                    onPress={() => setOrgPage((p) => Math.min(totalOrgPages, p + 1))}
-                    style={[styles.secondaryChip, orgPage >= totalOrgPages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(orgPage, totalOrgPages, setOrgPage)}
             </View>
 
             {message ? (
@@ -3011,27 +3047,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   autoCapitalize="none"
                 />
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {typePage} / {totalTypePages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={typePage <= 1}
-                    onPress={() => setTypePage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, typePage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={typePage >= totalTypePages}
-                    onPress={() => setTypePage((p) => Math.min(totalTypePages, p + 1))}
-                    style={[styles.secondaryChip, typePage >= totalTypePages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(typePage, totalTypePages, setTypePage)}
             </View>
 
             {typeMessage ? (
@@ -3138,27 +3154,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   autoCapitalize="none"
                 />
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {schedulePage} / {totalSchedulePages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={schedulePage <= 1}
-                    onPress={() => setSchedulePage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, schedulePage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={schedulePage >= totalSchedulePages}
-                    onPress={() => setSchedulePage((p) => Math.min(totalSchedulePages, p + 1))}
-                    style={[styles.secondaryChip, schedulePage >= totalSchedulePages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(schedulePage, totalSchedulePages, setSchedulePage)}
             </View>
 
             {scheduleMessage ? (
@@ -3468,27 +3464,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {resourcePage} / {totalResourcePages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={resourcePage <= 1}
-                    onPress={() => setResourcePage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, resourcePage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={resourcePage >= totalResourcePages}
-                    onPress={() => setResourcePage((p) => Math.min(totalResourcePages, p + 1))}
-                    style={[styles.secondaryChip, resourcePage >= totalResourcePages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(resourcePage, totalResourcePages, setResourcePage)}
             </View>
 
             {resourceMessage ? (
@@ -3664,27 +3640,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {appointmentPage} / {totalAppointmentPages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={appointmentPage <= 1}
-                    onPress={() => setAppointmentPage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, appointmentPage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={appointmentPage >= totalAppointmentPages}
-                    onPress={() => setAppointmentPage((p) => Math.min(totalAppointmentPages, p + 1))}
-                    style={[styles.secondaryChip, appointmentPage >= totalAppointmentPages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(appointmentPage, totalAppointmentPages, setAppointmentPage)}
             </View>
 
             {appointmentMessage ? (
@@ -3981,27 +3937,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {appointmentTypePage} / {totalAppointmentTypePages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={appointmentTypePage <= 1}
-                    onPress={() => setAppointmentTypePage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, appointmentTypePage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={appointmentTypePage >= totalAppointmentTypePages}
-                    onPress={() => setAppointmentTypePage((p) => Math.min(totalAppointmentTypePages, p + 1))}
-                    style={[styles.secondaryChip, appointmentTypePage >= totalAppointmentTypePages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(appointmentTypePage, totalAppointmentTypePages, setAppointmentTypePage)}
             </View>
 
             {appointmentTypeMessage ? (
@@ -4170,27 +4106,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {customerPage} / {totalCustomerPages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={customerPage <= 1}
-                    onPress={() => setCustomerPage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, customerPage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={customerPage >= totalCustomerPages}
-                    onPress={() => setCustomerPage((p) => Math.min(totalCustomerPages, p + 1))}
-                    style={[styles.secondaryChip, customerPage >= totalCustomerPages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(customerPage, totalCustomerPages, setCustomerPage)}
             </View>
 
             {customerMessage ? (
@@ -4476,27 +4392,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.paginationRow}>
-                <Text style={styles.statusText}>
-                  Page {userPage} / {totalUserPages}
-                </Text>
-                <View style={styles.paginationButtons}>
-                  <Pressable
-                    disabled={userPage <= 1}
-                    onPress={() => setUserPage((p) => Math.max(1, p - 1))}
-                    style={[styles.secondaryChip, userPage <= 1 && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={userPage >= totalUserPages}
-                    onPress={() => setUserPage((p) => Math.min(totalUserPages, p + 1))}
-                    style={[styles.secondaryChip, userPage >= totalUserPages && styles.secondaryChipDisabled]}
-                  >
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                </View>
-              </View>
+              {renderPagination(userPage, totalUserPages, setUserPage)}
             </View>
 
             {userMessage ? (
@@ -5012,13 +4908,45 @@ const styles = StyleSheet.create({
   paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    justifyContent: 'center',
+    marginVertical: 8,
     gap: 12,
+    flexWrap: 'wrap',
   },
-  paginationButtons: {
+  paginationLink: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  paginationLinkDisabled: {
+    opacity: 0.5,
+  },
+  paginationText: {
+    color: '#1D4ED8',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+  },
+  paginationTextDisabled: {
+    color: '#9CA3AF',
+  },
+  paginationTextActive: {
+    color: '#FFFFFF',
+  },
+  paginationNumbers: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  paginationNumber: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  paginationNumberActive: {
+    backgroundColor: '#1D4ED8',
+    borderColor: '#1D4ED8',
   },
   secondaryChip: {
     paddingHorizontal: 10,
