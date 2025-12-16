@@ -55,6 +55,12 @@ type DatePickerFieldProps = {
   testID?: string;
 };
 
+type TimeInputProps = {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+};
+
 type PrimaryButtonProps = {
   label: string;
   disabled?: boolean;
@@ -402,6 +408,8 @@ const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
   'PRACTITIONER_NOTE',
 ];
 type DatePickerView = 'day' | 'month' | 'year';
+const HOURS_12 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
 function decodeRolesFromToken(token: string): UserRole[] {
   try {
@@ -517,6 +525,28 @@ const parseDateValue = (raw: string): Date | null => {
     return null;
   }
   return candidate;
+};
+
+const parseTimeToParts = (value: string) => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return { hour12: '09', minute: '00', ampm: 'AM' };
+  }
+  let hour24 = Number(match[1]);
+  const minute = match[2].padStart(2, '0');
+  const ampm = hour24 >= 12 ? 'PM' : 'AM';
+  if (hour24 === 0) hour24 = 12;
+  const hour12 = `${hour24 > 12 ? hour24 - 12 : hour24}`.padStart(2, '0');
+  return { hour12, minute, ampm };
+};
+
+const formatTimeFromParts = (hour12: string, minute: string, ampm: 'AM' | 'PM') => {
+  const h = Math.max(1, Math.min(12, parseInt(hour12, 10) || 0));
+  const hour24 = (ampm === 'PM' && h !== 12 ? h + 12 : ampm === 'AM' && h === 12 ? 0 : h)
+    .toString()
+    .padStart(2, '0');
+  const m = minute.padStart(2, '0');
+  return `${hour24}:${m}`;
 };
 
 function InputField({
@@ -771,6 +801,75 @@ function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeTex
           >
             {calendarBody}
           </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+function TimeInput({ label, value, onChangeText }: TimeInputProps) {
+  const parts = useMemo(() => parseTimeToParts(value || '09:00'), [value]);
+  const { hour12, minute, ampm } = parts;
+
+  const [openPart, setOpenPart] = useState<null | 'hour' | 'minute' | 'ampm'>(null);
+
+  const selectValue = (part: 'hour' | 'minute' | 'ampm', val: string) => {
+    if (part === 'hour') {
+      onChangeText(formatTimeFromParts(val, minute, ampm as 'AM' | 'PM'));
+    } else if (part === 'minute') {
+      onChangeText(formatTimeFromParts(hour12, val, ampm as 'AM' | 'PM'));
+    } else {
+      onChangeText(formatTimeFromParts(hour12, minute, val as 'AM' | 'PM'));
+    }
+    setOpenPart(null);
+  };
+
+  const options =
+    openPart === 'hour' ? HOURS_12 : openPart === 'minute' ? MINUTES : (['AM', 'PM'] as const);
+
+  return (
+    <View style={styles.timeInput}>
+      <Text style={styles.timeLabel}>{label}</Text>
+      <View style={styles.timeRow}>
+        <Pressable onPress={() => setOpenPart('hour')} style={styles.timePill}>
+          <Text style={styles.timeValue}>{hour12}</Text>
+          <Text style={styles.timeCaret}>˅</Text>
+        </Pressable>
+        <Pressable onPress={() => setOpenPart('minute')} style={styles.timePill}>
+          <Text style={styles.timeValue}>{minute}</Text>
+          <Text style={styles.timeCaret}>˅</Text>
+        </Pressable>
+        <Pressable onPress={() => setOpenPart('ampm')} style={styles.timePill}>
+          <Text style={styles.timeValue}>{ampm}</Text>
+          <Text style={styles.timeCaret}>˅</Text>
+        </Pressable>
+      </View>
+      <Modal
+        visible={openPart !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenPart(null)}
+      >
+        <Pressable style={styles.timeModalOverlay} onPress={() => setOpenPart(null)}>
+          <View style={styles.timeModalCard}>
+            <ScrollView style={styles.timeOptions}>
+              {options.map((opt) => {
+                const active =
+                  (openPart === 'hour' && opt === hour12) ||
+                  (openPart === 'minute' && opt === minute) ||
+                  (openPart === 'ampm' && opt === ampm);
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => selectValue(openPart as 'hour' | 'minute' | 'ampm', opt)}
+                    style={[styles.timeOption, active && styles.timeOptionActive]}
+                  >
+                    <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>{opt}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -3757,17 +3856,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 </View>
                 <View style={styles.row}>
                   <View style={styles.flexHalf}>
-                    <InputField
-                      label="Start (HH:mm)"
-                      placeholder="09:00"
+                    <TimeInput
+                      label="Start time"
                       value={newBusinessWindow.start}
                       onChangeText={(start) => setNewBusinessWindow((prev) => ({ ...prev, start }))}
                     />
                   </View>
                   <View style={styles.flexHalf}>
-                    <InputField
-                      label="End (HH:mm)"
-                      placeholder="17:00"
+                    <TimeInput
+                      label="End time"
                       value={newBusinessWindow.end}
                       onChangeText={(end) => setNewBusinessWindow((prev) => ({ ...prev, end }))}
                     />
@@ -3796,17 +3893,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 </View>
                 <View style={styles.row}>
                   <View style={styles.flexHalf}>
-                    <InputField
-                      label="Break start (HH:mm)"
-                      placeholder="12:00"
+                    <TimeInput
+                      label="Break start"
                       value={newBreakWindow.start}
                       onChangeText={(start) => setNewBreakWindow((prev) => ({ ...prev, start }))}
                     />
                   </View>
                   <View style={styles.flexHalf}>
-                    <InputField
-                      label="Break end (HH:mm)"
-                      placeholder="13:00"
+                    <TimeInput
+                      label="Break end"
                       value={newBreakWindow.end}
                       onChangeText={(end) => setNewBreakWindow((prev) => ({ ...prev, end }))}
                     />
@@ -3870,26 +3965,24 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </View>
                   <Text style={styles.rememberText}>All day closure</Text>
                 </Pressable>
-                {!newHoliday.allDay ? (
-                  <View style={styles.row}>
-                    <View style={styles.flexHalf}>
-                      <InputField
-                        label="Closed from (HH:mm)"
-                        placeholder="09:00"
-                        value={holidayWindow.start}
-                        onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
-                      />
+                  {!newHoliday.allDay ? (
+                    <View style={styles.row}>
+                      <View style={styles.flexHalf}>
+                        <TimeInput
+                          label="Closed from"
+                          value={holidayWindow.start}
+                          onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
+                        />
+                      </View>
+                      <View style={styles.flexHalf}>
+                        <TimeInput
+                          label="Closed to"
+                          value={holidayWindow.end}
+                          onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.flexHalf}>
-                      <InputField
-                        label="Closed to (HH:mm)"
-                        placeholder="12:00"
-                        value={holidayWindow.end}
-                        onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
-                      />
-                    </View>
-                  </View>
-                ) : null}
+                  ) : null}
                 <Pressable onPress={addHoliday} style={styles.secondaryChip}>
                   <Text style={styles.secondaryChipText}>Add holiday</Text>
                 </Pressable>
@@ -5915,4 +6008,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  timeInput: {
+    gap: 6,
+  },
+  timeLabel: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  timePill: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  timeValue: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 16,
+  },
+  timeCaret: {
+    color: '#6B7280',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+  },
+  timeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  timeModalCard: {
+    width: '70%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    maxHeight: 360,
+  },
+  timeOptions: { width: '100%' },
+  timeOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 8,
+  },
+  timeOptionActive: {
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
+  },
+  timeOptionText: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  timeOptionTextActive: { color: '#0F172A' },
 });
