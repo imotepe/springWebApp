@@ -17,7 +17,6 @@ package "Organizations" {
     +address: Address
     +location: GeoLocation
     +scheduleConfig: ScheduleConfig
-    +databaseName: String
     +createdBy: String
     +createdAt: LocalDateTime
     +mapsLink: String

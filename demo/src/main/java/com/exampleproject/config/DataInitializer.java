@@ -320,8 +320,7 @@ public class DataInitializer {
                 "+33 1 86 65 00 11",
                 hqAddress,
                 location,
-                scheduleConfig,
-                null
+                scheduleConfig
         );
         aurora.setCreatedBy("system");
         aurora.setCreatedAt(LocalDateTime.now().minusDays(60));
@@ -352,8 +351,7 @@ public class DataInitializer {
                 "+33 4 91 23 45 67",
                 rivieraAddress,
                 rivieraLocation,
-                rivieraSchedule,
-                null
+                rivieraSchedule
         );
         riviera.setCreatedBy("system");
         riviera.setCreatedAt(LocalDateTime.now().minusDays(45));
@@ -397,8 +395,7 @@ public class DataInitializer {
                 "+33 4 78 22 33 44",
                 helixAddress,
                 helixLocation,
-                helixSchedule,
-                null
+                helixSchedule
         );
         helix.setCreatedBy("system");
         helix.setCreatedAt(LocalDateTime.now().minusDays(30));
@@ -418,8 +415,7 @@ public class DataInitializer {
                 "+33 1 77 22 33 44",
                 hqAddress,
                 location,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         nova.setCreatedBy("user-platform-admin");
         nova.setCreatedAt(LocalDateTime.now().minusDays(5));
@@ -439,8 +435,7 @@ public class DataInitializer {
                 "+33 1 55 66 77 88",
                 rivieraAddress,
                 rivieraLocation,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         atlas.setCreatedBy("user-platform-admin");
         atlas.setCreatedAt(LocalDateTime.now().minusDays(4));
@@ -460,8 +455,7 @@ public class DataInitializer {
                 "+33 1 22 33 44 55",
                 helixAddress,
                 helixLocation,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         lumen.setCreatedBy("user-platform-admin");
         lumen.setCreatedAt(LocalDateTime.now().minusDays(3));
@@ -481,8 +475,7 @@ public class DataInitializer {
                 "+33 1 88 66 44 22",
                 hqAddress,
                 location,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         pulse.setCreatedBy("user-platform-admin");
         pulse.setCreatedAt(LocalDateTime.now().minusDays(2));
@@ -502,8 +495,7 @@ public class DataInitializer {
                 "+33 1 90 80 70 60",
                 rivieraAddress,
                 rivieraLocation,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         terra.setCreatedBy("user-platform-admin");
         terra.setCreatedAt(LocalDateTime.now().minusDays(7));
@@ -523,8 +515,7 @@ public class DataInitializer {
                 "+33 1 45 46 47 48",
                 hqAddress,
                 location,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         orbit.setCreatedBy("user-platform-admin");
         orbit.setCreatedAt(LocalDateTime.now().minusDays(6));
@@ -544,8 +535,7 @@ public class DataInitializer {
                 "+33 1 11 22 33 44",
                 helixAddress,
                 helixLocation,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         horizon.setCreatedBy("user-platform-admin");
         horizon.setCreatedAt(LocalDateTime.now().minusDays(8));
@@ -565,8 +555,7 @@ public class DataInitializer {
                 "+33 1 33 44 55 66",
                 hqAddress,
                 location,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         vertex.setCreatedBy("user-platform-admin");
         vertex.setCreatedAt(LocalDateTime.now().minusDays(9));
@@ -586,8 +575,7 @@ public class DataInitializer {
                 "+33 1 99 88 77 66",
                 rivieraAddress,
                 rivieraLocation,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         momentum.setCreatedBy("user-platform-admin");
         momentum.setCreatedAt(LocalDateTime.now().minusDays(12));
@@ -607,8 +595,7 @@ public class DataInitializer {
                 "+33 1 66 77 88 99",
                 hqAddress,
                 location,
-                defaultScheduleConfig(),
-                null
+                defaultScheduleConfig()
         );
         aster.setCreatedBy("user-platform-admin");
         aster.setCreatedAt(LocalDateTime.now().minusDays(10));

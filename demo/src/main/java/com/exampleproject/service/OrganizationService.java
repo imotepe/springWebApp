@@ -71,7 +71,6 @@ public class OrganizationService {
         organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
         validateType(org.getType());
         org.setId(id);
-        org.setDatabaseName(existing.getDatabaseName());
         org.setCreatedBy(existing.getCreatedBy());
         org.setCreatedAt(existing.getCreatedAt());
         return repository.save(org);
@@ -92,7 +91,7 @@ public class OrganizationService {
         if (typeName == null || typeName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organization type is required");
         }
-        if (!typeRepository.existsByName(typeName)) {
+        if (!typeRepository.existsById(typeName)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown organization type: " + typeName);
         }
     }

@@ -18,7 +18,6 @@ public class Organization {
     private Address address;
     private GeoLocation location;
     private ScheduleConfig scheduleConfig;
-    private String databaseName;
     private String createdBy;
     private LocalDateTime createdAt;
     private String mapsLink;
@@ -32,8 +31,7 @@ public class Organization {
 
     public Organization(String id, String name, String marketingName, String industry, String type,
                         String phone,
-                        Address address, GeoLocation location, ScheduleConfig scheduleConfig,
-                        String databaseName) {
+                        Address address, GeoLocation location, ScheduleConfig scheduleConfig) {
         this.id = id;
         this.name = name;
         this.marketingName = marketingName;
@@ -43,7 +41,6 @@ public class Organization {
         this.address = address;
         this.location = location;
         this.scheduleConfig = scheduleConfig;
-        this.databaseName = databaseName;
     }
 
     public String getId() { return id; }
@@ -72,9 +69,6 @@ public class Organization {
 
     public ScheduleConfig getScheduleConfig() { return scheduleConfig; }
     public void setScheduleConfig(ScheduleConfig scheduleConfig) { this.scheduleConfig = scheduleConfig; }
-
-    public String getDatabaseName() { return databaseName; }
-    public void setDatabaseName(String databaseName) { this.databaseName = databaseName; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
@@ -128,7 +122,6 @@ public class Organization {
                 ", address=" + address +
                 ", location=" + location +
                 ", createdBy='" + createdBy + '\'' +
-                ", databaseName='" + databaseName + '\'' +
                 ", mapsLink='" + mapsLink + '\'' +
                 ", facebookPage='" + facebookPage + '\'' +
                 ", facebookGroup='" + facebookGroup + '\'' +

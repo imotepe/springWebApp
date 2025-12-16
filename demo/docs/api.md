@@ -93,7 +93,7 @@ Standard CRUD (GET collection, GET item, POST, PUT, DELETE). Organizations refer
 - Creating an organization automatically provisions a default subscription (30-day trial, plan `TRIAL_30D`). Platform administrators can later change status/plan through internal tooling or direct DB edits (no public API yet).
 - Organization-scoped users cannot access `/api/**` when their organization's subscription status is `EXPIRED`, `SUSPENDED`, or `CANCELLED`; the API responds `403 FORBIDDEN`.
 - Seeded plan catalog (codes): `TRIAL_30D` (default 30-day trial), `TRIAL_180D`, `TRIAL_360D`, `SUB_MONTHLY`, `SUB_90D`, `SUB_180D`, `SUB_360D`, `SUB_720D`. Prices are seeded to `0 EUR`; adjust as needed in production.
-- `databaseName` is reserved for future multi-tenant sharding. All organizations currently share the same Mongo database, so the field will be `null` in responses and can be ignored.
+- `databaseName` was removed from the API; all organizations share the same database today.
 - Deleting an organization only removes its document from the primary collection; no dedicated tenant databases are created or dropped.
 
 ## Organization Types (`/api/organization-types`)

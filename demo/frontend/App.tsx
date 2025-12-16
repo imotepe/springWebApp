@@ -4,7 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -45,6 +47,14 @@ type InputFieldProps = {
   autoComplete?: 'email' | 'password';
 };
 
+type DatePickerFieldProps = {
+  label: string;
+  placeholder?: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  testID?: string;
+};
+
 type PrimaryButtonProps = {
   label: string;
   disabled?: boolean;
@@ -83,7 +93,6 @@ type Organization = {
   industry?: string;
   type: string;
   phone?: string;
-  databaseName?: string;
   createdBy?: string;
   scheduleConfig?: ScheduleConfigDto;
   mapsLink?: string;
@@ -118,7 +127,6 @@ type OrgFormState = {
   industry: string;
   type: string;
   phone: string;
-  databaseName: string;
   street: string;
   city: string;
   state: string;
@@ -126,6 +134,12 @@ type OrgFormState = {
   country: string;
   latitude: string;
   longitude: string;
+   mapsLink: string;
+   facebookPage: string;
+   facebookGroup: string;
+   instagram: string;
+   whatsappContact: string;
+   logoImage: string;
 };
 
 type UserRole =
@@ -335,6 +349,21 @@ const API_BASE = (process.env.EXPO_PUBLIC_API_BASE || inferLocalApiBase() || DEF
 );
 const LOGIN_ENDPOINT = `${API_BASE}/api/auth/token`;
 const DAY_NAMES: DayName[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const DAY_LABELS: Record<DayName, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',
@@ -372,6 +401,7 @@ const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
   'INTERNAL_NOTE',
   'PRACTITIONER_NOTE',
 ];
+type DatePickerView = 'day' | 'month' | 'year';
 
 function decodeRolesFromToken(token: string): UserRole[] {
   try {
@@ -386,6 +416,21 @@ function decodeRolesFromToken(token: string): UserRole[] {
     return payload.roles.filter((role): role is UserRole => typeof role === 'string');
   } catch {
     return [];
+  }
+}
+
+function decodeUserIdFromToken(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base + '='.repeat((4 - (base.length % 4 || 4)) % 4);
+    const decoded = typeof globalThis.atob === 'function' ? globalThis.atob(padded) : '';
+    if (!decoded) return null;
+    const payload = JSON.parse(decoded) as { sub?: string; userId?: string; id?: string };
+    return payload.sub || payload.userId || payload.id || null;
+  } catch {
+    return null;
   }
 }
 const APPOINTMENT_TYPE_STATUSES = ['active'];
@@ -447,6 +492,33 @@ const normalizeScheduleForm = (config?: ScheduleConfigDto): ScheduleFormState =>
   };
 };
 
+const formatIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateValue = (raw: string): Date | null => {
+  if (!raw) return null;
+  const normalized = raw.replace(/\//g, '-').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const candidate = new Date(year, month, day);
+  if (
+    Number.isNaN(candidate.getTime()) ||
+    candidate.getFullYear() !== year ||
+    candidate.getMonth() !== month ||
+    candidate.getDate() !== day
+  ) {
+    return null;
+  }
+  return candidate;
+};
+
 function InputField({
   label,
   placeholder,
@@ -476,6 +548,231 @@ function InputField({
         />
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeText, testID }: DatePickerFieldProps) {
+  const parsedValue = useMemo(() => parseDateValue(value), [value]);
+  const [open, setOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => parsedValue ?? new Date());
+  const [viewMode, setViewMode] = useState<DatePickerView>('day');
+  const [dayCellSize, setDayCellSize] = useState<number | null>(null);
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = currentYear - 120; y <= currentYear + 5; y += 1) {
+      years.push(y);
+    }
+    return years;
+  }, []);
+
+  useEffect(() => {
+    if (parsedValue) {
+      setVisibleMonth(parsedValue);
+    }
+  }, [parsedValue]);
+
+  const calendarCells = useMemo(() => {
+    const year = visibleMonth.getFullYear();
+    const month = visibleMonth.getMonth();
+    const startDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < startDay; i += 1) {
+      cells.push(null);
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      cells.push(day);
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push(null);
+    }
+    const rows: (number | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      rows.push(cells.slice(i, i + 7));
+    }
+    return rows;
+  }, [visibleMonth]);
+
+  const monthLabel = `${MONTH_LABELS[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`;
+  const visibleYear = visibleMonth.getFullYear();
+
+  const handleSelectDay = (day: number) => {
+    const nextDate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
+    onChangeText(formatIsoDate(nextDate));
+    setOpen(false);
+    setViewMode('day');
+  };
+
+  const shiftMonth = (delta: number) => {
+    setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  const selectMonth = (monthIndex: number) => {
+    setVisibleMonth((prev) => new Date(prev.getFullYear(), monthIndex, 1));
+    setViewMode('day');
+  };
+
+  const selectYear = (year: number) => {
+    setVisibleMonth((prev) => new Date(year, prev.getMonth(), 1));
+    setViewMode('month');
+  };
+
+  const shiftYearPage = (deltaYears: number) => {
+    setVisibleMonth((prev) => new Date(prev.getFullYear() + deltaYears, prev.getMonth(), 1));
+  };
+
+  const calendarBody = (
+    <View style={styles.calendarCard}>
+      <View style={styles.calendarHeader}>
+        <Pressable
+          onPress={() =>
+            viewMode === 'year' ? shiftYearPage(-12) : viewMode === 'month' ? shiftMonth(-12) : shiftMonth(-1)
+          }
+          style={styles.calendarArrow}
+        >
+          <Text style={styles.calendarArrowText}>{'<'}</Text>
+        </Pressable>
+        <View style={styles.titleRow}>
+          <Pressable onPress={() => setViewMode('month')}>
+            <Text style={styles.monthLabel}>{MONTH_LABELS[visibleMonth.getMonth()]}</Text>
+          </Pressable>
+          <Pressable onPress={() => setViewMode('year')}>
+            <Text style={styles.monthLabel}>{visibleYear}</Text>
+          </Pressable>
+        </View>
+        <Pressable
+          onPress={() =>
+            viewMode === 'year' ? shiftYearPage(12) : viewMode === 'month' ? shiftMonth(12) : shiftMonth(1)
+          }
+          style={styles.calendarArrow}
+        >
+          <Text style={styles.calendarArrowText}>{'>'}</Text>
+        </Pressable>
+      </View>
+      {viewMode === 'month' ? (
+        <View style={styles.monthGrid}>
+          {MONTH_LABELS.map((name, idx) => {
+            const active = idx === visibleMonth.getMonth();
+            return (
+              <Pressable
+                key={name}
+                onPress={() => selectMonth(idx)}
+                style={[styles.monthGridItem, active && styles.monthGridItemActive]}
+              >
+                <Text style={[styles.monthGridText, active && styles.monthGridTextActive]}>{name.slice(0, 3)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : viewMode === 'year' ? (
+        <View style={styles.yearGrid}>
+          {Array.from({ length: 12 }).map((_, idx) => {
+            const baseYear = Math.floor(visibleYear / 12) * 12;
+            const year = baseYear - 1 + idx;
+            const active = year === visibleYear;
+            return (
+              <Pressable
+                key={year}
+                onPress={() => selectYear(year)}
+                style={[styles.yearGridItem, active && styles.yearGridItemActive]}
+              >
+                <Text style={[styles.yearGridText, active && styles.yearGridTextActive]}>{year}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+          ) : (
+            <>
+              <View style={styles.weekRow}>
+                {WEEKDAY_LABELS.map((name) => (
+                  <Text key={name} style={styles.weekday}>
+                    {name}
+                  </Text>
+                ))}
+              </View>
+              <View
+                style={styles.dayGrid}
+                onLayout={(e) => {
+                  const width = e.nativeEvent.layout.width;
+                  if (width > 0) {
+                    const size = Math.floor(width / 7);
+                    setDayCellSize(size > 28 ? size : 32);
+                  }
+                }}
+              >
+                {calendarCells.flat().map((day, idx) => {
+                  const isSelected =
+                    day !== null &&
+                    parsedValue &&
+                    parsedValue.getDate() === day &&
+                    parsedValue.getMonth() === visibleMonth.getMonth() &&
+                    parsedValue.getFullYear() === visibleMonth.getFullYear();
+                  return (
+                    <Pressable
+                      key={`cell-${idx}-${day ?? 'empty'}`}
+                      disabled={day === null}
+                      onPress={() => day && handleSelectDay(day)}
+                      style={[
+                        styles.dayCell,
+                        { width: dayCellSize ?? 44, height: dayCellSize ?? 44 },
+                        day === null && styles.dayCellEmpty,
+                        isSelected && styles.dayCellSelected,
+                      ]}
+                    >
+                      <Text style={[styles.dayText, day === null && styles.dayTextEmpty, isSelected && styles.dayTextSelected]}>
+                        {day ?? ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </View>
+  );
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        onPress={() => setOpen(true)}
+        onPressIn={() => setOpen(true)}
+        testID={testID}
+        style={({ pressed }) => [
+          styles.dateInputShell,
+          open && styles.dateInputShellActive,
+          pressed && styles.dateInputShellPressed,
+        ]}
+      >
+        <Text style={[styles.dateValue, !value && styles.datePlaceholder]}>{value || placeholder}</Text>
+        <View style={styles.dateIcon}>
+          <View style={styles.dateIconTop} />
+          <View style={styles.dateIconBody} />
+        </View>
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.calendarOverlay} onPress={() => setOpen(false)}>
+          <Pressable
+            style={styles.calendarCardWrapper}
+            onPress={(e) => {
+              // prevent closing when interacting inside the card
+              if (e && typeof (e as any).stopPropagation === 'function') {
+                (e as any).stopPropagation();
+              }
+            }}
+          >
+            {calendarBody}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -670,6 +967,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [appointmentTypePage, setAppointmentTypePage] = useState(1);
   const [typePage, setTypePage] = useState(1);
   const [schedulePage, setSchedulePage] = useState(1);
+  const [orgTypePickerOpen, setOrgTypePickerOpen] = useState(false);
+  const [orgTypeQuery, setOrgTypeQuery] = useState('');
+  const [homeOrgPickerOpen, setHomeOrgPickerOpen] = useState(false);
+  const [homeOrgQuery, setHomeOrgQuery] = useState('');
   const renderPagination = (
     currentPage: number,
     totalPages: number,
@@ -721,6 +1022,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   const roles = useMemo(() => decodeRolesFromToken(token), [token]);
+  const currentUserId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
   const canViewCustomers = !isPlatformAdminOnly;
@@ -761,7 +1063,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     industry: '',
     type: '',
     phone: '',
-    databaseName: '',
     street: '',
     city: '',
     state: '',
@@ -769,6 +1070,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     country: '',
     latitude: '',
     longitude: '',
+    mapsLink: '',
+    facebookPage: '',
+    facebookGroup: '',
+    instagram: '',
+    whatsappContact: '',
+    logoImage: '',
   });
 
   const [typeForm, setTypeForm] = useState<OrganizationType>({
@@ -1086,7 +1393,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: '',
       type: orgTypes[0]?.name ?? '',
       phone: '',
-      databaseName: '',
       street: '',
       city: '',
       state: '',
@@ -1094,6 +1400,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       country: '',
       latitude: '',
       longitude: '',
+      mapsLink: '',
+      facebookPage: '',
+      facebookGroup: '',
+      instagram: '',
+      whatsappContact: '',
+      logoImage: '',
     });
     setFormError(null);
   }, [orgTypes]);
@@ -1139,6 +1451,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setUserError(null);
     setUserMessage(null);
+    setHomeOrgPickerOpen(false);
+    setHomeOrgQuery('');
   }, []);
 
   const resetCustomerForm = useCallback(() => {
@@ -1182,6 +1496,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setUserError(null);
     setUserMessage(`Editing ${user.username || user.email || user.id || 'user'}`);
+    setHomeOrgPickerOpen(false);
+    setHomeOrgQuery('');
   };
 
   const startCustomerEdit = (customer: Customer) => {
@@ -1299,7 +1615,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: org.industry ?? '',
       type: org.type ?? '',
       phone: org.phone ?? '',
-      databaseName: org.databaseName ?? '',
       street: org.address?.street ?? '',
       city: org.address?.city ?? '',
       state: org.address?.state ?? '',
@@ -1307,7 +1622,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       country: org.address?.country ?? '',
       latitude: org.location?.latitude != null ? String(org.location.latitude) : '',
       longitude: org.location?.longitude != null ? String(org.location.longitude) : '',
+      mapsLink: org.mapsLink ?? '',
+      facebookPage: org.facebookPage ?? '',
+      facebookGroup: org.facebookGroup ?? '',
+      instagram: org.instagram ?? '',
+      whatsappContact: org.whatsappContact ?? '',
+      logoImage: org.logoImage ?? '',
     });
+    setOrgTypePickerOpen(false);
+    setOrgTypeQuery('');
     setFormError(null);
     setMessage(`Editing ${org.name}`);
   };
@@ -1694,9 +2017,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: form.industry.trim(),
       type: form.type.trim(),
       phone: form.phone.trim(),
-      databaseName: form.databaseName.trim(),
       address,
       location,
+      mapsLink: form.mapsLink.trim() || undefined,
+      facebookPage: form.facebookPage.trim() || undefined,
+      facebookGroup: form.facebookGroup.trim() || undefined,
+      instagram: form.instagram.trim() || undefined,
+      whatsappContact: form.whatsappContact.trim() || undefined,
+      logoImage: form.logoImage.trim() || undefined,
     };
 
     const path = form.id ? `/api/organizations/${form.id}` : '/api/organizations';
@@ -2512,6 +2840,44 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     );
   }, [orgTypes, typeSearch]);
 
+  const filteredOrgTypesForPicker = useMemo(() => {
+    const term = orgTypeQuery.trim().toLowerCase();
+    if (!term) return orgTypes;
+    return orgTypes.filter((type) =>
+      [type.name, type.description, type.id].filter(Boolean).some((value) => value!.toLowerCase().includes(term)),
+    );
+  }, [orgTypeQuery, orgTypes]);
+
+  const sortedHomeOrgs = useMemo(() => {
+    return [...orgs].sort(
+      (a, b) => (b.createdAt ? Date.parse(b.createdAt) : 0) - (a.createdAt ? Date.parse(a.createdAt) : 0),
+    );
+  }, [orgs]);
+
+  const homeOrgBase = useMemo(() => {
+    if (isSuperAdmin) return sortedHomeOrgs;
+    if (roles.includes('PLATFORM_ADMIN')) {
+      // Platform admin: only orgs created by the current user (fallback to all if id missing)
+      return currentUserId ? sortedHomeOrgs.filter((org) => org.createdBy === currentUserId) : sortedHomeOrgs;
+    }
+    if (roles.includes('ORGANIZATION_ADMIN')) {
+      // Org admin: show orgs already scoped by backend to their access
+      return sortedHomeOrgs;
+    }
+    // Other roles: show orgs already scoped by backend (e.g., none or limited)
+    return sortedHomeOrgs;
+  }, [currentUserId, isSuperAdmin, roles, sortedHomeOrgs]);
+
+  const filteredHomeOrgs = useMemo(() => {
+    const term = homeOrgQuery.trim().toLowerCase();
+    if (!term) return homeOrgBase;
+    return homeOrgBase.filter((org) =>
+      [org.id, org.name, org.marketingName, org.phone, org.createdBy]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term)),
+    );
+  }, [homeOrgBase, homeOrgQuery]);
+
   const sortedTypes = useMemo(() => {
     return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
   }, [filteredTypes]);
@@ -2678,10 +3044,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: current.industry ?? '',
       type: current.type ?? '',
       phone: current.phone ?? '',
-      databaseName: current.databaseName ?? '',
       address: current.address,
       location: current.location,
       scheduleConfig: schedulePayload,
+      mapsLink: current.mapsLink,
+      facebookPage: current.facebookPage,
+      facebookGroup: current.facebookGroup,
+      instagram: current.instagram,
+      whatsappContact: current.whatsappContact,
+      logoImage: current.logoImage,
     };
 
     try {
@@ -2710,6 +3081,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
       bounces={false}
+      nestedScrollEnabled
+      scrollsToTop={false}
     >
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
@@ -2841,7 +3214,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView
+                style={styles.orgListScroll}
+                contentContainerStyle={styles.orgList}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+              >
                 {visibleOrgs.map((org) => (
                   <Pressable
                     key={org.id ?? org.name}
@@ -2855,9 +3233,36 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     <Text style={styles.orgMeta}>
                       {org.marketingName || 'No marketing name'} - {org.industry || 'No industry'}
                     </Text>
-                    <Text style={styles.orgMeta}>
-                      {org.phone || 'No phone'} - DB: {org.databaseName || 'N/A'}
-                    </Text>
+                    <View style={styles.orgMetaRow}>
+                      <Text style={styles.orgMeta}>{org.phone || 'No phone'}</Text>
+                      {org.mapsLink ? (
+                        <Text style={styles.link} numberOfLines={1}>
+                          {org.mapsLink}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {org.logoImage ? (
+                      <Image source={{ uri: org.logoImage }} style={styles.orgLogo} resizeMode="contain" />
+                    ) : null}
+                    {(org.facebookPage || org.instagram || org.whatsappContact) ? (
+                      <View style={styles.orgMetaRow}>
+                        {org.facebookPage ? (
+                          <Text style={styles.orgMeta} numberOfLines={1}>
+                            FB: {org.facebookPage}
+                          </Text>
+                        ) : null}
+                        {org.instagram ? (
+                          <Text style={styles.orgMeta} numberOfLines={1}>
+                            IG: {org.instagram}
+                          </Text>
+                        ) : null}
+                        {org.whatsappContact ? (
+                          <Text style={styles.orgMeta} numberOfLines={1}>
+                            WA: {org.whatsappContact}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
                     <Text style={styles.orgMeta}>
                       Created: {org.createdAt ? new Date(org.createdAt).toLocaleString() : 'Unknown'} by{' '}
                       {org.createdBy || 'unknown'}
@@ -2915,25 +3320,62 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             />
             <View style={styles.inputField}>
               <Text style={styles.label}>Organization type</Text>
-              <View style={styles.typeChips}>
-                {orgTypes.map((type) => {
-                  const selected = form.type === type.name;
-                  return (
-                    <Pressable
-                      key={type.id}
-                      onPress={() => setForm((prev) => ({ ...prev, type: type.name }))}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}
-                    >
-                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
-                        {type.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                {orgTypes.length === 0 ? (
-                  <Text style={styles.statusText}>No organization types available.</Text>
-                ) : null}
-              </View>
+              <Pressable
+                style={styles.dropdownTrigger}
+                onPress={() =>
+                  setOrgTypePickerOpen((open) => {
+                    const next = !open;
+                    if (next) setOrgTypeQuery('');
+                    return next;
+                  })
+                }
+              >
+                <Text style={form.type ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {form.type || 'Select organization type'}
+                </Text>
+              </Pressable>
+              {orgTypePickerOpen ? (
+                <View style={styles.dropdownPanel}>
+                  <TextInput
+                    value={orgTypeQuery}
+                    onChangeText={setOrgTypeQuery}
+                    placeholder="Search types..."
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    style={styles.dropdownSearchInput}
+                    autoCapitalize="none"
+                  />
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {filteredOrgTypesForPicker.map((type) => {
+                      const selected = form.type === type.name;
+                      return (
+                        <Pressable
+                          key={type.id}
+                          onPress={() => {
+                            setForm((prev) => ({ ...prev, type: type.name }));
+                            setOrgTypePickerOpen(false);
+                          }}
+                          style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                        >
+                          <Text
+                            style={[styles.dropdownItemLabel, selected && styles.dropdownItemLabelSelected]}
+                            numberOfLines={1}
+                          >
+                            {type.name}
+                          </Text>
+                          {type.description ? (
+                            <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                              {type.description}
+                            </Text>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                    {filteredOrgTypesForPicker.length === 0 ? (
+                      <Text style={styles.statusText}>No organization types available.</Text>
+                    ) : null}
+                  </ScrollView>
+                </View>
+              ) : null}
             </View>
             <InputField
               label="Phone"
@@ -2941,12 +3383,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={form.phone}
               onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
               keyboardType="default"
-            />
-            <InputField
-              label="Database name"
-              placeholder="org-database-name"
-              value={form.databaseName}
-              onChangeText={(databaseName) => setForm((prev) => ({ ...prev, databaseName }))}
             />
 
             <View style={styles.addressRow}>
@@ -3015,6 +3451,49 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
             </View>
 
+            <InputField
+              label="Maps link"
+              placeholder="https://maps.google.com/?q=48.8566,2.3522"
+              value={form.mapsLink}
+              onChangeText={(mapsLink) => setForm((prev) => ({ ...prev, mapsLink }))}
+              autoComplete="off"
+            />
+            <InputField
+              label="Facebook page"
+              placeholder="https://www.facebook.com/yourpage"
+              value={form.facebookPage}
+              onChangeText={(facebookPage) => setForm((prev) => ({ ...prev, facebookPage }))}
+              autoComplete="off"
+            />
+            <InputField
+              label="Facebook group"
+              placeholder="https://www.facebook.com/groups/yourgroup"
+              value={form.facebookGroup}
+              onChangeText={(facebookGroup) => setForm((prev) => ({ ...prev, facebookGroup }))}
+              autoComplete="off"
+            />
+            <InputField
+              label="Instagram"
+              placeholder="https://www.instagram.com/yourhandle"
+              value={form.instagram}
+              onChangeText={(instagram) => setForm((prev) => ({ ...prev, instagram }))}
+              autoComplete="off"
+            />
+            <InputField
+              label="WhatsApp contact"
+              placeholder="+33 6 00 00 00 00"
+              value={form.whatsappContact}
+              onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
+              autoComplete="off"
+            />
+            <InputField
+              label="Logo image URL"
+              placeholder="https://cdn.example.com/logos/yourorg.png"
+              value={form.logoImage}
+              onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
+              autoComplete="off"
+            />
+
             <PrimaryButton
               label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
               onPress={handleSave}
@@ -3062,7 +3541,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleTypes.map((type) => (
                   <Pressable
                     key={type.id}
@@ -3174,7 +3653,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleScheduleOrgs.map((org) => {
                   const isSelected = scheduleOrgId === org.id;
                   const holidaysCount = org.scheduleConfig?.holidays?.length ?? 0;
@@ -3366,7 +3845,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 </View>
                 <View style={styles.row}>
                   <View style={styles.flexHalf}>
-                    <InputField
+                    <DatePickerField
                       label="Holiday date (YYYY-MM-DD)"
                       placeholder="2025-12-25"
                       value={newHoliday.date}
@@ -3484,7 +3963,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading resources...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleResources.map((resource) => (
                   <Pressable
                     key={resource.id ?? resource.name}
@@ -3660,7 +4139,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading appointments...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleAppointments.map((appt) => (
                   <Pressable
                     key={appt.id ?? `${appt.customerId}-${appt.start}`}
@@ -3957,7 +4436,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading appointment types...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleAppointmentTypes.map((type) => (
                   <Pressable
                     key={type.id ?? type.name}
@@ -4126,7 +4605,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading customers...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleCustomers.map((customer) => (
                   <Pressable
                     key={customer.id ?? customer.email ?? customer.phone}
@@ -4198,7 +4677,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={customerForm.notes}
               onChangeText={(notes) => setCustomerForm((prev) => ({ ...prev, notes }))}
             />
-            <InputField
+            <DatePickerField
               label="Date of birth (YYYY-MM-DD)"
               placeholder="1990-01-01"
               value={customerForm.dateOfBirth}
@@ -4412,7 +4891,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Loading users...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList}>
+              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleUsers.map((user) => {
                   const name =
                     user.firstName || user.lastName
@@ -4509,12 +4988,68 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               autoComplete="password"
             />
             <Text style={styles.helperText}>Leave blank when editing to keep the existing password.</Text>
-            <InputField
-              label="Home organization id (optional for platform admins)"
-              placeholder="org-aurora-retail"
-              value={userForm.homeOrganizationId}
-              onChangeText={(homeOrganizationId) => setUserForm((prev) => ({ ...prev, homeOrganizationId }))}
-            />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Home organization (optional for platform admins)</Text>
+              <Pressable
+                style={[styles.dropdownTrigger, styles.dropdownTriggerRow]}
+                onPress={() =>
+                  setHomeOrgPickerOpen((open) => {
+                    const next = !open;
+                    if (next) setHomeOrgQuery('');
+                    return next;
+                  })
+                }
+              >
+                <Text style={userForm.homeOrganizationId ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {userForm.homeOrganizationId || 'Select organization'}
+                </Text>
+                <Text style={styles.dropdownCaret}>{homeOrgPickerOpen ? '▲' : '▼'}</Text>
+              </Pressable>
+              {homeOrgPickerOpen ? (
+                <View style={styles.dropdownPanel}>
+                  <TextInput
+                    value={homeOrgQuery}
+                    onChangeText={setHomeOrgQuery}
+                    placeholder="Search by id, name, marketing name, phone, createdBy"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    style={styles.dropdownSearchInput}
+                    autoCapitalize="none"
+                  />
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {filteredHomeOrgs.length === 0 ? (
+                      <Text style={styles.statusText}>No organizations match the search.</Text>
+                    ) : (
+                      filteredHomeOrgs.map((org) => (
+                        <Pressable
+                          key={org.id ?? org.name}
+                          onPress={() => {
+                            setUserForm((prev) => ({ ...prev, homeOrganizationId: org.id || '' }));
+                            setHomeOrgPickerOpen(false);
+                          }}
+                          style={[
+                            styles.dropdownItem,
+                            userForm.homeOrganizationId === org.id && styles.dropdownItemSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemLabel,
+                              userForm.homeOrganizationId === org.id && styles.dropdownItemLabelSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {org.id || org.name}
+                          </Text>
+                          <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                            {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
             <InputField
               label="Expires at (ISO-8601, optional)"
               placeholder="2026-01-01T00:00:00"
@@ -4695,6 +5230,237 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_500Medium',
     fontSize: 16,
   },
+  dateInputShell: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  dateInputShellActive: {
+    borderColor: '#1D4ED8',
+    shadowOpacity: 0.12,
+  },
+  dateInputShellPressed: { opacity: 0.92 },
+  dateValue: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+  datePlaceholder: { color: 'rgba(107,114,128,0.75)' },
+  dateIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1.2,
+    borderColor: '#111827',
+    backgroundColor: '#FFFFFF',
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateIconTop: {
+    width: '100%',
+    height: 5,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    backgroundColor: '#111827',
+    marginBottom: 3,
+  },
+  dateIconBody: {
+    width: '100%',
+    height: 14,
+    borderWidth: 1.2,
+    borderColor: '#111827',
+    borderRadius: 4,
+  },
+  calendarOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  calendarCardWrapper: {
+    width: '100%',
+    maxWidth: 380,
+  },
+  calendarCard: {
+    backgroundColor: '#2E3036',
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+    width: '100%',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  monthYearRow: {
+    gap: 8,
+    marginTop: 6,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  monthGridItem: {
+    width: '22%',
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#3A3B41',
+    alignItems: 'center',
+  },
+  monthGridItemActive: { backgroundColor: '#FFFFFF' },
+  monthGridText: {
+    color: '#E5E7EB',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+  },
+  monthGridTextActive: { color: '#111827' },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  yearGridItem: {
+    width: '22%',
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#3A3B41',
+    alignItems: 'center',
+  },
+  yearGridItemActive: { backgroundColor: '#FFFFFF' },
+  yearGridText: {
+    color: '#E5E7EB',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+  },
+  yearGridTextActive: { color: '#111827' },
+  monthLabel: {
+    color: '#F8FAFC',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+  calendarArrow: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#3A3B41',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarArrowText: {
+    color: '#E5E7EB',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 16,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    width: '100%',
+    marginTop: 4,
+  },
+  weekday: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#D1D5DB',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 13,
+  },
+  dayGrid: {
+    flexDirection: 'row',
+    width: '100%',
+    marginTop: 6,
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dayCell: {
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  dayCellEmpty: {
+    opacity: 0,
+  },
+  dayCellSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  dayText: {
+    color: '#F8FAFC',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 15,
+  },
+  dayTextEmpty: { color: '#9CA3AF' },
+  dayTextSelected: { color: '#111827' },
+  errorText: {
+    color: '#DC2626',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 13,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  flexHalf: {
+    flex: 1,
+  },
+  addressRow: {
+    width: '100%',
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  dayCellEmpty: { opacity: 0 },
+  dayCellSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  dayText: {
+    color: '#F8FAFC',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 15,
+  },
+  dayTextEmpty: { color: '#9CA3AF' },
+  dayTextSelected: { color: '#111827' },
   errorText: {
     color: '#DC2626',
     fontFamily: 'Manrope_500Medium',
@@ -4972,6 +5738,10 @@ const styles = StyleSheet.create({
   orgListScroll: {
     maxHeight: 520,
   },
+  orgTabContent: {
+    width: '100%',
+    paddingBottom: 24,
+  },
   orgList: { gap: 12 },
   orgCard: {
     backgroundColor: '#FFFFFF',
@@ -5016,6 +5786,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_600SemiBold',
     fontSize: 13,
   },
+  orgMetaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  orgLogo: {
+    width: 80,
+    height: 40,
+    marginTop: 6,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
   typeChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -5039,6 +5822,88 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   typeChipTextSelected: { color: '#0F172A' },
+  dropdownTrigger: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    marginTop: 6,
+  },
+  dropdownTriggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownValue: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 14,
+  },
+  dropdownPlaceholder: {
+    color: '#9CA3AF',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+  },
+  dropdownPanel: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+    gap: 8,
+    maxHeight: 260,
+    elevation: 3,
+    zIndex: 3,
+  },
+  dropdownSearchInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: '#0F172A',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 14,
+  },
+  dropdownList: {
+    maxHeight: 200,
+  },
+  dropdownCaret: {
+    color: '#6B7280',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  dropdownItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 6,
+  },
+  dropdownItemSelected: {
+    borderColor: '#1D4ED8',
+    backgroundColor: '#E0E7FF',
+  },
+  dropdownItemLabel: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 14,
+  },
+  dropdownItemLabelSelected: {
+    color: '#0F172A',
+  },
+  dropdownItemDescription: {
+    color: '#6B7280',
+    fontFamily: 'Manrope_400Regular',
+    fontSize: 12,
+    marginTop: 2,
+  },
   windowRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

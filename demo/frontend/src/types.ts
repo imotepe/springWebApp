@@ -5,7 +5,12 @@ export type Organization = {
   industry?: string;
   type: string;
   phone?: string;
-  databaseName?: string;
+  mapsLink?: string;
+  facebookPage?: string;
+  facebookGroup?: string;
+  instagram?: string;
+  whatsappContact?: string;
+  logoImage?: string;
 };
 
 export type OrganizationType = {

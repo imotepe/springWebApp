@@ -336,11 +336,11 @@ Authorization: Bearer <token-for-user-org-admin>
     "breaks": {},
     "holidays": []
   },
-  "databaseName": null
+  // databaseName removed
 }
 ```
 
-> `databaseName` stays `null` because every organization shares the same Mongo database today. The field remains reserved for future use, so clients can ignore it for now.
+> `databaseName` was removed because all organizations share the same database.
 
 ---
 
