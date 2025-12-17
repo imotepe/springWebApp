@@ -179,10 +179,13 @@ type UserFormState = {
   lastName: string;
   email: string;
   password: string;
+  passwordConfirm: string;
   roles: UserRole[];
   homeOrganizationId: string;
   status: UserStatus;
   expiresAt: string;
+  expiresDate: string;
+  expiresTime: string;
 };
 
 type CustomerInteraction = {
@@ -408,7 +411,7 @@ const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
   'PRACTITIONER_NOTE',
 ];
 type DatePickerView = 'day' | 'month' | 'year';
-const HOURS_12 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+const HOURS_24 = ['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
 function decodeRolesFromToken(token: string): UserRole[] {
@@ -530,23 +533,49 @@ const parseDateValue = (raw: string): Date | null => {
 const parseTimeToParts = (value: string) => {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
   if (!match) {
-    return { hour12: '09', minute: '00', ampm: 'AM' };
+    return { hour: '09', minute: '00' };
   }
-  let hour24 = Number(match[1]);
+  const hour24 = Math.min(23, Math.max(0, Number(match[1])));
   const minute = match[2].padStart(2, '0');
-  const ampm = hour24 >= 12 ? 'PM' : 'AM';
-  if (hour24 === 0) hour24 = 12;
-  const hour12 = `${hour24 > 12 ? hour24 - 12 : hour24}`.padStart(2, '0');
-  return { hour12, minute, ampm };
+  const hour = `${hour24}`.padStart(2, '0');
+  return { hour, minute };
 };
 
-const formatTimeFromParts = (hour12: string, minute: string, ampm: 'AM' | 'PM') => {
-  const h = Math.max(1, Math.min(12, parseInt(hour12, 10) || 0));
-  const hour24 = (ampm === 'PM' && h !== 12 ? h + 12 : ampm === 'AM' && h === 12 ? 0 : h)
+const normalizeTimeString = (value: string, fallback = '00:00') => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return fallback;
+  const hour = Math.min(23, Math.max(0, Number(match[1])));
+  const minute = Math.min(59, Math.max(0, Number(match[2])));
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+};
+
+const splitDateTime = (raw: string) => {
+  if (!raw) return { date: '', time: '00:00' };
+  const match = /^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/.exec(raw.trim());
+  if (match) {
+    return { date: match[1], time: normalizeTimeString(match[2]) };
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return { date: '', time: '00:00' };
+  const date = formatIsoDate(parsed);
+  const hour = parsed.getHours().toString().padStart(2, '0');
+  const minute = parsed.getMinutes().toString().padStart(2, '0');
+  return { date, time: `${hour}:${minute}` };
+};
+
+const buildDateTimeValue = (date: string, time: string) => {
+  const safeDate = date.trim();
+  if (!safeDate) return '';
+  const safeTime = normalizeTimeString(time, '00:00');
+  return `${safeDate}T${safeTime}:00`;
+};
+
+const formatTimeFromParts = (hour: string, minute: string) => {
+  const h = Math.max(0, Math.min(23, parseInt(hour, 10) || 0))
     .toString()
     .padStart(2, '0');
   const m = minute.padStart(2, '0');
-  return `${hour24}:${m}`;
+  return `${h}:${m}`;
 };
 
 function InputField({
@@ -809,38 +838,31 @@ function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeTex
 
 function TimeInput({ label, value, onChangeText }: TimeInputProps) {
   const parts = useMemo(() => parseTimeToParts(value || '09:00'), [value]);
-  const { hour12, minute, ampm } = parts;
+  const { hour, minute } = parts;
 
-  const [openPart, setOpenPart] = useState<null | 'hour' | 'minute' | 'ampm'>(null);
+  const [openPart, setOpenPart] = useState<null | 'hour' | 'minute'>(null);
 
-  const selectValue = (part: 'hour' | 'minute' | 'ampm', val: string) => {
+  const selectValue = (part: 'hour' | 'minute', val: string) => {
     if (part === 'hour') {
-      onChangeText(formatTimeFromParts(val, minute, ampm as 'AM' | 'PM'));
+      onChangeText(formatTimeFromParts(val, minute));
     } else if (part === 'minute') {
-      onChangeText(formatTimeFromParts(hour12, val, ampm as 'AM' | 'PM'));
-    } else {
-      onChangeText(formatTimeFromParts(hour12, minute, val as 'AM' | 'PM'));
+      onChangeText(formatTimeFromParts(hour, val));
     }
     setOpenPart(null);
   };
 
-  const options =
-    openPart === 'hour' ? HOURS_12 : openPart === 'minute' ? MINUTES : (['AM', 'PM'] as const);
+  const options = openPart === 'hour' ? HOURS_24 : MINUTES;
 
   return (
     <View style={styles.timeInput}>
       <Text style={styles.timeLabel}>{label}</Text>
       <View style={styles.timeRow}>
         <Pressable onPress={() => setOpenPart('hour')} style={styles.timePill}>
-          <Text style={styles.timeValue}>{hour12}</Text>
+          <Text style={styles.timeValue}>{hour}</Text>
           <Text style={styles.timeCaret}>˅</Text>
         </Pressable>
         <Pressable onPress={() => setOpenPart('minute')} style={styles.timePill}>
           <Text style={styles.timeValue}>{minute}</Text>
-          <Text style={styles.timeCaret}>˅</Text>
-        </Pressable>
-        <Pressable onPress={() => setOpenPart('ampm')} style={styles.timePill}>
-          <Text style={styles.timeValue}>{ampm}</Text>
           <Text style={styles.timeCaret}>˅</Text>
         </Pressable>
       </View>
@@ -853,21 +875,18 @@ function TimeInput({ label, value, onChangeText }: TimeInputProps) {
         <Pressable style={styles.timeModalOverlay} onPress={() => setOpenPart(null)}>
           <View style={styles.timeModalCard}>
             <ScrollView style={styles.timeOptions}>
-              {options.map((opt) => {
-                const active =
-                  (openPart === 'hour' && opt === hour12) ||
-                  (openPart === 'minute' && opt === minute) ||
-                  (openPart === 'ampm' && opt === ampm);
-                return (
-                  <Pressable
-                    key={opt}
-                    onPress={() => selectValue(openPart as 'hour' | 'minute' | 'ampm', opt)}
-                    style={[styles.timeOption, active && styles.timeOptionActive]}
-                  >
-                    <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>{opt}</Text>
-                  </Pressable>
-                );
-              })}
+          {options.map((opt) => {
+            const active = (openPart === 'hour' && opt === hour) || (openPart === 'minute' && opt === minute);
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => selectValue(openPart as 'hour' | 'minute', opt)}
+                style={[styles.timeOption, active && styles.timeOptionActive]}
+              >
+                <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>{opt}</Text>
+              </Pressable>
+            );
+          })}
             </ScrollView>
           </View>
         </Pressable>
@@ -1070,6 +1089,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [orgTypeQuery, setOrgTypeQuery] = useState('');
   const [homeOrgPickerOpen, setHomeOrgPickerOpen] = useState(false);
   const [homeOrgQuery, setHomeOrgQuery] = useState('');
+  const [resourceOrgPickerOpen, setResourceOrgPickerOpen] = useState(false);
+  const [resourceOrgQuery, setResourceOrgQuery] = useState('');
   const renderPagination = (
     currentPage: number,
     totalPages: number,
@@ -1196,10 +1217,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     lastName: '',
     email: '',
     password: '',
+    passwordConfirm: '',
     roles: [],
     homeOrganizationId: '',
     status: 'ACTIVE',
     expiresAt: '',
+    expiresDate: '',
+    expiresTime: '00:00',
   });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerLoading, setCustomerLoading] = useState(false);
@@ -1543,10 +1567,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       lastName: '',
       email: '',
       password: '',
+      passwordConfirm: '',
       roles: [],
       homeOrganizationId: '',
       status: 'ACTIVE',
       expiresAt: '',
+      expiresDate: '',
+      expiresTime: '00:00',
     });
     setUserError(null);
     setUserMessage(null);
@@ -1581,6 +1608,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, []);
 
   const startUserEdit = (user: User) => {
+    const { date: expiresDate, time: expiresTime } = splitDateTime(user.expiresAt ?? '');
     setUserForm({
       id: user.id ?? null,
       username: user.username ?? '',
@@ -1588,10 +1616,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       lastName: user.lastName ?? '',
       email: user.email ?? '',
       password: '',
+      passwordConfirm: '',
       roles: user.roles ?? [],
       homeOrganizationId: user.homeOrganizationId ?? '',
       status: user.status ?? 'ACTIVE',
       expiresAt: user.expiresAt ?? '',
+      expiresDate,
+      expiresTime,
     });
     setUserError(null);
     setUserMessage(`Editing ${user.username || user.email || user.id || 'user'}`);
@@ -1639,6 +1670,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setResourceError(null);
     setResourceMessage(null);
+    setResourceOrgPickerOpen(false);
+    setResourceOrgQuery('');
   }, []);
 
   const resetAppointmentForm = useCallback(() => {
@@ -1680,6 +1713,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setResourceError(null);
     setResourceMessage(`Editing ${resource.name || resource.id || 'resource'}`);
+    setResourceOrgPickerOpen(false);
+    setResourceOrgQuery('');
   };
 
   const startAppointmentEdit = (appointment: Appointment) => {
@@ -2290,12 +2325,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return false;
     }
     const password = userForm.password.trim();
+    const passwordConfirm = userForm.passwordConfirm.trim();
+    if (!userForm.id && password.length < 8) {
+      setUserError('Set a password of at least 8 characters.');
+      return false;
+    }
+    if (!password && passwordConfirm) {
+      setUserError('Enter a new password before confirming.');
+      return false;
+    }
     if (password && password.length < 8) {
       setUserError('Use at least 8 characters for the password.');
       return false;
     }
-    if (!userForm.id && password.length < 8) {
-      setUserError('Set a password of at least 8 characters.');
+    if (password && !passwordConfirm) {
+      setUserError('Confirm the password.');
+      return false;
+    }
+    if (password && passwordConfirm && password !== passwordConfirm) {
+      setUserError('Password and confirmation do not match.');
       return false;
     }
     setUserError(null);
@@ -2976,6 +3024,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         .some((value) => value!.toLowerCase().includes(term)),
     );
   }, [homeOrgBase, homeOrgQuery]);
+
+  const filteredResourceOrgs = useMemo(() => {
+    const term = resourceOrgQuery.trim().toLowerCase();
+    if (!term) return homeOrgBase;
+    return homeOrgBase.filter((org) =>
+      [org.id, org.name, org.marketingName, org.phone, org.createdBy]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term)),
+    );
+  }, [homeOrgBase, resourceOrgQuery]);
 
   const sortedTypes = useMemo(() => {
     return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
@@ -3870,7 +3928,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     />
                   </View>
                 </View>
-                <Pressable onPress={addBusinessWindow} style={styles.secondaryChip}>
+                <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
                   <Text style={styles.secondaryChipText}>Add business window</Text>
                 </Pressable>
 
@@ -3907,7 +3965,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     />
                   </View>
                 </View>
-                <Pressable onPress={addBreakWindow} style={styles.secondaryChip}>
+                <Pressable onPress={addBreakWindow} style={styles.secondaryChipCompact}>
                   <Text style={styles.secondaryChipText}>Add break window</Text>
                 </Pressable>
 
@@ -4116,12 +4174,68 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={resourceForm.type}
               onChangeText={(type) => setResourceForm((prev) => ({ ...prev, type }))}
             />
-            <InputField
-              label="Org id (required for platform admins)"
-              placeholder="org-aurora-retail"
-              value={resourceForm.orgId}
-              onChangeText={(orgId) => setResourceForm((prev) => ({ ...prev, orgId }))}
-            />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Organization (required for platform admins)</Text>
+              <Pressable
+                style={[styles.dropdownTrigger, styles.dropdownTriggerRow]}
+                onPress={() =>
+                  setResourceOrgPickerOpen((open) => {
+                    const next = !open;
+                    if (next) setResourceOrgQuery('');
+                    return next;
+                  })
+                }
+              >
+                <Text style={resourceForm.orgId ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {resourceForm.orgId || 'Select organization'}
+                </Text>
+                <Text style={styles.dropdownCaret}>{resourceOrgPickerOpen ? '^' : 'v'}</Text>
+              </Pressable>
+              {resourceOrgPickerOpen ? (
+                <View style={styles.dropdownPanel}>
+                  <TextInput
+                    value={resourceOrgQuery}
+                    onChangeText={setResourceOrgQuery}
+                    placeholder="Search by id, name, marketing name, phone, createdBy"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    style={styles.dropdownSearchInput}
+                    autoCapitalize="none"
+                  />
+                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                    {filteredResourceOrgs.length === 0 ? (
+                      <Text style={styles.statusText}>No organizations match the search.</Text>
+                    ) : (
+                      filteredResourceOrgs.map((org) => (
+                        <Pressable
+                          key={org.id ?? org.name}
+                          onPress={() => {
+                            setResourceForm((prev) => ({ ...prev, orgId: org.id || '' }));
+                            setResourceOrgPickerOpen(false);
+                          }}
+                          style={[
+                            styles.dropdownItem,
+                            resourceForm.orgId === org.id && styles.dropdownItemSelected,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemLabel,
+                              resourceForm.orgId === org.id && styles.dropdownItemLabelSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {org.id || org.name}
+                          </Text>
+                          <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                            {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
             <InputField
               label="Allowed appointment type ids (comma separated)"
               placeholder="appt-consultation, appt-followup"
@@ -5080,7 +5194,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               secureTextEntry
               autoComplete="password"
             />
-            <Text style={styles.helperText}>Leave blank when editing to keep the existing password.</Text>
+            <InputField
+              label={userForm.id ? 'Confirm new password' : 'Confirm password'}
+              placeholder={userForm.id ? 'Re-enter new password' : 'Re-enter password'}
+              value={userForm.passwordConfirm}
+              onChangeText={(passwordConfirm) => setUserForm((prev) => ({ ...prev, passwordConfirm }))}
+              secureTextEntry
+              autoComplete="password"
+            />
+            <Text style={styles.helperText}>Leave both password fields blank when editing to keep the existing password.</Text>
             <View style={styles.inputField}>
               <Text style={styles.label}>Home organization (optional for platform admins)</Text>
               <Pressable
@@ -5096,7 +5218,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={userForm.homeOrganizationId ? styles.dropdownValue : styles.dropdownPlaceholder}>
                   {userForm.homeOrganizationId || 'Select organization'}
                 </Text>
-                <Text style={styles.dropdownCaret}>{homeOrgPickerOpen ? '▲' : '▼'}</Text>
+                <Text style={styles.dropdownCaret}>{homeOrgPickerOpen ? '^' : 'v'}</Text>
               </Pressable>
               {homeOrgPickerOpen ? (
                 <View style={styles.dropdownPanel}>
@@ -5143,12 +5265,37 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 </View>
               ) : null}
             </View>
-            <InputField
-              label="Expires at (ISO-8601, optional)"
-              placeholder="2026-01-01T00:00:00"
-              value={userForm.expiresAt}
-              onChangeText={(expiresAt) => setUserForm((prev) => ({ ...prev, expiresAt }))}
-            />
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <DatePickerField
+                  label="Expires on (optional)"
+                  placeholder="2026-01-01"
+                  value={userForm.expiresDate}
+                  onChangeText={(expiresDate) =>
+                    setUserForm((prev) => ({
+                      ...prev,
+                      expiresDate,
+                      expiresAt: buildDateTimeValue(expiresDate, prev.expiresTime),
+                    }))
+                  }
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <TimeInput
+                  label="Expiration time"
+                  value={userForm.expiresTime}
+                  onChangeText={(expiresTime) => {
+                    const safeTime = normalizeTimeString(expiresTime, '00:00');
+                    setUserForm((prev) => ({
+                      ...prev,
+                      expiresTime: safeTime,
+                      expiresAt: buildDateTimeValue(prev.expiresDate, safeTime),
+                    }));
+                  }}
+                />
+              </View>
+            </View>
+            <Text style={styles.helperText}>Leave blank to keep the user active indefinitely.</Text>
             <View style={styles.inputField}>
               <Text style={styles.label}>Roles</Text>
               <View style={styles.typeChips}>
@@ -5808,12 +5955,21 @@ const styles = StyleSheet.create({
     borderColor: '#1D4ED8',
   },
   secondaryChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: '#F97316',
     borderWidth: 1,
     borderColor: '#F97316',
+  },
+  secondaryChipCompact: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F97316',
+    borderWidth: 1,
+    borderColor: '#F97316',
+    alignSelf: 'flex-start',
   },
   secondaryChipText: {
     color: '#FFFFFF',
