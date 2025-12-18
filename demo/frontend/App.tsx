@@ -23,7 +23,7 @@ import {
   Manrope_700Bold,
   useFonts,
 } from '@expo-google-fonts/manrope';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 
 type LoginFormState = {
   identifier: string;
@@ -44,7 +44,7 @@ type InputFieldProps = {
   error?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address';
-  autoComplete?: 'email' | 'password';
+  autoComplete?: 'email' | 'password' | 'off' | 'name' | 'tel' | 'url';
 };
 
 type DatePickerFieldProps = {
@@ -100,6 +100,7 @@ type Organization = {
   type: string;
   phone?: string;
   createdBy?: string;
+  createdAt?: string;
   scheduleConfig?: ScheduleConfigDto;
   mapsLink?: string;
   facebookPage?: string;
@@ -124,6 +125,7 @@ type OrganizationType = {
   id?: string;
   name: string;
   description?: string;
+  createdAt?: string;
 };
 
 type OrgFormState = {
@@ -247,6 +249,7 @@ type Resource = {
   name?: string;
   type?: string;
   allowedAppointmentTypeIds?: string[];
+  scheduleOverride?: ScheduleConfigDto | null;
   capacity?: number;
   active?: boolean;
   kind?: 'HUMAN' | 'ASSET';
@@ -288,9 +291,10 @@ type Appointment = {
   customerId?: string;
   resourceId?: string;
   appointmentTypeId?: string;
-  start?: string;
-  end?: string;
+  startTime?: string;
+  endTime?: string;
   status?: AppointmentStatus;
+  notes?: string;
   events?: AppointmentEvent[];
 };
 
@@ -300,8 +304,9 @@ type AppointmentFormState = {
   customerId: string;
   resourceId: string;
   appointmentTypeId: string;
-  start: string;
-  end: string;
+  startTime: string;
+  endTime: string;
+  notes: string;
   status: AppointmentStatus;
 };
 
@@ -918,6 +923,245 @@ function PrimaryButton({ label, disabled, onPress }: PrimaryButtonProps) {
   );
 }
 
+type ScheduleEditorProps = {
+  form: ScheduleFormState;
+  activeDay: DayName;
+  setActiveDay: Dispatch<SetStateAction<DayName>>;
+  toggleWorkingDay: (day: DayName) => void;
+  newBusinessWindow: TimeWindowInput;
+  setNewBusinessWindow: Dispatch<SetStateAction<TimeWindowInput>>;
+  addBusinessWindow: () => void;
+  removeBusinessWindow: (day: DayName, index: number) => void;
+  newBreakWindow: TimeWindowInput;
+  setNewBreakWindow: Dispatch<SetStateAction<TimeWindowInput>>;
+  addBreakWindow: () => void;
+  removeBreakWindow: (day: DayName, index: number) => void;
+  newHoliday: HolidayInput;
+  setNewHoliday: Dispatch<SetStateAction<HolidayInput>>;
+  holidayWindow: TimeWindowInput;
+  setHolidayWindow: Dispatch<SetStateAction<TimeWindowInput>>;
+  addHoliday: () => void;
+  removeHoliday: (index: number) => void;
+  footer?: ReactNode;
+};
+
+function ScheduleEditor({
+  form,
+  activeDay,
+  setActiveDay,
+  toggleWorkingDay,
+  newBusinessWindow,
+  setNewBusinessWindow,
+  addBusinessWindow,
+  removeBusinessWindow,
+  newBreakWindow,
+  setNewBreakWindow,
+  addBreakWindow,
+  removeBreakWindow,
+  newHoliday,
+  setNewHoliday,
+  holidayWindow,
+  setHolidayWindow,
+  addHoliday,
+  removeHoliday,
+  footer,
+}: ScheduleEditorProps) {
+  return (
+    <>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Working days</Text>
+      </View>
+      <View style={styles.typeChips}>
+        {DAY_NAMES.map((day) => {
+          const enabled = form.workingDays.includes(day);
+          return (
+            <Pressable
+              key={day}
+              onPress={() => toggleWorkingDay(day)}
+              style={[styles.typeChip, enabled && styles.typeChipSelected]}
+            >
+              <Text style={[styles.typeChipText, enabled && styles.typeChipTextSelected]}>{DAY_LABELS[day]}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.typeChips}>
+        {DAY_NAMES.map((day) => (
+          <Pressable
+            key={day}
+            style={[styles.typeChip, activeDay === day && styles.typeChipSelected]}
+            onPress={() => setActiveDay(day)}
+          >
+            <Text style={[styles.typeChipText, activeDay === day && styles.typeChipTextSelected]}>{DAY_LABELS[day]}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Business hours ({DAY_LABELS[activeDay]})</Text>
+      </View>
+      <View style={styles.orgList}>
+        {form.businessHours[activeDay].length === 0 ? (
+          <Text style={styles.statusText}>No business hours for {DAY_LABELS[activeDay]}.</Text>
+        ) : (
+          form.businessHours[activeDay].map((window, idx) => (
+            <View key={`bh-${activeDay}-${idx}`} style={styles.orgCard}>
+              <View style={styles.orgHeader}>
+                <Text style={styles.orgName}>
+                  {window.start || '--:--'} - {window.end || '--:--'}
+                </Text>
+                <Pressable onPress={() => removeBusinessWindow(activeDay, idx)} style={styles.orgAction}>
+                  <Text style={styles.deleteText}>Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+      <View style={styles.row}>
+        <View style={styles.flexHalf}>
+          <TimeInput
+            label="Start"
+            value={newBusinessWindow.start}
+            onChangeText={(start) => setNewBusinessWindow((prev) => ({ ...prev, start }))}
+          />
+        </View>
+        <View style={styles.flexHalf}>
+          <TimeInput
+            label="End"
+            value={newBusinessWindow.end}
+            onChangeText={(end) => setNewBusinessWindow((prev) => ({ ...prev, end }))}
+          />
+        </View>
+      </View>
+      <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
+        <Text style={styles.secondaryChipText}>Add business window</Text>
+      </Pressable>
+
+      <View style={styles.divider} />
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Breaks ({DAY_LABELS[activeDay]})</Text>
+      </View>
+      <View style={styles.orgList}>
+        {form.breaks[activeDay].length === 0 ? (
+          <Text style={styles.statusText}>No breaks for {DAY_LABELS[activeDay]}.</Text>
+        ) : (
+          form.breaks[activeDay].map((window, idx) => (
+            <View key={`br-${activeDay}-${idx}`} style={styles.orgCard}>
+              <View style={styles.orgHeader}>
+                <Text style={styles.orgName}>
+                  {window.start || '--:--'} - {window.end || '--:--'}
+                </Text>
+                <Pressable onPress={() => removeBreakWindow(activeDay, idx)} style={styles.orgAction}>
+                  <Text style={styles.deleteText}>Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+      <View style={styles.row}>
+        <View style={styles.flexHalf}>
+          <TimeInput
+            label="Break start"
+            value={newBreakWindow.start}
+            onChangeText={(start) => setNewBreakWindow((prev) => ({ ...prev, start }))}
+          />
+        </View>
+        <View style={styles.flexHalf}>
+          <TimeInput
+            label="Break end"
+            value={newBreakWindow.end}
+            onChangeText={(end) => setNewBreakWindow((prev) => ({ ...prev, end }))}
+          />
+        </View>
+      </View>
+      <Pressable onPress={addBreakWindow} style={styles.secondaryChipCompact}>
+        <Text style={styles.secondaryChipText}>Add break window</Text>
+      </Pressable>
+
+      <View style={styles.divider} />
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Holidays</Text>
+      </View>
+      <View style={styles.orgList}>
+        {form.holidays.map((holiday, idx) => (
+          <View key={`holiday-${holiday.date}-${idx}`} style={styles.orgCard}>
+            <View style={styles.orgHeader}>
+              <Text style={styles.orgName}>{holiday.date || 'Unknown date'}</Text>
+              <Pressable onPress={() => removeHoliday(idx)} style={styles.orgAction}>
+                <Text style={styles.deleteText}>Remove</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.orgType}>{holiday.allDay ? 'All day' : 'Partial day'}</Text>
+            <Text style={styles.orgMeta}>{holiday.description || 'No description'}</Text>
+            {!holiday.allDay && holiday.closedWindows.length > 0 ? (
+              <Text style={styles.orgMeta}>
+                Closed {holiday.closedWindows[0].start || '--:--'} - {holiday.closedWindows[0].end || '--:--'}
+              </Text>
+            ) : null}
+          </View>
+        ))}
+        {form.holidays.length === 0 ? <Text style={styles.statusText}>No holidays defined.</Text> : null}
+      </View>
+      <View style={styles.row}>
+        <View style={styles.flexHalf}>
+          <DatePickerField
+            label="Holiday date (YYYY-MM-DD)"
+            placeholder="2025-12-25"
+            value={newHoliday.date}
+            onChangeText={(date) => setNewHoliday((prev) => ({ ...prev, date }))}
+          />
+        </View>
+        <View style={styles.flexHalf}>
+          <InputField
+            label="Description"
+            placeholder="Christmas"
+            value={newHoliday.description}
+            onChangeText={(description) => setNewHoliday((prev) => ({ ...prev, description }))}
+          />
+        </View>
+      </View>
+      <Pressable
+        onPress={() => setNewHoliday((prev) => ({ ...prev, allDay: !prev.allDay }))}
+        style={styles.rememberRow}
+      >
+        <View style={[styles.checkbox, newHoliday.allDay && styles.checkboxChecked]}>
+          {newHoliday.allDay ? <View style={styles.checkboxDot} /> : null}
+        </View>
+        <Text style={styles.rememberText}>All day closure</Text>
+      </Pressable>
+      {!newHoliday.allDay ? (
+        <View style={styles.row}>
+          <View style={styles.flexHalf}>
+            <TimeInput
+              label="Closed from"
+              value={holidayWindow.start}
+              onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
+            />
+          </View>
+          <View style={styles.flexHalf}>
+            <TimeInput
+              label="Closed to"
+              value={holidayWindow.end}
+              onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
+            />
+          </View>
+        </View>
+      ) : null}
+      <Pressable onPress={addHoliday} style={styles.secondaryChip}>
+        <Text style={styles.secondaryChipText}>Add holiday</Text>
+      </Pressable>
+
+      <View style={styles.divider} />
+      {footer}
+    </>
+  );
+}
+
 const parseErrorMessage = async (response: Response) => {
   const bodyText = await response.text();
   if (!bodyText) {
@@ -1271,6 +1515,28 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     kind: 'ASSET',
     practitionerUserId: '',
   });
+  const [resourceScheduleEnabled, setResourceScheduleEnabled] = useState(false);
+  const [resourceScheduleForm, setResourceScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
+  const [resourceActiveDay, setResourceActiveDay] = useState<DayName>('MONDAY');
+  const [resourceScheduleError, setResourceScheduleError] = useState<string | null>(null);
+  const [resourceNewBusinessWindow, setResourceNewBusinessWindow] = useState<TimeWindowInput>({
+    start: '09:00',
+    end: '17:00',
+  });
+  const [resourceNewBreakWindow, setResourceNewBreakWindow] = useState<TimeWindowInput>({
+    start: '12:00',
+    end: '13:00',
+  });
+  const [resourceNewHoliday, setResourceNewHoliday] = useState<HolidayInput>({
+    date: '',
+    allDay: true,
+    description: '',
+    closedWindows: [],
+  });
+  const [resourceHolidayWindow, setResourceHolidayWindow] = useState<TimeWindowInput>({
+    start: '09:00',
+    end: '12:00',
+  });
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [appointmentSaving, setAppointmentSaving] = useState(false);
@@ -1284,8 +1550,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     customerId: '',
     resourceId: '',
     appointmentTypeId: '',
-    start: '',
-    end: '',
+    startTime: '',
+    endTime: '',
+    notes: '',
     status: 'SCHEDULED',
   });
   const [appointmentEventsWorking, setAppointmentEventsWorking] = useState<AppointmentEvent[]>([]);
@@ -1656,6 +1923,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setInteractionSearch('');
   };
 
+  const resetResourceSchedule = useCallback(() => {
+    setResourceScheduleEnabled(false);
+    setResourceScheduleForm(defaultScheduleForm());
+    setResourceActiveDay('MONDAY');
+    setResourceScheduleError(null);
+    setResourceNewBusinessWindow({ start: '09:00', end: '17:00' });
+    setResourceNewBreakWindow({ start: '12:00', end: '13:00' });
+    setResourceNewHoliday({ date: '', allDay: true, description: '', closedWindows: [] });
+    setResourceHolidayWindow({ start: '09:00', end: '12:00' });
+  }, []);
+
   const resetResourceForm = useCallback(() => {
     setResourceForm({
       id: null,
@@ -1672,7 +1950,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourceMessage(null);
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
-  }, []);
+    resetResourceSchedule();
+  }, [resetResourceSchedule]);
 
   const resetAppointmentForm = useCallback(() => {
     setAppointmentForm({
@@ -1681,8 +1960,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       customerId: '',
       resourceId: '',
       appointmentTypeId: '',
-      start: '',
-      end: '',
+      startTime: '',
+      endTime: '',
+      notes: '',
       status: 'SCHEDULED',
     });
     setAppointmentEventsWorking([]);
@@ -1711,6 +1991,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       kind: resource.kind ?? 'ASSET',
       practitionerUserId: resource.practitionerUserId ?? '',
     });
+    resetResourceSchedule();
+    if (resource.scheduleOverride) {
+      setResourceScheduleEnabled(true);
+      setResourceScheduleForm(normalizeScheduleForm(resource.scheduleOverride));
+    }
     setResourceError(null);
     setResourceMessage(`Editing ${resource.name || resource.id || 'resource'}`);
     setResourceOrgPickerOpen(false);
@@ -1724,8 +2009,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       customerId: appointment.customerId ?? '',
       resourceId: appointment.resourceId ?? '',
       appointmentTypeId: appointment.appointmentTypeId ?? '',
-      start: appointment.start ?? '',
-      end: appointment.end ?? '',
+      startTime: appointment.startTime ?? (appointment as any).start ?? '',
+      endTime: appointment.endTime ?? (appointment as any).end ?? '',
+      notes: appointment.notes ?? '',
       status: appointment.status ?? 'SCHEDULED',
     });
     setAppointmentEventsWorking(appointment.events ?? []);
@@ -1882,8 +2168,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         appt.resourceId,
         appt.appointmentTypeId,
         appt.status,
-        appt.start,
-        appt.end,
+        appt.startTime,
+        appt.endTime,
+        (appt as any).start,
+        (appt as any).end,
+        appt.notes,
       ]
         .filter(Boolean)
         .map((v) => v!.toLowerCase())
@@ -1932,8 +2221,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
-      const aTime = a.start ? Date.parse(a.start) : 0;
-      const bTime = b.start ? Date.parse(b.start) : 0;
+      const aStart = a.startTime ?? (a as any).start;
+      const bStart = b.startTime ?? (b as any).start;
+      const aTime = aStart ? Date.parse(aStart) : 0;
+      const bTime = bStart ? Date.parse(bStart) : 0;
       return bTime - aTime;
     });
   }, [filteredAppointments]);
@@ -2546,6 +2837,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!validateResourceForm()) return;
     setResourceSaving(true);
     setResourceMessage('Saving resource...');
+    setResourceScheduleError(null);
 
     const payload: Resource = {
       name: resourceForm.name.trim(),
@@ -2571,6 +2863,28 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       if (!Number.isNaN(parsed)) {
         payload.capacity = parsed;
       }
+    }
+    if (resourceScheduleEnabled) {
+      payload.scheduleOverride = {
+        workingDays: resourceScheduleForm.workingDays,
+        businessHours: buildDayMap(resourceScheduleForm.businessHours),
+        breaks: buildDayMap(resourceScheduleForm.breaks),
+        holidays: resourceScheduleForm.holidays
+          .filter((h) => h.date.trim())
+          .map((h) => ({
+            date: h.date.trim(),
+            allDay: h.allDay,
+            description: h.description.trim(),
+            closedWindows:
+              h.allDay || !h.closedWindows
+                ? []
+                : h.closedWindows
+                    .filter((tw) => tw.start.trim() && tw.end.trim())
+                    .map((tw) => ({ start: tw.start.trim(), end: tw.end.trim() })),
+          })),
+      };
+    } else if (resourceForm.id) {
+      payload.scheduleOverride = null;
     }
 
     const path = resourceForm.id ? `/api/resources/${resourceForm.id}` : '/api/resources';
@@ -2642,7 +2956,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setAppointmentError('Appointment type is required.');
       return false;
     }
-    if (!appointmentForm.start.trim() || !appointmentForm.end.trim()) {
+    if (!appointmentForm.startTime.trim() || !appointmentForm.endTime.trim()) {
       setAppointmentError('Start and end are required.');
       return false;
     }
@@ -2660,8 +2974,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       customerId: appointmentForm.customerId.trim() || undefined,
       resourceId: appointmentForm.resourceId.trim() || undefined,
       appointmentTypeId: appointmentForm.appointmentTypeId.trim(),
-      start: appointmentForm.start.trim(),
-      end: appointmentForm.end.trim(),
+      startTime: appointmentForm.startTime.trim(),
+      endTime: appointmentForm.endTime.trim(),
+      notes: appointmentForm.notes.trim() || undefined,
       status: appointmentForm.status,
       events: appointmentEventsWorking,
     };
@@ -3144,6 +3459,109 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const removeHoliday = (index: number) => {
     setScheduleForm((prev) => ({
+      ...prev,
+      holidays: prev.holidays.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const toggleResourceWorkingDay = (day: DayName) => {
+    setResourceScheduleForm((prev) => {
+      const exists = prev.workingDays.includes(day);
+      const workingDays = exists ? prev.workingDays.filter((d) => d !== day) : [...prev.workingDays, day];
+      return { ...prev, workingDays };
+    });
+  };
+
+  const addResourceBusinessWindow = () => {
+    if (!resourceNewBusinessWindow.start.trim() || !resourceNewBusinessWindow.end.trim()) {
+      setResourceScheduleError('Provide start and end time for business hours.');
+      return;
+    }
+    setResourceScheduleForm((prev) => ({
+      ...prev,
+      businessHours: {
+        ...prev.businessHours,
+        [resourceActiveDay]: [
+          ...prev.businessHours[resourceActiveDay],
+          { start: resourceNewBusinessWindow.start.trim(), end: resourceNewBusinessWindow.end.trim() },
+        ],
+      },
+    }));
+    setResourceNewBusinessWindow({ start: '09:00', end: '17:00' });
+    setResourceScheduleError(null);
+  };
+
+  const addResourceBreakWindow = () => {
+    if (!resourceNewBreakWindow.start.trim() || !resourceNewBreakWindow.end.trim()) {
+      setResourceScheduleError('Provide start and end time for breaks.');
+      return;
+    }
+    setResourceScheduleForm((prev) => ({
+      ...prev,
+      breaks: {
+        ...prev.breaks,
+        [resourceActiveDay]: [
+          ...prev.breaks[resourceActiveDay],
+          { start: resourceNewBreakWindow.start.trim(), end: resourceNewBreakWindow.end.trim() },
+        ],
+      },
+    }));
+    setResourceNewBreakWindow({ start: '12:00', end: '13:00' });
+    setResourceScheduleError(null);
+  };
+
+  const removeResourceBusinessWindow = (day: DayName, index: number) => {
+    setResourceScheduleForm((prev) => ({
+      ...prev,
+      businessHours: {
+        ...prev.businessHours,
+        [day]: prev.businessHours[day].filter((_, idx) => idx !== index),
+      },
+    }));
+  };
+
+  const removeResourceBreakWindow = (day: DayName, index: number) => {
+    setResourceScheduleForm((prev) => ({
+      ...prev,
+      breaks: {
+        ...prev.breaks,
+        [day]: prev.breaks[day].filter((_, idx) => idx !== index),
+      },
+    }));
+  };
+
+  const addResourceHoliday = () => {
+    if (!resourceNewHoliday.date.trim()) {
+      setResourceScheduleError('Holiday date is required.');
+      return;
+    }
+    if (!resourceNewHoliday.allDay && (!resourceHolidayWindow.start.trim() || !resourceHolidayWindow.end.trim())) {
+      setResourceScheduleError('Provide start and end for partial-day holiday.');
+      return;
+    }
+    const closedWindows =
+      resourceNewHoliday.allDay || !resourceHolidayWindow.start.trim() || !resourceHolidayWindow.end.trim()
+        ? []
+        : [{ start: resourceHolidayWindow.start.trim(), end: resourceHolidayWindow.end.trim() }];
+    setResourceScheduleForm((prev) => ({
+      ...prev,
+      holidays: [
+        ...prev.holidays,
+        {
+          date: resourceNewHoliday.date.trim(),
+          allDay: resourceNewHoliday.allDay,
+          description: resourceNewHoliday.description.trim(),
+          closedWindows,
+        },
+      ],
+    }));
+    setResourceNewHoliday({ date: '', allDay: true, description: '', closedWindows: [] });
+    setResourceHolidayWindow({ start: '09:00', end: '12:00' });
+    setResourceScheduleError(null);
+  };
+
+  const removeResourceHoliday = (index: number) => {
+    setResourceScheduleForm((prev) => ({
       ...prev,
       holidays: prev.holidays.filter((_, idx) => idx !== index),
     }));
@@ -3858,197 +4276,32 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                 </View>
 
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Working days</Text>
-                  <View style={styles.typeChips}>
-                    {DAY_NAMES.map((day) => {
-                      const enabled = scheduleForm.workingDays.includes(day);
-                      return (
-                        <Pressable
-                          key={day}
-                          onPress={() => toggleWorkingDay(day)}
-                          style={[styles.typeChip, enabled && styles.typeChipSelected]}
-                        >
-                          <Text style={[styles.typeChipText, enabled && styles.typeChipTextSelected]}>
-                            {DAY_LABELS[day]}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Day focus</Text>
-                  <View style={styles.typeChips}>
-                    {DAY_NAMES.map((day) => (
-                      <Pressable
-                        key={`${day}-focus`}
-                        onPress={() => setActiveDay(day)}
-                        style={[styles.typeChip, activeDay === day && styles.typeChipSelected]}
-                      >
-                        <Text style={[styles.typeChipText, activeDay === day && styles.typeChipTextSelected]}>
-                          {DAY_LABELS[day]}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-
-                <Text style={styles.sectionTitle}>Business hours ({DAY_LABELS[activeDay]})</Text>
-                <View style={styles.windowRow}>
-                  {scheduleForm.businessHours[activeDay].length === 0 ? (
-                    <Text style={styles.statusText}>No business hours for this day.</Text>
-                  ) : (
-                    scheduleForm.businessHours[activeDay].map((window, idx) => (
-                      <View key={`bh-${activeDay}-${idx}`} style={[styles.typeChip, styles.windowChip]}>
-                        <Text style={styles.typeChipText}>
-                          {window.start || '--:--'} - {window.end || '--:--'}
-                        </Text>
-                        <Pressable onPress={() => removeBusinessWindow(activeDay, idx)} style={styles.orgAction}>
-                          <Text style={styles.deleteText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
-                </View>
-                <View style={styles.row}>
-                  <View style={styles.flexHalf}>
-                    <TimeInput
-                      label="Start time"
-                      value={newBusinessWindow.start}
-                      onChangeText={(start) => setNewBusinessWindow((prev) => ({ ...prev, start }))}
+                <ScheduleEditor
+                  form={scheduleForm}
+                  activeDay={activeDay}
+                  setActiveDay={setActiveDay}
+                  toggleWorkingDay={toggleWorkingDay}
+                  newBusinessWindow={newBusinessWindow}
+                  setNewBusinessWindow={setNewBusinessWindow}
+                  addBusinessWindow={addBusinessWindow}
+                  removeBusinessWindow={removeBusinessWindow}
+                  newBreakWindow={newBreakWindow}
+                  setNewBreakWindow={setNewBreakWindow}
+                  addBreakWindow={addBreakWindow}
+                  removeBreakWindow={removeBreakWindow}
+                  newHoliday={newHoliday}
+                  setNewHoliday={setNewHoliday}
+                  holidayWindow={holidayWindow}
+                  setHolidayWindow={setHolidayWindow}
+                  addHoliday={addHoliday}
+                  removeHoliday={removeHoliday}
+                  footer={
+                    <PrimaryButton
+                      label={scheduleSaving ? 'Saving schedule...' : 'Save schedule'}
+                      onPress={handleScheduleSave}
+                      disabled={scheduleSaving}
                     />
-                  </View>
-                  <View style={styles.flexHalf}>
-                    <TimeInput
-                      label="End time"
-                      value={newBusinessWindow.end}
-                      onChangeText={(end) => setNewBusinessWindow((prev) => ({ ...prev, end }))}
-                    />
-                  </View>
-                </View>
-                <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
-                  <Text style={styles.secondaryChipText}>Add business window</Text>
-                </Pressable>
-
-                <Text style={styles.sectionTitle}>Breaks ({DAY_LABELS[activeDay]})</Text>
-                <View style={styles.windowRow}>
-                  {scheduleForm.breaks[activeDay].length === 0 ? (
-                    <Text style={styles.statusText}>No breaks for this day.</Text>
-                  ) : (
-                    scheduleForm.breaks[activeDay].map((window, idx) => (
-                      <View key={`br-${activeDay}-${idx}`} style={[styles.typeChip, styles.windowChip]}>
-                        <Text style={styles.typeChipText}>
-                          {window.start || '--:--'} - {window.end || '--:--'}
-                        </Text>
-                        <Pressable onPress={() => removeBreakWindow(activeDay, idx)} style={styles.orgAction}>
-                          <Text style={styles.deleteText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
-                </View>
-                <View style={styles.row}>
-                  <View style={styles.flexHalf}>
-                    <TimeInput
-                      label="Break start"
-                      value={newBreakWindow.start}
-                      onChangeText={(start) => setNewBreakWindow((prev) => ({ ...prev, start }))}
-                    />
-                  </View>
-                  <View style={styles.flexHalf}>
-                    <TimeInput
-                      label="Break end"
-                      value={newBreakWindow.end}
-                      onChangeText={(end) => setNewBreakWindow((prev) => ({ ...prev, end }))}
-                    />
-                  </View>
-                </View>
-                <Pressable onPress={addBreakWindow} style={styles.secondaryChipCompact}>
-                  <Text style={styles.secondaryChipText}>Add break window</Text>
-                </Pressable>
-
-                <View style={styles.divider} />
-
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Holidays</Text>
-                </View>
-                <View style={styles.orgList}>
-                  {scheduleForm.holidays.map((holiday, idx) => (
-                    <View key={`holiday-${holiday.date}-${idx}`} style={styles.orgCard}>
-                      <View style={styles.orgHeader}>
-                        <Text style={styles.orgName}>{holiday.date || 'Unknown date'}</Text>
-                        <Pressable onPress={() => removeHoliday(idx)} style={styles.orgAction}>
-                          <Text style={styles.deleteText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                      <Text style={styles.orgType}>{holiday.allDay ? 'All day' : 'Partial day'}</Text>
-                      <Text style={styles.orgMeta}>{holiday.description || 'No description'}</Text>
-                      {!holiday.allDay && holiday.closedWindows.length > 0 ? (
-                        <Text style={styles.orgMeta}>
-                          Closed {holiday.closedWindows[0].start || '--:--'} - {holiday.closedWindows[0].end || '--:--'}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ))}
-                  {scheduleForm.holidays.length === 0 ? (
-                    <Text style={styles.statusText}>No holidays defined.</Text>
-                  ) : null}
-                </View>
-                <View style={styles.row}>
-                  <View style={styles.flexHalf}>
-                    <DatePickerField
-                      label="Holiday date (YYYY-MM-DD)"
-                      placeholder="2025-12-25"
-                      value={newHoliday.date}
-                      onChangeText={(date) => setNewHoliday((prev) => ({ ...prev, date }))}
-                    />
-                  </View>
-                  <View style={styles.flexHalf}>
-                    <InputField
-                      label="Description"
-                      placeholder="Christmas"
-                      value={newHoliday.description}
-                      onChangeText={(description) => setNewHoliday((prev) => ({ ...prev, description }))}
-                    />
-                  </View>
-                </View>
-                <Pressable
-                  onPress={() => setNewHoliday((prev) => ({ ...prev, allDay: !prev.allDay }))}
-                  style={styles.rememberRow}
-                >
-                  <View style={[styles.checkbox, newHoliday.allDay && styles.checkboxChecked]}>
-                    {newHoliday.allDay ? <View style={styles.checkboxDot} /> : null}
-                  </View>
-                  <Text style={styles.rememberText}>All day closure</Text>
-                </Pressable>
-                  {!newHoliday.allDay ? (
-                    <View style={styles.row}>
-                      <View style={styles.flexHalf}>
-                        <TimeInput
-                          label="Closed from"
-                          value={holidayWindow.start}
-                          onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
-                        />
-                      </View>
-                      <View style={styles.flexHalf}>
-                        <TimeInput
-                          label="Closed to"
-                          value={holidayWindow.end}
-                          onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-                <Pressable onPress={addHoliday} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Add holiday</Text>
-                </Pressable>
-                <View style={styles.divider} />
-                <PrimaryButton
-                  label={scheduleSaving ? 'Saving schedule...' : 'Save schedule'}
-                  onPress={handleScheduleSave}
-                  disabled={scheduleSaving}
+                  }
                 />
               </>
             ) : (
@@ -4131,6 +4384,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     </Text>
                     <Text style={styles.orgMeta}>
                       Allowed appt types: {(resource.allowedAppointmentTypeIds || []).join(', ') || 'Any'}
+                    </Text>
+                    <Text style={styles.orgMeta}>
+                      Schedule: {resource.scheduleOverride ? 'Custom override' : 'Org default'}
                     </Text>
                     {resource.practitionerUserId ? (
                       <Text style={styles.orgMeta}>Practitioner user: {resource.practitionerUserId}</Text>
@@ -4281,6 +4537,77 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onChangeText={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
             />
 
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Schedule override (optional)</Text>
+              {resourceScheduleEnabled ? (
+                <Pressable
+                  onPress={() => {
+                    setResourceScheduleEnabled(false);
+                    setResourceScheduleError(null);
+                  }}
+                  style={styles.secondaryChip}
+                >
+                  <Text style={styles.secondaryChipText}>Disable</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    setResourceScheduleEnabled(true);
+                    setResourceScheduleError(null);
+                  }}
+                  style={styles.secondaryChip}
+                >
+                  <Text style={styles.secondaryChipText}>Enable</Text>
+                </Pressable>
+              )}
+            </View>
+            <Pressable
+              onPress={() => {
+                setResourceScheduleEnabled((prev) => !prev);
+                setResourceScheduleError(null);
+              }}
+              style={styles.rememberRow}
+            >
+              <View style={[styles.checkbox, resourceScheduleEnabled && styles.checkboxChecked]}>
+                {resourceScheduleEnabled ? <View style={styles.checkboxDot} /> : null}
+              </View>
+              <Text style={styles.rememberText}>
+                {resourceScheduleEnabled ? 'Using custom schedule' : 'Inherit organization schedule'}
+              </Text>
+            </Pressable>
+            {resourceScheduleEnabled ? (
+              <Text style={styles.orgMeta}>
+                {resourceScheduleForm.workingDays.length} working days / {resourceScheduleForm.holidays.length} holidays
+              </Text>
+            ) : null}
+            {resourceScheduleError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{resourceScheduleError}</Text>
+              </View>
+            ) : null}
+            {resourceScheduleEnabled ? (
+              <ScheduleEditor
+                form={resourceScheduleForm}
+                activeDay={resourceActiveDay}
+                setActiveDay={setResourceActiveDay}
+                toggleWorkingDay={toggleResourceWorkingDay}
+                newBusinessWindow={resourceNewBusinessWindow}
+                setNewBusinessWindow={setResourceNewBusinessWindow}
+                addBusinessWindow={addResourceBusinessWindow}
+                removeBusinessWindow={removeResourceBusinessWindow}
+                newBreakWindow={resourceNewBreakWindow}
+                setNewBreakWindow={setResourceNewBreakWindow}
+                addBreakWindow={addResourceBreakWindow}
+                removeBreakWindow={removeResourceBreakWindow}
+                newHoliday={resourceNewHoliday}
+                setNewHoliday={setResourceNewHoliday}
+                holidayWindow={resourceHolidayWindow}
+                setHolidayWindow={setResourceHolidayWindow}
+                addHoliday={addResourceHoliday}
+                removeHoliday={removeResourceHoliday}
+              />
+            ) : null}
+
             <PrimaryButton
               label={resourceSaving ? 'Saving resource...' : resourceForm.id ? 'Update resource' : 'Create resource'}
               onPress={handleResourceSave}
@@ -4349,7 +4676,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
                 {visibleAppointments.map((appt) => (
                   <Pressable
-                    key={appt.id ?? `${appt.customerId}-${appt.start}`}
+                    key={appt.id ?? `${appt.customerId}-${appt.startTime ?? (appt as any).start}`}
                     style={[styles.orgCard, appointmentForm.id === appt.id && styles.orgCardActive]}
                     onPress={() => startAppointmentEdit(appt)}
                   >
@@ -4361,8 +4688,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       Customer: {appt.customerId || 'N/A'} - Resource: {appt.resourceId || 'N/A'}
                     </Text>
                     <Text style={styles.orgMeta}>
-                      Type: {appt.appointmentTypeId || 'N/A'} - {appt.start || '--'} to {appt.end || '--'}
+                      Type: {appt.appointmentTypeId || 'N/A'} -{' '}
+                      {appt.startTime ?? (appt as any).start ?? '--'} to {appt.endTime ?? (appt as any).end ?? '--'}
                     </Text>
+                    {appt.notes ? <Text style={styles.orgMeta}>Notes: {appt.notes}</Text> : null}
                     <View style={styles.orgActions}>
                       <Pressable onPress={() => startAppointmentEdit(appt)} style={styles.orgAction}>
                         <Text style={styles.link}>Edit</Text>
@@ -4417,14 +4746,20 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             <InputField
               label="Start (ISO-8601)"
               placeholder="2025-12-01T09:00:00"
-              value={appointmentForm.start}
-              onChangeText={(start) => setAppointmentForm((prev) => ({ ...prev, start }))}
+              value={appointmentForm.startTime}
+              onChangeText={(startTime) => setAppointmentForm((prev) => ({ ...prev, startTime }))}
             />
             <InputField
               label="End (ISO-8601)"
               placeholder="2025-12-01T09:30:00"
-              value={appointmentForm.end}
-              onChangeText={(end) => setAppointmentForm((prev) => ({ ...prev, end }))}
+              value={appointmentForm.endTime}
+              onChangeText={(endTime) => setAppointmentForm((prev) => ({ ...prev, endTime }))}
+            />
+            <InputField
+              label="Notes (optional)"
+              placeholder="Prep call, bring documents, etc."
+              value={appointmentForm.notes}
+              onChangeText={(notes) => setAppointmentForm((prev) => ({ ...prev, notes }))}
             />
             <View style={styles.inputField}>
               <Text style={styles.label}>Status</Text>
@@ -5647,48 +5982,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  dayCellEmpty: {
-    opacity: 0,
-  },
-  dayCellSelected: {
-    backgroundColor: '#FFFFFF',
-  },
-  dayText: {
-    color: '#F8FAFC',
-    fontFamily: 'Manrope_600SemiBold',
-    fontSize: 15,
-  },
-  dayTextEmpty: { color: '#9CA3AF' },
-  dayTextSelected: { color: '#111827' },
-  errorText: {
-    color: '#DC2626',
-    fontFamily: 'Manrope_500Medium',
-    fontSize: 13,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  flexHalf: {
-    flex: 1,
-  },
-  addressRow: {
-    width: '100%',
-  },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  checkbox: {
-    width: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    marginBottom: 8,
   },
   dayCellEmpty: { opacity: 0 },
   dayCellSelected: {
