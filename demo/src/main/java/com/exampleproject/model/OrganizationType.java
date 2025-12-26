@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Document("organization_types")
@@ -15,6 +16,8 @@ public class OrganizationType {
     private String name;
 
     private String description;
+    private String createdBy;
+    private LocalDateTime createdAt;
 
     public OrganizationType() {}
 
@@ -32,6 +35,12 @@ public class OrganizationType {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     @Override
     public boolean equals(Object o) {
@@ -52,4 +61,3 @@ public class OrganizationType {
                 '}';
     }
 }
-

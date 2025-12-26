@@ -154,6 +154,18 @@ type PractitionerPickerFieldProps = {
   loading?: boolean;
 };
 
+type AppointmentTypeMultiSelectFieldProps = {
+  label: string;
+  value: string;
+  appointmentTypes: AppointmentTypeDto[];
+  onChangeValue: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+  loading?: boolean;
+  error?: string | null;
+};
+
 type OrganizationType = {
   id?: string;
   name: string;
@@ -616,6 +628,21 @@ const formatTimeFromParts = (hour: string, minute: string) => {
   return `${h}:${m}`;
 };
 
+const parseCommaList = (value: string) => {
+  const seen = new Set<string>();
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .filter((item) => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+};
+
+const formatCommaList = (items: string[]) => items.join(', ');
+
 function InputField({
   label,
   placeholder,
@@ -992,6 +1019,158 @@ function PractitionerPickerField({
                       </Text>
                       <Text style={styles.dropdownItemDescription} numberOfLines={1}>
                         {user.homeOrganizationId ? `Org: ${user.homeOrganizationId}` : 'No org set'}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function AppointmentTypeMultiSelectField({
+  label,
+  value,
+  appointmentTypes,
+  onChangeValue,
+  placeholder = 'Any appointment type',
+  disabled = false,
+  disabledMessage = 'Select an organization to load appointment types',
+  loading = false,
+  error = null,
+}: AppointmentTypeMultiSelectFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selectedIds = useMemo(() => parseCommaList(value), [value]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return appointmentTypes;
+    return appointmentTypes.filter((type) =>
+      [type.id, type.name, type.category]
+        .filter(Boolean)
+        .map((field) => field!.toLowerCase())
+        .some((field) => field.includes(term)),
+    );
+  }, [appointmentTypes, query]);
+
+  const selectedLabel = useMemo(() => {
+    if (selectedIds.length === 0) return '';
+    return selectedIds.join(', ');
+  }, [selectedIds]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const toggleSelection = (typeId: string) => {
+    const exists = selectedIds.includes(typeId);
+    const next = exists ? selectedIds.filter((id) => id !== typeId) : [...selectedIds, typeId];
+    onChangeValue(formatCommaList(next));
+  };
+
+  const clearSelection = () => onChangeValue('');
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {disabled ? disabledMessage : selectedLabel || placeholder}
+        </Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by id, name, category"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          {loading ? (
+            <View style={[styles.dropdownList, { padding: 12 }]}>
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#1D4ED8" />
+                <Text style={styles.statusText}>Loading appointment types...</Text>
+              </View>
+            </View>
+          ) : (
+            <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+              <Pressable
+                onPress={() => {
+                  clearSelection();
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, selectedIds.length === 0 && styles.dropdownItemSelected]}
+              >
+                <Text
+                  style={[styles.dropdownItemLabel, selectedIds.length === 0 && styles.dropdownItemLabelSelected]}
+                  numberOfLines={1}
+                >
+                  Any appointment type
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  No restrictions
+                </Text>
+              </Pressable>
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : filtered.length === 0 ? (
+                <Text style={styles.statusText}>No appointment types found.</Text>
+              ) : (
+                filtered.map((type, idx) => {
+                  const typeId = type.id ?? '';
+                  const selected = typeId ? selectedIds.includes(typeId) : false;
+                  const labelText = type.name || typeId || 'Appointment type';
+                  const details: string[] = [];
+                  if (typeId) details.push(`ID: ${typeId}`);
+                  if (type.category) details.push(type.category);
+                  if (type.defaultDurationMinutes != null) details.push(`${type.defaultDurationMinutes} mins`);
+                  if (type.active === false) details.push('inactive');
+                  const description = details.join(' - ') || 'No details';
+                  return (
+                    <Pressable
+                      key={typeId || `${labelText}-${idx}`}
+                      onPress={() => {
+                        if (typeId) {
+                          toggleSelection(typeId);
+                        }
+                      }}
+                      style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                    >
+                      <Text
+                        style={[styles.dropdownItemLabel, selected && styles.dropdownItemLabelSelected]}
+                        numberOfLines={1}
+                      >
+                        {labelText}
+                      </Text>
+                      <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                        {description}
                       </Text>
                     </Pressable>
                   );
@@ -1778,6 +1957,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const currentUserId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
+  const isPlatformUser = roles.some((role) => PLATFORM_ROLES.includes(role));
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
   const availableTabs = useMemo<TabKey[]>(() => {
@@ -1893,6 +2073,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [resourceError, setResourceError] = useState<string | null>(null);
   const [resourceSearch, setResourceSearch] = useState('');
   const [resourceOrgFilter, setResourceOrgFilter] = useState('');
+  const [resourceAppointmentTypes, setResourceAppointmentTypes] = useState<AppointmentTypeDto[]>([]);
+  const [resourceAppointmentTypeLoading, setResourceAppointmentTypeLoading] = useState(false);
+  const [resourceAppointmentTypeError, setResourceAppointmentTypeError] = useState<string | null>(null);
   const [resourceForm, setResourceForm] = useState<ResourceFormState>({
     id: null,
     orgId: '',
@@ -2179,6 +2362,32 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [authFetch, appointmentTypeOrgFilter],
   );
 
+  const loadResourceAppointmentTypes = useCallback(
+    async (orgId?: string) => {
+      setResourceAppointmentTypeLoading(true);
+      setResourceAppointmentTypeError(null);
+      try {
+        const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : '';
+        const res = await authFetch(`/api/appointment-types${query}`);
+        if (!res.ok) {
+          setResourceAppointmentTypeError(await parseErrorMessage(res));
+          setResourceAppointmentTypes([]);
+          return;
+        }
+        const data = (await res.json()) as AppointmentTypeDto[];
+        setResourceAppointmentTypes(data);
+      } catch (error) {
+        setResourceAppointmentTypeError(
+          error instanceof Error ? error.message : 'Unable to load appointment types.',
+        );
+        setResourceAppointmentTypes([]);
+      } finally {
+        setResourceAppointmentTypeLoading(false);
+      }
+    },
+    [authFetch],
+  );
+
   const resetForm = useCallback(() => {
     setForm({
       id: null,
@@ -2235,6 +2444,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!orgId || resourceForm.kind !== 'HUMAN') return;
     void loadUsers(orgId);
   }, [loadUsers, resourceForm.kind, resourceForm.orgId]);
+
+  useEffect(() => {
+    const orgId = resourceForm.orgId.trim();
+    if (isPlatformUser && !orgId) {
+      setResourceAppointmentTypes([]);
+      setResourceAppointmentTypeError(null);
+      setResourceAppointmentTypeLoading(false);
+      return;
+    }
+    void loadResourceAppointmentTypes(orgId || undefined);
+  }, [isPlatformUser, loadResourceAppointmentTypes, resourceForm.orgId]);
 
   const resetUserForm = useCallback(() => {
     setUserForm({
@@ -2361,6 +2581,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setResourceError(null);
     setResourceMessage(null);
+    setResourceAppointmentTypeError(null);
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
     resetResourceSchedule();
@@ -2398,7 +2619,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       orgId: resource.orgId ?? '',
       name: resource.name ?? '',
       type: resource.type ?? '',
-      allowedAppointmentTypeIds: (resource.allowedAppointmentTypeIds ?? []).join(','),
+      allowedAppointmentTypeIds: (resource.allowedAppointmentTypeIds ?? []).join(', '),
       capacity: resource.capacity != null ? String(resource.capacity) : '',
       active: resource.active ?? true,
       kind: resource.kind ?? 'ASSET',
@@ -3272,10 +3493,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (orgId) {
       payload.orgId = orgId;
     }
-    const allowed = resourceForm.allowedAppointmentTypeIds
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
+    const allowed = parseCommaList(resourceForm.allowedAppointmentTypeIds);
     if (allowed.length > 0) {
       payload.allowedAppointmentTypeIds = allowed;
     }
@@ -4913,7 +5131,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                         <Pressable
                           key={org.id ?? org.name}
                           onPress={() => {
-                            setResourceForm((prev) => ({ ...prev, orgId: org.id || '' }));
+                            const nextOrgId = org.id || '';
+                            setResourceForm((prev) => ({
+                              ...prev,
+                              orgId: nextOrgId,
+                              allowedAppointmentTypeIds:
+                                prev.orgId !== nextOrgId ? '' : prev.allowedAppointmentTypeIds,
+                            }));
                             setResourceOrgPickerOpen(false);
                           }}
                           style={[
@@ -4940,11 +5164,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 </View>
               ) : null}
             </View>
-            <InputField
-              label="Allowed appointment type ids (comma separated)"
-              placeholder="appt-consultation, appt-followup"
+            <AppointmentTypeMultiSelectField
+              label="Allowed appointment type ids"
               value={resourceForm.allowedAppointmentTypeIds}
-              onChangeText={(allowedAppointmentTypeIds) => setResourceForm((prev) => ({ ...prev, allowedAppointmentTypeIds }))}
+              appointmentTypes={resourceAppointmentTypes}
+              onChangeValue={(allowedAppointmentTypeIds) =>
+                setResourceForm((prev) => ({ ...prev, allowedAppointmentTypeIds }))
+              }
+              placeholder="Any appointment type"
+              disabled={isPlatformUser && !resourceForm.orgId.trim()}
+              disabledMessage="Select an organization to load appointment types"
+              loading={resourceAppointmentTypeLoading}
+              error={resourceAppointmentTypeError}
             />
             <InputField
               label="Capacity (optional)"
