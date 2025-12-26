@@ -1209,7 +1209,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"INTERNAL_NOTE\",\n  \"status\": \"SCHEDULED\",\n  \"comment\": \"Bring updated proposal\",\n  \"createdBy\": \"alex.martin@example.com\",\n  \"createdAt\": \"2025-11-18T09:00:00\"\n}",
+              "raw": "{\n  \"type\": \"INTERNAL_NOTE\",\n  \"status\": \"SCHEDULED\",\n  \"comment\": \"Bring updated proposal\",\n  \"createdBy\": \"user-service-manager\",\n  \"createdAt\": \"2025-11-18T09:00:00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

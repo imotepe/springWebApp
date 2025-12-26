@@ -121,6 +121,39 @@ type Organization = {
   };
 };
 
+type OrganizationPickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (orgId: string) => void;
+  organizations: Organization[];
+  placeholder?: string;
+  allowEmptyOption?: boolean;
+  emptyLabel?: string;
+};
+
+type AppointmentPickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (appointmentId: string) => void;
+  appointments: Appointment[];
+  placeholder?: string;
+  allowEmptyOption?: boolean;
+  emptyLabel?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+};
+
+type PractitionerPickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (userId: string) => void;
+  practitioners: User[];
+  placeholder?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+  loading?: boolean;
+};
+
 type OrganizationType = {
   id?: string;
   name: string;
@@ -612,6 +645,362 @@ function InputField({
         />
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function OrganizationPickerField({
+  label,
+  value,
+  onSelect,
+  organizations,
+  placeholder = 'Select organization',
+  allowEmptyOption = false,
+  emptyLabel = 'All organizations',
+}: OrganizationPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return organizations;
+    return organizations.filter((org) =>
+      [org.id, org.name, org.marketingName, org.phone, org.createdBy]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(term)),
+    );
+  }, [organizations, query]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value]);
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[styles.dropdownTrigger, styles.dropdownTriggerRow]}
+        onPress={() =>
+          setOpen((prev) => {
+            const next = !prev;
+            if (next) setQuery('');
+            return next;
+          })
+        }
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>{value || placeholder}</Text>
+        <Text style={styles.dropdownCaret}>{open ? '^' : 'v'}</Text>
+      </Pressable>
+      {open ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by id, name, marketing name, phone, createdBy"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            {allowEmptyOption ? (
+              <Pressable
+                onPress={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, value === '' && styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, value === '' && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  {emptyLabel}
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Show all organizations
+                </Text>
+              </Pressable>
+            ) : null}
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No organizations match the search.</Text>
+            ) : (
+              filtered.map((org) => (
+                <Pressable
+                  key={org.id ?? org.name}
+                  onPress={() => {
+                    onSelect(org.id || '');
+                    setOpen(false);
+                  }}
+                  style={[styles.dropdownItem, value === org.id && styles.dropdownItemSelected]}
+                >
+                  <Text
+                    style={[styles.dropdownItemLabel, value === org.id && styles.dropdownItemLabelSelected]}
+                    numberOfLines={1}
+                  >
+                    {org.id || org.name}
+                  </Text>
+                  <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                    {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                  </Text>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function AppointmentPickerField({
+  label,
+  value,
+  onSelect,
+  appointments,
+  placeholder = 'Select appointment',
+  allowEmptyOption = true,
+  emptyLabel = 'No appointment',
+  disabled = false,
+  disabledMessage = 'Select or save a customer to see appointments',
+}: AppointmentPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return appointments;
+    return appointments.filter((appt) =>
+      [appt.id, appt.resourceId, appt.appointmentTypeId, appt.status, appt.startTime, appt.endTime]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(term)),
+    );
+  }, [appointments, query]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {disabled ? disabledMessage : value || placeholder}
+        </Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by id, resource, type, status"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            {allowEmptyOption ? (
+              <Pressable
+                onPress={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, value === '' && styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, value === '' && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  {emptyLabel}
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  No appointment linked
+                </Text>
+              </Pressable>
+            ) : null}
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No appointments match the search.</Text>
+            ) : (
+              filtered.map((appt) => (
+                <Pressable
+                  key={appt.id ?? appt.startTime ?? appt.appointmentTypeId}
+                  onPress={() => {
+                    if (appt.id) {
+                      onSelect(appt.id);
+                      setOpen(false);
+                    }
+                  }}
+                  style={[styles.dropdownItem, value === appt.id && styles.dropdownItemSelected]}
+                >
+                  <Text
+                    style={[styles.dropdownItemLabel, value === appt.id && styles.dropdownItemLabelSelected]}
+                    numberOfLines={1}
+                  >
+                    {appt.id || appt.appointmentTypeId || 'Appointment'}
+                  </Text>
+                  <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                    {appt.startTime || '--'} → {appt.endTime || '--'} · {appt.appointmentTypeId || 'type'} ·{' '}
+                    {appt.status || 'SCHEDULED'}
+                  </Text>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PractitionerPickerField({
+  label,
+  value,
+  onSelect,
+  practitioners,
+  placeholder = 'Select practitioner',
+  disabled = false,
+  disabledMessage = 'Select an organization to load practitioners',
+  loading = false,
+}: PractitionerPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return practitioners;
+    return practitioners.filter((user) => {
+      const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      return [
+        user.id,
+        user.username,
+        user.email,
+        fullName,
+        user.homeOrganizationId,
+      ]
+        .filter(Boolean)
+        .map((field) => field!.toLowerCase())
+        .some((field) => field.includes(term));
+    });
+  }, [practitioners, query]);
+
+  const selectedLabel = useMemo(() => {
+    const selected = practitioners.find((p) => p.id === value);
+    if (!selected) return value;
+    const name = `${selected.firstName ?? ''} ${selected.lastName ?? ''}`.trim();
+    const handle = selected.username || selected.email || selected.id || '';
+    return name ? `${name} (${handle})` : handle;
+  }, [practitioners, value]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {disabled ? disabledMessage : selectedLabel || placeholder}
+        </Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by id, username, email, name"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          {loading ? (
+            <View style={[styles.dropdownList, { padding: 12 }]}>
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#1D4ED8" />
+                <Text style={styles.statusText}>Loading practitioners...</Text>
+              </View>
+            </View>
+          ) : (
+            <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+              <Pressable
+                onPress={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, value === '' && styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, value === '' && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  No practitioner
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Leave practitioner user empty
+                </Text>
+              </Pressable>
+              {filtered.length === 0 ? (
+                <Text style={styles.statusText}>No practitioners found for this org.</Text>
+              ) : (
+                filtered.map((user) => {
+                  const name = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+                  const handle = user.username || user.email || user.id || 'Unknown user';
+                  return (
+                    <Pressable
+                      key={user.id ?? handle}
+                      onPress={() => {
+                        if (user.id) {
+                          onSelect(user.id);
+                          setOpen(false);
+                        }
+                      }}
+                      style={[styles.dropdownItem, value === user.id && styles.dropdownItemSelected]}
+                    >
+                      <Text
+                        style={[styles.dropdownItemLabel, value === user.id && styles.dropdownItemLabelSelected]}
+                        numberOfLines={1}
+                      >
+                        {name ? `${name} (${handle})` : handle}
+                      </Text>
+                      <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                        {user.homeOrganizationId ? `Org: ${user.homeOrganizationId}` : 'No org set'}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1494,7 +1883,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     status: INTERACTION_STATUSES[0],
     comment: '',
     appointmentId: '',
-    createdBy: '',
+    createdBy: currentUserId || '',
     createdAt: new Date().toISOString(),
   });
   const [resources, setResources] = useState<Resource[]>([]);
@@ -1571,6 +1960,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [appointmentTypeError, setAppointmentTypeError] = useState<string | null>(null);
   const [appointmentTypeSearch, setAppointmentTypeSearch] = useState('');
   const [appointmentTypeOrgFilter, setAppointmentTypeOrgFilter] = useState('');
+  const [interactionAppointments, setInteractionAppointments] = useState<Appointment[]>([]);
   const [appointmentTypeForm, setAppointmentTypeForm] = useState<AppointmentTypeFormState>({
     id: null,
     orgId: '',
@@ -1718,13 +2108,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const loadAppointments = useCallback(
     async (orgFilter?: string) => {
-      if (isPlatformAdminOnly && !isSuperAdmin) {
-        setAppointments([]);
-        setAppointmentLoading(false);
-        setAppointmentMessage(null);
-        setAppointmentError(null);
-        return;
-      }
       const filter = (orgFilter ?? appointmentOrgFilter).trim();
       setAppointmentLoading(true);
       setAppointmentMessage('Loading appointments...');
@@ -1746,7 +2129,28 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         setAppointmentLoading(false);
       }
     },
-    [authFetch, appointmentOrgFilter, isPlatformAdminOnly, isSuperAdmin],
+    [appointmentOrgFilter, authFetch],
+  );
+
+  const loadAppointmentsForCustomer = useCallback(
+    async (customerId: string | null | undefined) => {
+      const id = (customerId ?? '').trim();
+      if (!id) {
+        setInteractionAppointments([]);
+        return;
+      }
+      try {
+        const res = await authFetch(`/api/appointments?customerId=${encodeURIComponent(id)}`);
+        if (!res.ok) {
+          return;
+        }
+        const data = (await res.json()) as Appointment[];
+        setInteractionAppointments(data);
+      } catch {
+        // ignore quietly; interaction picker will just be empty
+      }
+    },
+    [authFetch],
   );
 
   const loadAppointmentTypes = useCallback(
@@ -1826,6 +2230,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     canViewAppointments,
   ]);
 
+  useEffect(() => {
+    const orgId = resourceForm.orgId.trim();
+    if (!orgId || resourceForm.kind !== 'HUMAN') return;
+    void loadUsers(orgId);
+  }, [loadUsers, resourceForm.kind, resourceForm.orgId]);
+
   const resetUserForm = useCallback(() => {
     setUserForm({
       id: null,
@@ -1861,6 +2271,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setCustomerError(null);
     setCustomerMessage(null);
+    setInteractionAppointments([]);
     setInteractionsWorking([]);
     setInteractionForm({
       id: null,
@@ -1868,7 +2279,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       status: INTERACTION_STATUSES[0],
       comment: '',
       appointmentId: '',
-      createdBy: '',
+      createdBy: currentUserId || '',
       createdAt: new Date().toISOString(),
     });
     setInteractionSearch('');
@@ -1908,6 +2319,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       notes: customer.notes ?? '',
       dateOfBirth: customer.dateOfBirth ?? '',
     });
+    setInteractionAppointments([]);
     setCustomerError(null);
     setCustomerMessage(`Editing ${customer.name || customer.email || customer.id || 'customer'}`);
     setInteractionsWorking(customer.interactions ?? []);
@@ -1917,9 +2329,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       status: INTERACTION_STATUSES[0],
       comment: '',
       appointmentId: '',
-      createdBy: '',
+      createdBy: currentUserId || '',
       createdAt: new Date().toISOString(),
     });
+    void loadAppointmentsForCustomer(customer.id);
     setInteractionSearch('');
   };
 
@@ -2729,6 +3142,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   const validateCustomerForm = () => {
+    if (isPlatformAdminOnly && !customerForm.orgId.trim()) {
+      setCustomerError('Org id is required for platform admins.');
+      return false;
+    }
     if (!customerForm.name.trim() && !customerForm.firstName.trim()) {
       setCustomerError('Provide a full name or first name.');
       return false;
@@ -2844,8 +3261,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       type: resourceForm.type.trim(),
       kind: resourceForm.kind,
       active: resourceForm.active,
-      practitionerUserId: resourceForm.practitionerUserId.trim() || undefined,
     };
+    if (resourceForm.kind === 'HUMAN') {
+      const practitionerUserId = resourceForm.practitionerUserId.trim();
+      if (practitionerUserId) {
+        payload.practitionerUserId = practitionerUserId;
+      }
+    }
     const orgId = resourceForm.orgId.trim();
     if (orgId) {
       payload.orgId = orgId;
@@ -2948,6 +3370,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   const validateAppointmentForm = () => {
+    if (isPlatformAdminOnly && !appointmentForm.orgId.trim()) {
+      setAppointmentError('Org id is required for platform admins.');
+      return false;
+    }
     if (!appointmentForm.customerId.trim() && !appointmentForm.resourceId.trim()) {
       setAppointmentError('Provide a customerId or resourceId.');
       return false;
@@ -3048,7 +3474,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       status: INTERACTION_STATUSES[0],
       comment: '',
       appointmentId: '',
-      createdBy: '',
+      createdBy: currentUserId || '',
       createdAt: new Date().toISOString(),
     });
   };
@@ -3060,7 +3486,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       status: interaction.status ?? INTERACTION_STATUSES[0],
       comment: interaction.comment ?? '',
       appointmentId: interaction.appointmentId ?? '',
-      createdBy: interaction.createdBy ?? '',
+      createdBy: interaction.createdBy ?? currentUserId ?? '',
       createdAt: interaction.createdAt ?? new Date().toISOString(),
     });
   };
@@ -3081,8 +3507,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       status: interactionForm.status,
       comment: interactionForm.comment.trim(),
       appointmentId: interactionForm.appointmentId.trim() || undefined,
-      createdBy: interactionForm.createdBy.trim() || undefined,
-      createdAt: interactionForm.createdAt || new Date().toISOString(),
+      createdBy: (currentUserId || interactionForm.createdBy || '').trim() || undefined,
+      createdAt: new Date().toISOString(),
     };
     setInteractionsWorking((prev) => {
       const exists = prev.find((i) => i.id === normalized.id);
@@ -3194,6 +3620,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   const validateAppointmentTypeForm = () => {
+    if (isPlatformAdminOnly && !appointmentTypeForm.orgId.trim()) {
+      setAppointmentTypeError('Org id is required for platform admins.');
+      return false;
+    }
     if (!appointmentTypeForm.name.trim()) {
       setAppointmentTypeError('Name is required.');
       return false;
@@ -3350,9 +3780,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     );
   }, [homeOrgBase, resourceOrgQuery]);
 
+  const resourcePractitionerUsers = useMemo(() => {
+    const orgId = resourceForm.orgId.trim().toLowerCase();
+    if (!orgId) return [];
+    return users.filter((user) => {
+      const homeOrg = (user.homeOrganizationId ?? '').toLowerCase();
+      const roles = user.roles ?? [];
+      return homeOrg === orgId && roles.includes('PRACTITIONER');
+    });
+  }, [resourceForm.orgId, users]);
+
   const sortedTypes = useMemo(() => {
     return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
   }, [filteredTypes]);
+
+  const customerAppointments = useMemo(() => {
+    if (!customerForm.id) return [];
+    if (interactionAppointments.length > 0) return interactionAppointments;
+    return appointments.filter((appt) => appt.customerId === customerForm.id);
+  }, [appointments, customerForm.id, interactionAppointments]);
 
   const totalTypePages = useMemo(
     () => Math.max(1, Math.ceil(sortedTypes.length / PAGE_SIZE)),
@@ -4334,11 +4780,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <View style={styles.row}>
                 <View style={styles.flexHalf}>
-                  <InputField
+                  <OrganizationPickerField
                     label="Org filter (optional)"
-                    placeholder="org-aurora-retail"
+                    placeholder="All organizations"
                     value={resourceOrgFilter}
-                    onChangeText={setResourceOrgFilter}
+                    onSelect={setResourceOrgFilter}
+                    organizations={homeOrgBase}
+                    allowEmptyOption
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
@@ -4530,12 +4978,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <Text style={styles.rememberText}>Active</Text>
             </Pressable>
-            <InputField
-              label="Practitioner user id (optional, for HUMAN kind)"
-              placeholder="user-practitioner"
-              value={resourceForm.practitionerUserId}
-              onChangeText={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
-            />
+            {resourceForm.kind === 'HUMAN' ? (
+              <PractitionerPickerField
+                label="Practitioner user (optional, HUMAN only)"
+                placeholder={
+                  resourceForm.orgId
+                    ? 'Search practitioner by id, username, email, name'
+                    : 'Select an organization first'
+                }
+                value={resourceForm.practitionerUserId}
+                onSelect={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
+                practitioners={resourcePractitionerUsers}
+                disabled={!resourceForm.orgId}
+                disabledMessage="Select an organization to see practitioners"
+                loading={userLoading && !!resourceForm.orgId}
+              />
+            ) : null}
 
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Schedule override (optional)</Text>
@@ -4640,11 +5098,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <View style={styles.row}>
                 <View style={styles.flexHalf}>
-                  <InputField
+                  <OrganizationPickerField
                     label="Org filter (optional)"
-                    placeholder="org-aurora-retail"
+                    placeholder="All organizations"
                     value={appointmentOrgFilter}
-                    onChangeText={setAppointmentOrgFilter}
+                    onSelect={setAppointmentOrgFilter}
+                    organizations={homeOrgBase}
+                    allowEmptyOption
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
@@ -4719,11 +5179,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               ) : null}
             </View>
 
-            <InputField
+            <OrganizationPickerField
               label="Org id (required for platform admins)"
-              placeholder="org-aurora-retail"
               value={appointmentForm.orgId}
-              onChangeText={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
+              onSelect={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
+              organizations={homeOrgBase}
             />
             <InputField
               label="Customer id"
@@ -4945,11 +5405,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <View style={styles.row}>
                 <View style={styles.flexHalf}>
-                  <InputField
+                  <OrganizationPickerField
                     label="Org filter (optional)"
-                    placeholder="org-aurora-retail"
+                    placeholder="All organizations"
                     value={appointmentTypeOrgFilter}
-                    onChangeText={setAppointmentTypeOrgFilter}
+                    onSelect={setAppointmentTypeOrgFilter}
+                    organizations={homeOrgBase}
+                    allowEmptyOption
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
@@ -5037,11 +5499,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={appointmentTypeForm.category}
               onChangeText={(category) => setAppointmentTypeForm((prev) => ({ ...prev, category }))}
             />
-            <InputField
+            <OrganizationPickerField
               label="Org id (required for platform admins)"
-              placeholder="org-aurora-retail"
               value={appointmentTypeForm.orgId}
-              onChangeText={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
+              onSelect={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
+              organizations={homeOrgBase}
             />
             <InputField
               label="Default duration (minutes)"
@@ -5114,11 +5576,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <View style={styles.row}>
                 <View style={styles.flexHalf}>
-                  <InputField
+                  <OrganizationPickerField
                     label="Org filter (optional)"
-                    placeholder="org-aurora-retail"
+                    placeholder="All organizations"
                     value={customerOrgFilter}
-                    onChangeText={setCustomerOrgFilter}
+                    onSelect={setCustomerOrgFilter}
+                    organizations={homeOrgBase}
+                    allowEmptyOption
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
@@ -5225,11 +5689,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={customerForm.dateOfBirth}
               onChangeText={(dateOfBirth) => setCustomerForm((prev) => ({ ...prev, dateOfBirth }))}
             />
-            <InputField
+            <OrganizationPickerField
               label="Org id (required for platform admins)"
-              placeholder="org-aurora-retail"
               value={customerForm.orgId}
-              onChangeText={(orgId) => setCustomerForm((prev) => ({ ...prev, orgId }))}
+              onSelect={(orgId) => setCustomerForm((prev) => ({ ...prev, orgId }))}
+              organizations={homeOrgBase}
             />
 
             <PrimaryButton
@@ -5347,23 +5811,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   value={interactionForm.comment}
                   onChangeText={(comment) => setInteractionForm((prev) => ({ ...prev, comment }))}
                 />
-                <InputField
-                  label="Appointment ID (optional)"
-                  placeholder="appt-123"
+                <AppointmentPickerField
+                  label="Appointment (optional)"
                   value={interactionForm.appointmentId}
-                  onChangeText={(appointmentId) => setInteractionForm((prev) => ({ ...prev, appointmentId }))}
-                />
-                <InputField
-                  label="Created by"
-                  placeholder="agent@example.com"
-                  value={interactionForm.createdBy}
-                  onChangeText={(createdBy) => setInteractionForm((prev) => ({ ...prev, createdBy }))}
-                />
-                <InputField
-                  label="Created at (ISO-8601)"
-                  placeholder={new Date().toISOString()}
-                  value={interactionForm.createdAt}
-                  onChangeText={(createdAt) => setInteractionForm((prev) => ({ ...prev, createdAt }))}
+                  onSelect={(appointmentId) => setInteractionForm((prev) => ({ ...prev, appointmentId }))}
+                  appointments={customerAppointments}
+                  placeholder="Link to an appointment"
+                  allowEmptyOption
+                  emptyLabel="No appointment"
+                  disabled={!customerForm.id}
+                  disabledMessage="Save/select a customer first"
                 />
 
                 <PrimaryButton
@@ -5400,11 +5857,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
               <View style={styles.row}>
                 <View style={styles.flexHalf}>
-                  <InputField
+                  <OrganizationPickerField
                     label="Home org filter (optional)"
-                    placeholder="org-aurora-retail"
+                    placeholder="All organizations"
                     value={userOrgFilter}
-                    onChangeText={setUserOrgFilter}
+                    onSelect={setUserOrgFilter}
+                    organizations={homeOrgBase}
+                    allowEmptyOption
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>

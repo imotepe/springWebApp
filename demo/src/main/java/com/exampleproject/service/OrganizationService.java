@@ -56,7 +56,7 @@ public class OrganizationService {
         if (!context.isPlatformUser()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only platform administrators can create organizations");
         }
-        validateType(org.getType());
+        org.setType(resolveTypeId(org.getType()));
         org.setId(null);
         org.setCreatedBy(context.user().getId());
         org.setCreatedAt(LocalDateTime.now());
@@ -69,7 +69,7 @@ public class OrganizationService {
         Organization existing = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
         organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
-        validateType(org.getType());
+        org.setType(resolveTypeId(org.getType()));
         org.setId(id);
         org.setCreatedBy(existing.getCreatedBy());
         org.setCreatedAt(existing.getCreatedAt());
@@ -87,12 +87,19 @@ public class OrganizationService {
         repository.deleteById(id);
     }
 
-    private void validateType(String typeName) {
+    private String resolveTypeId(String typeName) {
         if (typeName == null || typeName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organization type is required");
         }
-        if (!typeRepository.existsById(typeName)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown organization type: " + typeName);
+        String normalizedType = typeName.trim();
+        if (typeRepository.existsById(normalizedType)) {
+            return normalizedType;
         }
+        return typeRepository.findByName(normalizedType)
+                .map(type -> type.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Unknown organization type: " + typeName
+                ));
     }
 }

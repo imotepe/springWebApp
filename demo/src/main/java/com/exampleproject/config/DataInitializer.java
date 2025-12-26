@@ -1205,7 +1205,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_COMMENT,
                         AppointmentStatus.SCHEDULED,
                         "Preference pour les creneaux du matin",
-                        "jean.dupont@example.com",
+                        "user-agent",
                         now.minusDays(5)
                 )
         );
@@ -1241,7 +1241,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_UPDATE,
                         AppointmentStatus.SCHEDULED,
                         "Demande d'accessibilite PMR",
-                        "ines.perez@riviera.fr",
+                        "user-org-admin-riviera",
                         now.minusDays(3)
                 )
         );
@@ -1265,7 +1265,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_COMMENT,
                         AppointmentStatus.SCHEDULED,
                         "Prefere la visio matinale",
-                        "martin.cho@helix.fr",
+                        "user-service-manager-helix",
                         now.minusDays(2)
                 )
         );
@@ -1662,7 +1662,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_UPDATE,
                         AppointmentStatus.SCHEDULED,
                         "Client partage les documents de cadrage",
-                        "jean.dupont@example.com",
+                        "user-agent",
                         now.plusHours(2)
                 )
         );
@@ -1680,45 +1680,13 @@ public class DataInitializer {
                 discoveryEvents
         );
 
-        List<AppointmentEvent> installEvents = List.of(
-                new AppointmentEvent(
-                        "appt-event-2",
-                        AppointmentEventType.CUSTOMER_UPDATE,
-                        AppointmentStatus.SCHEDULED,
-                        "Client confirme la presence d'un acces electrique",
-                        "emma.leroy@example.com",
-                        now.plusDays(1)
-                ),
-                new AppointmentEvent(
-                        "appt-event-2b",
-                        AppointmentEventType.INTERNAL_NOTE,
-                        AppointmentStatus.SCHEDULED,
-                        "Equipe terrain valide la planification",
-                        "alex.martin@example.com",
-                        now.plusDays(1).plusHours(3)
-                )
-        );
-
-        Appointment onsiteInstall = new Appointment(
-                APPOINTMENT_INSTALL_ID,
-                ORG_AURORA_ID,
-                CUSTOMER_EMMA_ID,
-                APPOINTMENT_TYPE_INSTALLATION_ID,
-                RESOURCE_ONSITE_CREW_ID,
-                now.plusDays(5).withHour(14).withMinute(0),
-                now.plusDays(5).withHour(15).withMinute(30),
-                AppointmentStatus.SCHEDULED,
-                "Installation pilote d'equipement",
-                installEvents
-        );
-
         List<AppointmentEvent> auroraReviewEvents = List.of(
                 new AppointmentEvent(
                         "appt-event-3",
                         AppointmentEventType.INTERNAL_NOTE,
                         AppointmentStatus.SCHEDULED,
                         "Preparation renouvellement contrat",
-                        "alex.martin@example.com",
+                        "user-service-manager",
                         now.plusDays(3)
                 ),
                 new AppointmentEvent(
@@ -1726,7 +1694,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_COMMENT,
                         AppointmentStatus.SCHEDULED,
                         "Client demande un focus sur le support",
-                        "naima.khelifi@example.com",
+                        "user-agent",
                         now.plusDays(3).plusHours(1)
                 )
         );
@@ -1846,7 +1814,7 @@ public class DataInitializer {
                         AppointmentEventType.INTERNAL_NOTE,
                         AppointmentStatus.SCHEDULED,
                         "Kickoff innovation sprint",
-                        "nova.pm@example.com",
+                        "user-platform-admin",
                         now.plusDays(1)
                 ),
                 new AppointmentEvent(
@@ -1854,7 +1822,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_COMMENT,
                         AppointmentStatus.SCHEDULED,
                         "Sophia partage les maquettes",
-                        "sophia.ward@nova-tech.io",
+                        "user-platform-admin",
                         now.plusDays(1).plusHours(2)
                 )
         );
@@ -1878,7 +1846,7 @@ public class DataInitializer {
                         AppointmentEventType.INTERNAL_NOTE,
                         AppointmentStatus.SCHEDULED,
                         "Equipe operations valide la checklist",
-                        "atlas.ops@example.com",
+                        "user-platform-admin",
                         now.plusDays(2)
                 ),
                 new AppointmentEvent(
@@ -1886,7 +1854,7 @@ public class DataInitializer {
                         AppointmentEventType.CUSTOMER_UPDATE,
                         AppointmentStatus.SCHEDULED,
                         "Liam partage les donnees de terrain",
-                        "liam.hart@atlas-services.com",
+                        "user-platform-admin",
                         now.plusDays(2).plusHours(3)
                 )
         );
@@ -2027,7 +1995,6 @@ public class DataInitializer {
         List<Appointment> appointments = new ArrayList<>(
                 List.of(
                         discoveryCall,
-                        onsiteInstall,
                         auroraContractReview,
                         rivieraWorkshop,
                         helixTeleconsult,

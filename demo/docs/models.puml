@@ -144,6 +144,10 @@ package "Customers & People" {
     +createdAt: LocalDateTime
   }
 
+  note right of CustomerInteraction
+    createdBy stores the user id of the creator
+  end note
+
   class User {
     +id: String
     +username: String

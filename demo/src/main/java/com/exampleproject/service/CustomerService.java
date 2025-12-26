@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @SuppressWarnings("null")
@@ -57,6 +59,7 @@ public class CustomerService {
         } else {
             customer.setOrgId(context.requireOrgScope());
         }
+        normalizeInteractions(customer, context);
         return repository.save(customer);
     }
 
@@ -74,6 +77,7 @@ public class CustomerService {
         } else {
             customer.setOrgId(existing.getOrgId());
         }
+        normalizeInteractions(customer, context);
         return repository.save(customer);
     }
 
@@ -90,5 +94,24 @@ public class CustomerService {
         if (!context.isSuperAdmin() && context.isPlatformAdmin()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admins cannot access customers");
         }
+    }
+
+    private void normalizeInteractions(Customer customer, OrganizationAccessManager.OrganizationAccessContext context) {
+        if (customer.getInteractions() == null || customer.getInteractions().isEmpty()) {
+            return;
+        }
+        String userId = context.user().getId();
+        LocalDateTime now = LocalDateTime.now();
+        customer.getInteractions().forEach(interaction -> {
+            if (interaction.getId() == null || interaction.getId().isBlank()) {
+                interaction.setId(UUID.randomUUID().toString());
+            }
+            if (interaction.getCreatedBy() == null || interaction.getCreatedBy().isBlank()) {
+                interaction.setCreatedBy(userId);
+            }
+            if (interaction.getCreatedAt() == null) {
+                interaction.setCreatedAt(now);
+            }
+        });
     }
 }

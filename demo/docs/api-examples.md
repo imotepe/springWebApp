@@ -56,7 +56,7 @@ Accept: application/json
         "type": "CUSTOMER_UPDATE",
         "status": "SCHEDULED",
         "comment": "Client confirme la presence d'un acces electrique",
-        "createdBy": "emma.leroy@example.com",
+        "createdBy": "user-agent",
         "createdAt": "2025-11-20T14:00:00"
       }
     ]

@@ -176,13 +176,16 @@ public class AppointmentService {
         if (event.getCreatedAt() == null) {
             event.setCreatedAt(LocalDateTime.now());
         }
+        String userId = context.userId();
         if (practitioner) {
-            event.setCreatedBy(context.userId());
+            event.setCreatedBy(userId);
             if (event.getStatus() == null) {
                 event.setStatus(AppointmentStatus.COMPLETED);
             }
-        } else if (event.getCreatedBy() == null || event.getCreatedBy().isBlank()) {
-            event.setCreatedBy("customer");
+        } else {
+            if (event.getCreatedBy() == null || event.getCreatedBy().isBlank()) {
+                event.setCreatedBy(userId != null ? userId : "system");
+            }
         }
 
         if (event.getStatus() != null) {

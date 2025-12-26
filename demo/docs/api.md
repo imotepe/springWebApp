@@ -86,6 +86,8 @@ Required query params: `orgId`, `appointmentTypeId`, time range `from`, `to` (IS
 
 Customers now carry an orgId attribute. Platform administrators must provide it when creating a customer; organization-scoped users always write to (and can only read from) their own organization.
 
+- Customer interactions (`Customer.interactions`) record the `createdBy` field as the user id of the creator. The API fills this automatically from the authenticated user when missing.
+
 ## Organizations (`/api/organizations`)
 
 Standard CRUD (GET collection, GET item, POST, PUT, DELETE). Organizations reference addresses, schedule configs, etc. Validation ensures type names exist.
