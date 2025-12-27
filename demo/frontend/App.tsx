@@ -143,6 +143,40 @@ type AppointmentPickerFieldProps = {
   disabledMessage?: string;
 };
 
+type CustomerPickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (customerId: string) => void;
+  customers: Customer[];
+  placeholder?: string;
+  allowEmptyOption?: boolean;
+  emptyLabel?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+};
+
+type ResourcePickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (resourceId: string) => void;
+  resources: Resource[];
+  placeholder?: string;
+  allowEmptyOption?: boolean;
+  emptyLabel?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+};
+
+type AppointmentTypePickerFieldProps = {
+  label: string;
+  value: string;
+  onSelect: (appointmentTypeId: string) => void;
+  appointmentTypes: AppointmentTypeDto[];
+  placeholder?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+};
+
 type PractitionerPickerFieldProps = {
   label: string;
   value: string;
@@ -163,6 +197,31 @@ type AppointmentTypeMultiSelectFieldProps = {
   disabled?: boolean;
   disabledMessage?: string;
   loading?: boolean;
+  error?: string | null;
+};
+
+type DurationOption = {
+  label: string;
+  minutes: number;
+};
+
+type DurationSelectFieldProps = {
+  label: string;
+  value: string;
+  onChangeValue: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
+  error?: string | null;
+};
+
+type DurationMultiSelectFieldProps = {
+  label: string;
+  value: string;
+  onChangeValue: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
   error?: string | null;
 };
 
@@ -199,9 +258,7 @@ type UserRole =
   | 'SUPER_PLATFORM_ADMIN'
   | 'PLATFORM_ADMIN'
   | 'ORGANIZATION_ADMIN'
-  | 'SERVICE_MANAGER'
   | 'AGENT'
-  | 'AUDITOR'
   | 'PRACTITIONER';
 type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'BLOCKED';
 
@@ -254,6 +311,7 @@ type Customer = {
   phone?: string;
   notes?: string;
   dateOfBirth?: string;
+  createdAt?: string;
   interactions?: CustomerInteraction[];
 };
 
@@ -293,6 +351,7 @@ type Resource = {
   orgId?: string;
   name?: string;
   type?: string;
+  createdAt?: string;
   allowedAppointmentTypeIds?: string[];
   scheduleOverride?: ScheduleConfigDto | null;
   capacity?: number;
@@ -436,11 +495,10 @@ const USER_ROLES: UserRole[] = [
   'SUPER_PLATFORM_ADMIN',
   'PLATFORM_ADMIN',
   'ORGANIZATION_ADMIN',
-  'SERVICE_MANAGER',
   'AGENT',
-  'AUDITOR',
   'PRACTITIONER',
 ];
+const USER_ROLE_SET = new Set<UserRole>(USER_ROLES);
 const PLATFORM_ROLES: UserRole[] = ['SUPER_PLATFORM_ADMIN', 'PLATFORM_ADMIN'];
 const USER_STATUSES: UserStatus[] = ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'BLOCKED'];
 const INTERACTION_TYPES: CustomerInteractionFormState['type'][] = [
@@ -460,6 +518,16 @@ const APPOINTMENT_EVENT_TYPES: AppointmentEventFormState['type'][] = [
   'INTERNAL_NOTE',
   'PRACTITIONER_NOTE',
 ];
+const DURATION_PRESET_OPTIONS: DurationOption[] = [
+  { label: '15 minutes', minutes: 15 },
+  { label: '30 minutes', minutes: 30 },
+  { label: '45 minutes', minutes: 45 },
+  { label: '60 minutes', minutes: 60 },
+  { label: '1 hour', minutes: 60 },
+  { label: '2 hour', minutes: 120 },
+  { label: '1 day', minutes: 1440 },
+];
+const DURATION_PRESET_MINUTES = new Set(DURATION_PRESET_OPTIONS.map((option) => option.minutes));
 type DatePickerView = 'day' | 'month' | 'year';
 const HOURS_24 = ['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
@@ -474,7 +542,9 @@ function decodeRolesFromToken(token: string): UserRole[] {
     if (!decoded) return [];
     const payload = JSON.parse(decoded) as { roles?: unknown };
     if (!Array.isArray(payload.roles)) return [];
-    return payload.roles.filter((role): role is UserRole => typeof role === 'string');
+    return payload.roles.filter(
+      (role): role is UserRole => typeof role === 'string' && USER_ROLE_SET.has(role as UserRole),
+    );
   } catch {
     return [];
   }
@@ -643,6 +713,54 @@ const parseCommaList = (value: string) => {
 
 const formatCommaList = (items: string[]) => items.join(', ');
 
+const getOrganizationLabel = (organizations: Organization[], value: string) => {
+  if (!value) return '';
+  const match = organizations.find((org) => org.id === value);
+  if (!match) return value;
+  return match.marketingName || match.name || value;
+};
+
+const formatCustomerName = (customer: Customer) => {
+  const parts = [customer.firstName, customer.name].filter(Boolean);
+  if (parts.length > 0) {
+    return parts.join(' ').trim();
+  }
+  return customer.email || customer.phone || customer.id || 'Customer';
+};
+
+const formatResourceName = (resource: Resource) => {
+  return resource.name || resource.type || resource.id || 'Resource';
+};
+
+const formatUserRoles = (roles?: UserRole[]) => {
+  const visible = (roles ?? []).filter((role) => USER_ROLE_SET.has(role));
+  return visible.length ? visible.join(', ') : 'None';
+};
+
+const resolveLogoUri = (logoImage: string) => {
+  const trimmed = logoImage.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  return `${API_BASE}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+};
+
+const parseDurationMinutes = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^\d+$/.test(trimmed)) return null;
+  const minutes = Number(trimmed);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return minutes;
+};
+
+const formatDurationLabel = (minutes: number) => {
+  const preset = DURATION_PRESET_OPTIONS.find((option) => option.minutes === minutes);
+  if (preset) return preset.label;
+  return `${minutes} minutes`;
+};
+
 function InputField({
   label,
   placeholder,
@@ -687,6 +805,7 @@ function OrganizationPickerField({
 }: OrganizationPickerFieldProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const selectedLabel = getOrganizationLabel(organizations, value);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -716,7 +835,9 @@ function OrganizationPickerField({
           })
         }
       >
-        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>{value || placeholder}</Text>
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {value ? selectedLabel : placeholder}
+        </Text>
         <Text style={styles.dropdownCaret}>{open ? '^' : 'v'}</Text>
       </Pressable>
       {open ? (
@@ -892,6 +1013,412 @@ function AppointmentPickerField({
   );
 }
 
+function CustomerPickerField({
+  label,
+  value,
+  onSelect,
+  customers,
+  placeholder = 'Select customer',
+  allowEmptyOption = true,
+  emptyLabel = 'No customer',
+  disabled = false,
+  disabledMessage = 'Select an organization to load customers',
+}: CustomerPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const sortedCustomers = useMemo(() => {
+    return [...customers].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+      const aName = formatCustomerName(a).toLowerCase();
+      const bName = formatCustomerName(b).toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [customers]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return sortedCustomers;
+    return sortedCustomers.filter((customer) => {
+      const label = formatCustomerName(customer);
+      return [
+        customer.id,
+        customer.email,
+        customer.phone,
+        customer.name,
+        customer.firstName,
+        label,
+      ]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(term));
+    });
+  }, [query, sortedCustomers]);
+
+  const selectedLabel = useMemo(() => {
+    const selected = customers.find((customer) => customer.id === value);
+    if (!selected) return value;
+    return formatCustomerName(selected);
+  }, [customers, value]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const displayValue = disabled
+    ? value
+      ? selectedLabel || value
+      : disabledMessage
+    : selectedLabel || placeholder;
+  const displayStyle = value ? styles.dropdownValue : styles.dropdownPlaceholder;
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={displayStyle}>{displayValue}</Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by name, email, phone"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            {allowEmptyOption ? (
+              <Pressable
+                onPress={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, value === '' && styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, value === '' && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  {emptyLabel}
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  No customer selected
+                </Text>
+              </Pressable>
+            ) : null}
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No customers match the search.</Text>
+            ) : (
+              filtered.map((customer) => {
+                const label = formatCustomerName(customer);
+                const descriptionParts = [customer.email, customer.phone, customer.id].filter(Boolean);
+                return (
+                  <Pressable
+                    key={customer.id ?? label}
+                    onPress={() => {
+                      if (customer.id) {
+                        onSelect(customer.id);
+                        setOpen(false);
+                      }
+                    }}
+                    style={[styles.dropdownItem, value === customer.id && styles.dropdownItemSelected]}
+                  >
+                    <Text
+                      style={[styles.dropdownItemLabel, value === customer.id && styles.dropdownItemLabelSelected]}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                    <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                      {descriptionParts.join(' - ') || 'No details'}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ResourcePickerField({
+  label,
+  value,
+  onSelect,
+  resources,
+  placeholder = 'Select resource',
+  allowEmptyOption = true,
+  emptyLabel = 'No resource',
+  disabled = false,
+  disabledMessage = 'Select an organization to load resources',
+}: ResourcePickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const sortedResources = useMemo(() => {
+    return [...resources].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+      const aName = formatResourceName(a).toLowerCase();
+      const bName = formatResourceName(b).toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [resources]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return sortedResources;
+    return sortedResources.filter((resource) => {
+      const label = formatResourceName(resource);
+      return [resource.id, resource.name, resource.type, resource.kind, label]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(term));
+    });
+  }, [query, sortedResources]);
+
+  const selectedLabel = useMemo(() => {
+    const selected = resources.find((resource) => resource.id === value);
+    if (!selected) return value;
+    return formatResourceName(selected);
+  }, [resources, value]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const displayValue = disabled
+    ? value
+      ? selectedLabel || value
+      : disabledMessage
+    : selectedLabel || placeholder;
+  const displayStyle = value ? styles.dropdownValue : styles.dropdownPlaceholder;
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={displayStyle}>{displayValue}</Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by name, type, kind"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            {allowEmptyOption ? (
+              <Pressable
+                onPress={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+                style={[styles.dropdownItem, value === '' && styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, value === '' && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  {emptyLabel}
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  No resource selected
+                </Text>
+              </Pressable>
+            ) : null}
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No resources match the search.</Text>
+            ) : (
+              filtered.map((resource) => {
+                const label = formatResourceName(resource);
+                const descriptionParts = [resource.type, resource.kind, resource.id].filter(Boolean);
+                return (
+                  <Pressable
+                    key={resource.id ?? label}
+                    onPress={() => {
+                      if (resource.id) {
+                        onSelect(resource.id);
+                        setOpen(false);
+                      }
+                    }}
+                    style={[styles.dropdownItem, value === resource.id && styles.dropdownItemSelected]}
+                  >
+                    <Text
+                      style={[styles.dropdownItemLabel, value === resource.id && styles.dropdownItemLabelSelected]}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                    <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                      {descriptionParts.join(' - ') || 'No details'}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function AppointmentTypePickerField({
+  label,
+  value,
+  onSelect,
+  appointmentTypes,
+  placeholder = 'Select appointment type',
+  disabled = false,
+  disabledMessage = 'Select a resource to load appointment types',
+}: AppointmentTypePickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return appointmentTypes;
+    return appointmentTypes.filter((type) =>
+      [type.id, type.name, type.category]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(term)),
+    );
+  }, [appointmentTypes, query]);
+
+  const selectedLabel = useMemo(() => {
+    const selected = appointmentTypes.find((type) => type.id === value);
+    if (!selected) return value;
+    return selected.name || selected.id || value;
+  }, [appointmentTypes, value]);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const displayValue = disabled
+    ? value
+      ? selectedLabel || value
+      : disabledMessage
+    : selectedLabel || placeholder;
+  const displayStyle = value ? styles.dropdownValue : styles.dropdownPlaceholder;
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={displayStyle}>{displayValue}</Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by name, id, category"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No appointment types match the search.</Text>
+            ) : (
+              filtered.map((type) => {
+                const label = type.name || type.id || 'Appointment type';
+                const details = [type.category, type.defaultDurationMinutes != null ? `${type.defaultDurationMinutes} mins` : null]
+                  .filter(Boolean)
+                  .join(' - ');
+                return (
+                  <Pressable
+                    key={type.id ?? label}
+                    onPress={() => {
+                      if (type.id) {
+                        onSelect(type.id);
+                        setOpen(false);
+                      }
+                    }}
+                    style={[styles.dropdownItem, value === type.id && styles.dropdownItemSelected]}
+                  >
+                    <Text
+                      style={[styles.dropdownItemLabel, value === type.id && styles.dropdownItemLabelSelected]}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                    <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                      {details || 'No details'}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function PractitionerPickerField({
   label,
   value,
@@ -1047,6 +1574,15 @@ function AppointmentTypeMultiSelectField({
   const [query, setQuery] = useState('');
 
   const selectedIds = useMemo(() => parseCommaList(value), [value]);
+  const labelById = useMemo(() => {
+    const map = new Map<string, string>();
+    appointmentTypes.forEach((type) => {
+      if (type.id) {
+        map.set(type.id, type.name || type.id);
+      }
+    });
+    return map;
+  }, [appointmentTypes]);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -1061,8 +1597,8 @@ function AppointmentTypeMultiSelectField({
 
   const selectedLabel = useMemo(() => {
     if (selectedIds.length === 0) return '';
-    return selectedIds.join(', ');
-  }, [selectedIds]);
+    return selectedIds.map((id) => labelById.get(id) || id).join(', ');
+  }, [labelById, selectedIds]);
 
   useEffect(() => {
     setOpen(false);
@@ -1178,6 +1714,314 @@ function AppointmentTypeMultiSelectField({
               )}
             </ScrollView>
           )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function DurationSelectField({
+  label,
+  value,
+  onChangeValue,
+  placeholder = 'Select duration',
+  disabled = false,
+  disabledMessage = 'Select a duration',
+  error = null,
+}: DurationSelectFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selectedMinutes = useMemo(() => parseDurationMinutes(value), [value]);
+  const selectedLabel = useMemo(() => {
+    if (selectedMinutes == null) return '';
+    return formatDurationLabel(selectedMinutes);
+  }, [selectedMinutes]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return DURATION_PRESET_OPTIONS;
+    return DURATION_PRESET_OPTIONS.filter(
+      (option) => option.label.toLowerCase().includes(term) || String(option.minutes).includes(term),
+    );
+  }, [query]);
+
+  const customMinutes = useMemo(() => parseDurationMinutes(query), [query]);
+  const hasCustomSelection = selectedMinutes != null && !DURATION_PRESET_MINUTES.has(selectedMinutes);
+  const showCustomOption =
+    customMinutes != null && !DURATION_PRESET_MINUTES.has(customMinutes) && customMinutes !== selectedMinutes;
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const handleSelect = (minutes: number | null) => {
+    onChangeValue(minutes == null ? '' : String(minutes));
+    setOpen(false);
+  };
+
+  const isEmpty = value.trim().length === 0;
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {disabled ? disabledMessage : selectedLabel || placeholder}
+        </Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search durations or enter minutes"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            <Pressable
+              onPress={() => handleSelect(null)}
+              style={[styles.dropdownItem, isEmpty && styles.dropdownItemSelected]}
+            >
+              <Text style={[styles.dropdownItemLabel, isEmpty && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                No default duration
+              </Text>
+              <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                Leave default duration empty
+              </Text>
+            </Pressable>
+            {hasCustomSelection && selectedMinutes != null ? (
+              <Pressable
+                onPress={() => handleSelect(selectedMinutes)}
+                style={[styles.dropdownItem, styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  Custom: {selectedMinutes} minutes
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Custom value
+                </Text>
+              </Pressable>
+            ) : null}
+            {showCustomOption && customMinutes != null ? (
+              <Pressable onPress={() => handleSelect(customMinutes)} style={styles.dropdownItem}>
+                <Text style={styles.dropdownItemLabel} numberOfLines={1}>
+                  Use {customMinutes} minutes
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Custom value
+                </Text>
+              </Pressable>
+            ) : null}
+            {filtered.length === 0 ? (
+              <Text style={styles.statusText}>No durations match the search.</Text>
+            ) : (
+              filtered.map((option, idx) => {
+                const selected = selectedMinutes != null && option.minutes === selectedMinutes;
+                return (
+                  <Pressable
+                    key={`${option.label}-${option.minutes}-${idx}`}
+                    onPress={() => handleSelect(option.minutes)}
+                    style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                  >
+                    <Text style={[styles.dropdownItemLabel, selected && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                      {option.minutes} minutes
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function DurationMultiSelectField({
+  label,
+  value,
+  onChangeValue,
+  placeholder = 'Any duration',
+  disabled = false,
+  disabledMessage = 'Select durations',
+  error = null,
+}: DurationMultiSelectFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selectedMinutes = useMemo(() => {
+    const minutes: number[] = [];
+    const seen = new Set<number>();
+    parseCommaList(value).forEach((item) => {
+      const parsed = parseDurationMinutes(item);
+      if (parsed != null && !seen.has(parsed)) {
+        seen.add(parsed);
+        minutes.push(parsed);
+      }
+    });
+    return minutes;
+  }, [value]);
+
+  const selectedLabel = useMemo(() => {
+    if (selectedMinutes.length === 0) return '';
+    return selectedMinutes.map(formatDurationLabel).join(', ');
+  }, [selectedMinutes]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return DURATION_PRESET_OPTIONS;
+    return DURATION_PRESET_OPTIONS.filter(
+      (option) => option.label.toLowerCase().includes(term) || String(option.minutes).includes(term),
+    );
+  }, [query]);
+
+  const customMinutes = useMemo(() => parseDurationMinutes(query), [query]);
+  const customSelected = useMemo(
+    () => selectedMinutes.filter((minutes) => !DURATION_PRESET_MINUTES.has(minutes)),
+    [selectedMinutes],
+  );
+  const showCustomOption =
+    customMinutes != null && !DURATION_PRESET_MINUTES.has(customMinutes) && !selectedMinutes.includes(customMinutes);
+
+  useEffect(() => {
+    setOpen(false);
+    setQuery('');
+  }, [value, disabled]);
+
+  const toggle = () => {
+    if (disabled) return;
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) setQuery('');
+      return next;
+    });
+  };
+
+  const toggleSelection = (minutes: number) => {
+    const exists = selectedMinutes.includes(minutes);
+    const next = exists ? selectedMinutes.filter((entry) => entry !== minutes) : [...selectedMinutes, minutes];
+    onChangeValue(formatCommaList(next.map(String)));
+  };
+
+  const clearSelection = () => onChangeValue('');
+
+  return (
+    <View style={styles.inputField}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[
+          styles.dropdownTrigger,
+          styles.dropdownTriggerRow,
+          disabled && { backgroundColor: 'rgba(229,231,235,0.6)' },
+        ]}
+        onPress={toggle}
+      >
+        <Text style={value ? styles.dropdownValue : styles.dropdownPlaceholder}>
+          {disabled ? disabledMessage : selectedLabel || placeholder}
+        </Text>
+        <Text style={styles.dropdownCaret}>{open && !disabled ? '^' : 'v'}</Text>
+      </Pressable>
+      {open && !disabled ? (
+        <View style={styles.dropdownPanel}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search durations or enter minutes"
+            placeholderTextColor="rgba(107,114,128,0.7)"
+            style={styles.dropdownSearchInput}
+            autoCapitalize="none"
+          />
+          <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+            <Pressable
+              onPress={() => {
+                clearSelection();
+                setOpen(false);
+              }}
+              style={[styles.dropdownItem, selectedMinutes.length === 0 && styles.dropdownItemSelected]}
+            >
+              <Text
+                style={[styles.dropdownItemLabel, selectedMinutes.length === 0 && styles.dropdownItemLabelSelected]}
+                numberOfLines={1}
+              >
+                Any duration
+              </Text>
+              <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                No restrictions
+              </Text>
+            </Pressable>
+            {customSelected.map((minutes) => (
+              <Pressable
+                key={`custom-${minutes}`}
+                onPress={() => toggleSelection(minutes)}
+                style={[styles.dropdownItem, styles.dropdownItemSelected]}
+              >
+                <Text style={[styles.dropdownItemLabel, styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                  Custom: {minutes} minutes
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Custom value
+                </Text>
+              </Pressable>
+            ))}
+            {showCustomOption && customMinutes != null ? (
+              <Pressable onPress={() => toggleSelection(customMinutes)} style={styles.dropdownItem}>
+                <Text style={styles.dropdownItemLabel} numberOfLines={1}>
+                  Add {customMinutes} minutes
+                </Text>
+                <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                  Custom value
+                </Text>
+              </Pressable>
+            ) : null}
+            {error ? (
+              <Text style={styles.errorText}>{error}</Text>
+            ) : filtered.length === 0 ? (
+              <Text style={styles.statusText}>No durations match the search.</Text>
+            ) : (
+              filtered.map((option, idx) => {
+                const selected = selectedMinutes.includes(option.minutes);
+                return (
+                  <Pressable
+                    key={`${option.label}-${option.minutes}-${idx}`}
+                    onPress={() => toggleSelection(option.minutes)}
+                    style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                  >
+                    <Text style={[styles.dropdownItemLabel, selected && styles.dropdownItemLabelSelected]} numberOfLines={1}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.dropdownItemDescription} numberOfLines={1}>
+                      {option.minutes} minutes
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
         </View>
       ) : null}
     </View>
@@ -1883,6 +2727,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoUploadMessage, setLogoUploadMessage] = useState<string | null>(null);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeSaving, setTypeSaving] = useState(false);
   const [typeMessage, setTypeMessage] = useState<string | null>(null);
@@ -1958,10 +2805,28 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
   const isPlatformUser = roles.some((role) => PLATFORM_ROLES.includes(role));
+  const canManageOrganizations = isPlatformUser;
+  const canManageOrgTypes = isPlatformUser;
+  const assignableRoles = useMemo<UserRole[]>(() => {
+    if (isSuperAdmin) return USER_ROLES;
+    if (isPlatformAdminOnly) {
+      return USER_ROLES.filter(
+        (role) => role !== 'SUPER_PLATFORM_ADMIN' && role !== 'PLATFORM_ADMIN',
+      );
+    }
+    return USER_ROLES.filter((role) => role !== 'SUPER_PLATFORM_ADMIN' && role !== 'PLATFORM_ADMIN');
+  }, [isPlatformAdminOnly, isSuperAdmin]);
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
   const availableTabs = useMemo<TabKey[]>(() => {
-    const tabs: TabKey[] = ['orgs', 'types', 'schedule', 'users'];
+    const tabs: TabKey[] = [];
+    if (canManageOrganizations) {
+      tabs.push('orgs');
+    }
+    if (canManageOrgTypes) {
+      tabs.push('types');
+    }
+    tabs.push('schedule', 'users');
     if (canViewCustomers) {
       tabs.push('customers');
     }
@@ -1971,7 +2836,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
     tabs.push('appointmentTypes');
     return tabs;
-  }, [canViewAppointments, canViewCustomers]);
+  }, [canManageOrgTypes, canManageOrganizations, canViewAppointments, canViewCustomers]);
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
       setActiveTab(availableTabs[0] ?? 'orgs');
@@ -2127,6 +2992,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     notes: '',
     status: 'SCHEDULED',
   });
+  const [appointmentStartDate, setAppointmentStartDate] = useState('');
+  const [appointmentStartTime, setAppointmentStartTime] = useState('09:00');
+  const [appointmentEndDate, setAppointmentEndDate] = useState('');
+  const [appointmentEndTime, setAppointmentEndTime] = useState('09:30');
   const [appointmentEventsWorking, setAppointmentEventsWorking] = useState<AppointmentEvent[]>([]);
   const [appointmentEventForm, setAppointmentEventForm] = useState<AppointmentEventFormState>({
     id: null,
@@ -2173,6 +3042,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         },
       }),
     [authHeaders],
+  );
+
+  const authFetchMultipart = useCallback(
+    (path: string, formData: FormData) =>
+      fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }),
+    [token],
   );
 
   const loadOrgTypes = useCallback(async () => {
@@ -2411,6 +3292,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       logoImage: '',
     });
     setFormError(null);
+    setLogoUploadMessage(null);
+    setLogoUploadError(null);
+    setLogoUploading(false);
   }, [orgTypes]);
 
   useEffect(() => {
@@ -2515,7 +3399,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       email: user.email ?? '',
       password: '',
       passwordConfirm: '',
-      roles: user.roles ?? [],
+      roles: (user.roles ?? []).filter((role) => USER_ROLE_SET.has(role)),
       homeOrganizationId: user.homeOrganizationId ?? '',
       status: user.status ?? 'ACTIVE',
       expiresAt: user.expiresAt ?? '',
@@ -2599,6 +3483,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       notes: '',
       status: 'SCHEDULED',
     });
+    setAppointmentStartDate('');
+    setAppointmentStartTime('09:00');
+    setAppointmentEndDate('');
+    setAppointmentEndTime('09:30');
     setAppointmentEventsWorking([]);
     setAppointmentEventForm({
       id: null,
@@ -2637,6 +3525,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   const startAppointmentEdit = (appointment: Appointment) => {
+    const startParts = splitDateTime(appointment.startTime ?? (appointment as any).start ?? '');
+    const endParts = splitDateTime(appointment.endTime ?? (appointment as any).end ?? '');
     setAppointmentForm({
       id: appointment.id ?? null,
       orgId: appointment.orgId ?? '',
@@ -2648,6 +3538,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       notes: appointment.notes ?? '',
       status: appointment.status ?? 'SCHEDULED',
     });
+    setAppointmentStartDate(startParts.date);
+    setAppointmentStartTime(startParts.time);
+    setAppointmentEndDate(endParts.date);
+    setAppointmentEndTime(endParts.time);
     setAppointmentEventsWorking(appointment.events ?? []);
     setAppointmentEventForm({
       id: null,
@@ -2686,7 +3580,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setOrgTypePickerOpen(false);
     setOrgTypeQuery('');
     setFormError(null);
-    setMessage(`Editing ${org.name}`);
+    setLogoUploadMessage(null);
+    setLogoUploadError(null);
+    setLogoUploading(false);
+    setMessage((prev) => (prev ? `Editing ${org.name}` : prev));
   };
 
   const startScheduleEdit = (org: Organization) => {
@@ -2852,6 +3749,86 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return bTime - aTime;
     });
   }, [filteredResources]);
+
+  const appointmentSelectedCustomer = useMemo(() => {
+    const customerId = appointmentForm.customerId.trim();
+    if (!customerId) return undefined;
+    return customers.find((customer) => customer.id === customerId);
+  }, [appointmentForm.customerId, customers]);
+
+  const appointmentSelectedResource = useMemo(() => {
+    const resourceId = appointmentForm.resourceId.trim();
+    if (!resourceId) return undefined;
+    return resources.find((resource) => resource.id === resourceId);
+  }, [appointmentForm.resourceId, resources]);
+
+  const appointmentOrgId = useMemo(() => {
+    const orgId = appointmentForm.orgId.trim();
+    if (orgId) return orgId;
+    if (appointmentSelectedResource?.orgId) return appointmentSelectedResource.orgId;
+    if (appointmentSelectedCustomer?.orgId) return appointmentSelectedCustomer.orgId;
+    return '';
+  }, [appointmentForm.orgId, appointmentSelectedCustomer, appointmentSelectedResource]);
+
+  const appointmentCustomerOptions = useMemo(() => {
+    const orgId = appointmentOrgId.trim().toLowerCase();
+    return customers.filter((customer) => {
+      if (orgId && (customer.orgId ?? '').toLowerCase() !== orgId) {
+        return false;
+      }
+      return true;
+    });
+  }, [appointmentOrgId, customers]);
+
+  const appointmentResourceOptions = useMemo(() => {
+    const orgId = appointmentOrgId.trim().toLowerCase();
+    return resources.filter((resource) => {
+      if (orgId && (resource.orgId ?? '').toLowerCase() !== orgId) {
+        return false;
+      }
+      return true;
+    });
+  }, [appointmentOrgId, resources]);
+
+  const appointmentAllowedTypeIds = useMemo(() => {
+    const allowed = appointmentSelectedResource?.allowedAppointmentTypeIds;
+    if (!allowed || allowed.length === 0) return null;
+    return new Set(allowed);
+  }, [appointmentSelectedResource]);
+
+  const appointmentTypeOptions = useMemo(() => {
+    const orgId = appointmentOrgId.trim().toLowerCase();
+    return appointmentTypes.filter((type) => {
+      if (orgId && (type.orgId ?? '').toLowerCase() !== orgId) {
+        return false;
+      }
+      if (appointmentAllowedTypeIds) {
+        if (!type.id) return false;
+        return appointmentAllowedTypeIds.has(type.id);
+      }
+      return true;
+    });
+  }, [appointmentAllowedTypeIds, appointmentOrgId, appointmentTypes]);
+
+  useEffect(() => {
+    const appointmentTypeId = appointmentForm.appointmentTypeId.trim();
+    if (!appointmentTypeId) return;
+    if (appointmentAllowedTypeIds && !appointmentAllowedTypeIds.has(appointmentTypeId)) {
+      setAppointmentForm((prev) => ({ ...prev, appointmentTypeId: '' }));
+    }
+  }, [appointmentAllowedTypeIds, appointmentForm.appointmentTypeId]);
+
+  useEffect(() => {
+    const date = appointmentStartDate.trim();
+    const next = date ? buildDateTimeValue(date, appointmentStartTime) : '';
+    setAppointmentForm((prev) => (prev.startTime === next ? prev : { ...prev, startTime: next }));
+  }, [appointmentStartDate, appointmentStartTime]);
+
+  useEffect(() => {
+    const date = appointmentEndDate.trim();
+    const next = date ? buildDateTimeValue(date, appointmentEndTime) : '';
+    setAppointmentForm((prev) => (prev.endTime === next ? prev : { ...prev, endTime: next }));
+  }, [appointmentEndDate, appointmentEndTime]);
 
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
@@ -3108,6 +4085,67 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!form.id) {
+      setLogoUploadError('Save the organization before uploading a logo.');
+      return;
+    }
+    setLogoUploading(true);
+    setLogoUploadMessage('Uploading logo...');
+    setLogoUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetchMultipart(`/api/organizations/${form.id}/logo`, formData);
+      if (!res.ok) {
+        setLogoUploadError(await parseErrorMessage(res));
+        setLogoUploadMessage(null);
+        return;
+      }
+      const saved = (await res.json()) as Organization;
+      setForm((prev) => ({ ...prev, logoImage: saved.logoImage ?? '' }));
+      setOrgs((prev) => prev.map((org) => (org.id === saved.id ? saved : org)));
+      setLogoUploadMessage('Logo uploaded.');
+    } catch (error) {
+      setLogoUploadError(error instanceof Error ? error.message : 'Unable to upload logo.');
+      setLogoUploadMessage(null);
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const openLogoPicker = () => {
+    setLogoUploadError(null);
+    setLogoUploadMessage(null);
+    if (!form.id) {
+      setLogoUploadError('Save the organization before uploading a logo.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Alert.alert('Logo upload', 'Use the web app to upload logos.');
+      return;
+    }
+    if (typeof document === 'undefined' || !document.body) {
+      setLogoUploadError('File picker is unavailable.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) {
+        void handleLogoUpload(file);
+      }
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+    };
+    document.body.appendChild(input);
+    input.click();
   };
 
   const handleDelete = (org: Organization) => {
@@ -4344,22 +5382,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabRow}
         >
-          <Pressable
-            style={[styles.tabButton, activeTab === 'orgs' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('orgs')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'orgs' && styles.tabButtonTextActive]}>
-              Organizations
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tabButton, activeTab === 'types' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('types')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'types' && styles.tabButtonTextActive]}>
-              Organization types
-            </Text>
-          </Pressable>
+          {canManageOrganizations ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'orgs' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('orgs')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'orgs' && styles.tabButtonTextActive]}>
+                Organizations
+              </Text>
+            </Pressable>
+          ) : null}
+          {canManageOrgTypes ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'types' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('types')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'types' && styles.tabButtonTextActive]}>
+                Organization types
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.tabButton, activeTab === 'schedule' && styles.tabButtonActive]}
             onPress={() => setActiveTab('schedule')}
@@ -4414,7 +5456,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           </Pressable>
         </ScrollView>
 
-        {activeTab === 'orgs' ? (
+        {activeTab === 'orgs' && canManageOrganizations ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -4465,9 +5507,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     style={[styles.orgCard, form.id === org.id && styles.orgCardActive]}
                     onPress={() => startEdit(org)}
                   >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{org.name}</Text>
-                      <Text style={styles.orgType}>{org.type}</Text>
+                    <View style={styles.orgListHeader}>
+                      <View style={styles.orgHeaderText}>
+                        <Text style={styles.orgName} numberOfLines={1}>
+                          {org.name}
+                        </Text>
+                        <Text style={styles.orgType} numberOfLines={1}>
+                          {org.type}
+                        </Text>
+                      </View>
+                      {org.logoImage ? (
+                        <Image
+                          source={{ uri: resolveLogoUri(org.logoImage) }}
+                          style={styles.orgLogoThumb}
+                          resizeMode="contain"
+                        />
+                      ) : null}
                     </View>
                     <Text style={styles.orgMeta}>
                       {org.marketingName || 'No marketing name'} - {org.industry || 'No industry'}
@@ -4480,9 +5535,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                         </Text>
                       ) : null}
                     </View>
-                    {org.logoImage ? (
-                      <Image source={{ uri: org.logoImage }} style={styles.orgLogo} resizeMode="contain" />
-                    ) : null}
                     {(org.facebookPage || org.instagram || org.whatsappContact) ? (
                       <View style={styles.orgMetaRow}>
                         {org.facebookPage ? (
@@ -4732,6 +5784,39 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
               autoComplete="off"
             />
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Logo upload</Text>
+              <Pressable
+                onPress={openLogoPicker}
+                disabled={!form.id || logoUploading}
+                style={[
+                  styles.secondaryChip,
+                  (!form.id || logoUploading) && styles.secondaryChipDisabled,
+                ]}
+              >
+                <Text style={styles.secondaryChipText}>
+                  {logoUploading ? 'Uploading...' : 'Upload logo'}
+                </Text>
+              </Pressable>
+              <Text style={styles.helperText}>
+                {form.id
+                  ? 'Upload an image file; the URL will be saved to logoImage.'
+                  : 'Save the organization before uploading a logo.'}
+              </Text>
+              {logoUploadMessage ? (
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusText}>{logoUploadMessage}</Text>
+                </View>
+              ) : null}
+              {logoUploadError ? (
+                <View style={[styles.statusPill, styles.errorPill]}>
+                  <Text style={styles.errorText}>{logoUploadError}</Text>
+                </View>
+              ) : null}
+              {form.logoImage ? (
+                <Image source={{ uri: resolveLogoUri(form.logoImage) }} style={styles.orgLogo} resizeMode="contain" />
+              ) : null}
+            </View>
 
             <PrimaryButton
               label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
@@ -4739,7 +5824,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={saving}
             />
           </>
-        ) : activeTab === 'types' ? (
+        ) : activeTab === 'types' && canManageOrgTypes ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -5109,7 +6194,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 }
               >
                 <Text style={resourceForm.orgId ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {resourceForm.orgId || 'Select organization'}
+                  {resourceForm.orgId ? getOrganizationLabel(homeOrgBase, resourceForm.orgId) : 'Select organization'}
                 </Text>
                 <Text style={styles.dropdownCaret}>{resourceOrgPickerOpen ? '^' : 'v'}</Text>
               </Pressable>
@@ -5416,36 +6501,64 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onSelect={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
               organizations={homeOrgBase}
             />
-            <InputField
-              label="Customer id"
-              placeholder="customer-123"
+            <CustomerPickerField
+              label="Customer"
               value={appointmentForm.customerId}
-              onChangeText={(customerId) => setAppointmentForm((prev) => ({ ...prev, customerId }))}
+              onSelect={(customerId) => setAppointmentForm((prev) => ({ ...prev, customerId }))}
+              customers={appointmentCustomerOptions}
+              disabled={isPlatformAdminOnly && !appointmentForm.orgId.trim()}
+              disabledMessage="Select an organization to load customers"
             />
-            <InputField
-              label="Resource id"
-              placeholder="resource-123"
+            <ResourcePickerField
+              label="Resource"
               value={appointmentForm.resourceId}
-              onChangeText={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
+              onSelect={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
+              resources={appointmentResourceOptions}
+              disabled={isPlatformAdminOnly && !appointmentForm.orgId.trim()}
+              disabledMessage="Select an organization to load resources"
             />
-            <InputField
-              label="Appointment type id"
-              placeholder="appt-consultation"
+            <AppointmentTypePickerField
+              label="Appointment type"
               value={appointmentForm.appointmentTypeId}
-              onChangeText={(appointmentTypeId) => setAppointmentForm((prev) => ({ ...prev, appointmentTypeId }))}
+              onSelect={(appointmentTypeId) => setAppointmentForm((prev) => ({ ...prev, appointmentTypeId }))}
+              appointmentTypes={appointmentTypeOptions}
+              disabled={!appointmentForm.resourceId.trim()}
+              disabledMessage="Select a resource to load appointment types"
             />
-            <InputField
-              label="Start (ISO-8601)"
-              placeholder="2025-12-01T09:00:00"
-              value={appointmentForm.startTime}
-              onChangeText={(startTime) => setAppointmentForm((prev) => ({ ...prev, startTime }))}
-            />
-            <InputField
-              label="End (ISO-8601)"
-              placeholder="2025-12-01T09:30:00"
-              value={appointmentForm.endTime}
-              onChangeText={(endTime) => setAppointmentForm((prev) => ({ ...prev, endTime }))}
-            />
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <DatePickerField
+                  label="Start date"
+                  placeholder="YYYY-MM-DD"
+                  value={appointmentStartDate}
+                  onChangeText={setAppointmentStartDate}
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <TimeInput
+                  label="Start time"
+                  value={appointmentStartTime}
+                  onChangeText={setAppointmentStartTime}
+                />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.flexHalf}>
+                <DatePickerField
+                  label="End date"
+                  placeholder="YYYY-MM-DD"
+                  value={appointmentEndDate}
+                  onChangeText={setAppointmentEndDate}
+                />
+              </View>
+              <View style={styles.flexHalf}>
+                <TimeInput
+                  label="End time"
+                  value={appointmentEndTime}
+                  onChangeText={setAppointmentEndTime}
+                />
+              </View>
+            </View>
             <InputField
               label="Notes (optional)"
               placeholder="Prep call, bring documents, etc."
@@ -5736,19 +6849,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onSelect={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
               organizations={homeOrgBase}
             />
-            <InputField
+            <DurationSelectField
               label="Default duration (minutes)"
-              placeholder="30"
+              placeholder="Select duration"
               value={appointmentTypeForm.defaultDurationMinutes}
-              onChangeText={(defaultDurationMinutes) =>
+              onChangeValue={(defaultDurationMinutes) =>
                 setAppointmentTypeForm((prev) => ({ ...prev, defaultDurationMinutes }))
               }
             />
-            <InputField
+            <DurationMultiSelectField
               label="Allowed durations (comma separated minutes)"
-              placeholder="15,30,45,60"
+              placeholder="Any duration"
               value={appointmentTypeForm.allowedDurations}
-              onChangeText={(allowedDurations) => setAppointmentTypeForm((prev) => ({ ...prev, allowedDurations }))}
+              onChangeValue={(allowedDurations) => setAppointmentTypeForm((prev) => ({ ...prev, allowedDurations }))}
             />
             <Pressable
               onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, requiresResource: !prev.requiresResource }))}
@@ -6142,7 +7255,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       <Text style={styles.orgMeta}>
                         {user.username} - {user.email || 'No email'}
                       </Text>
-                      <Text style={styles.orgMeta}>Roles: {(user.roles ?? []).join(', ') || 'None'}</Text>
+                      <Text style={styles.orgMeta}>Roles: {formatUserRoles(user.roles)}</Text>
                       <Text style={styles.orgMeta}>
                         Home org: {user.homeOrganizationId || 'Platform'}
                         {user.createdAt ? ` - Created ${user.createdAt}` : ''}
@@ -6241,7 +7354,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 }
               >
                 <Text style={userForm.homeOrganizationId ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {userForm.homeOrganizationId || 'Select organization'}
+                  {userForm.homeOrganizationId
+                    ? getOrganizationLabel(homeOrgBase, userForm.homeOrganizationId)
+                    : 'Select organization'}
                 </Text>
                 <Text style={styles.dropdownCaret}>{homeOrgPickerOpen ? '^' : 'v'}</Text>
               </Pressable>
@@ -6324,7 +7439,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             <View style={styles.inputField}>
               <Text style={styles.label}>Roles</Text>
               <View style={styles.typeChips}>
-                {USER_ROLES.map((role) => {
+                {assignableRoles.map((role) => {
                   const selected = userForm.roles.includes(role);
                   return (
                     <Pressable
@@ -6992,6 +8107,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  orgListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  orgHeaderText: {
+    flexDirection: 'column',
+    gap: 2,
+    flex: 1,
+    minWidth: 0,
+  },
   orgName: {
     color: '#0F172A',
     fontFamily: 'Manrope_700Bold',
@@ -7030,6 +8157,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     borderRadius: 8,
     backgroundColor: '#F3F4F6',
+  },
+  orgLogoThumb: {
+    width: 64,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    flexShrink: 0,
   },
   typeChips: {
     flexDirection: 'row',

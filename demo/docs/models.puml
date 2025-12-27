@@ -31,6 +31,8 @@ package "Organizations" {
     +id: String
     +name: String
     +description: String
+    +createdBy: String
+    +createdAt: LocalDateTime
   }
 }
 

@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Public Appointments</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+      :root {
+        --bg: #f5f6f2;
+        --panel: #ffffff;
+        --panel-soft: #f8fafb;
+        --ink: #101828;
+        --muted: #556276;
+        --accent: #0f766e;
+        --accent-strong: #0b5e58;
+        --accent-soft: #d6f0ec;
+        --sun: #d97706;
+        --line: #e6ebef;
+        --shadow: 0 24px 50px rgba(16, 24, 40, 0.08);
+        --radius: 22px;
+        --header-height: 78px;
+        --footer-height: 64px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        overflow: hidden;
+      }
+
+      .site-header,
+      .site-footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+      }
+
+      .site-header {
+        top: 0;
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .site-footer {
+        bottom: 0;
+        height: var(--footer-height);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        border-top: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-mark {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        background: radial-gradient(circle at top, #e8f6f4, #c3c2ec);
+        display: grid;
+        place-items: center;
+        box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.2);
+      }
+
+      .brand-mark span {
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        background: var(--accent);
+        display: inline-block;
+      }
+
+      .brand-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .org-title {
+        font-family: "Newsreader", serif;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .org-tagline {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .chip {
+        border: 1px solid var(--line);
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--panel);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .icon-button {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        display: grid;
+        place-items: center;
+      }
+
+      .icon-button svg {
+        width: 18px;
+        height: 18px;
+        stroke: var(--muted);
+      }
+
+      .site-main {
+        position: fixed;
+        top: var(--header-height);
+        bottom: var(--footer-height);
+        left: 0;
+        right: 0;
+        padding: 26px;
+        overflow: auto;
+      }
+
+      .site-main::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% 0%, #fef3c7, transparent 60%),
+          radial-gradient(circle at 80% 10%, #e0f2f1, transparent 55%);
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      .page-status {
+        position: relative;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px dashed var(--line);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+
+      .layout {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(260px, 30%) minmax(360px, 40%) minmax(260px, 30%);
+        gap: 24px;
+        min-height: 100%;
+      }
+
+      .panel {
+        background: var(--panel);
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-height: 0;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+      }
+
+      body.page-ready .panel {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-title {
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .panel-subtitle {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .booking-select {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .booking-select label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .booking-select select {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        font-family: inherit;
+        font-size: 14px;
+      }
+
+      .calendar {
+        background: var(--panel-soft);
+        border-radius: 18px;
+        padding: 16px;
+        border: 1px solid var(--line);
+      }
+
+      .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .calendar-title {
+        font-weight: 600;
+      }
+
+      .calendar-nav {
+        display: flex;
+        gap: 6px;
+      }
+
+      .calendar-nav button {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      .calendar-week {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      .calendar-grid {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+      }
+
+      .day-cell {
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        cursor: pointer;
+        background: var(--panel);
+      }
+
+      .day-cell.outside {
+        opacity: 0.4;
+      }
+
+      .day-cell.selected {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .slots {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .slot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .slot-button {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        font-size: 13px;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .slot-button.muted {
+        color: #97a1ad;
+        background: #f9fafb;
+        cursor: default;
+      }
+
+      .slot-button.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .notes {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px;
+        background: #fff;
+      }
+
+      .notes h4 {
+        margin: 0 0 8px;
+        font-size: 13px;
+      }
+
+      .notes ul {
+        padding-left: 16px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doctor-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        background: var(--panel-soft);
+      }
+
+      .doctor-search input {
+        border: none;
+        background: transparent;
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        flex: 1;
+      }
+
+      .doctor-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .doctor-card {
+        display: grid;
+        grid-template-columns: 86px 1fr;
+        gap: 14px;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: #fff;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        animation: cardFade 0.6s ease both;
+      }
+
+      .doctor-card.active {
+        border-color: rgba(15, 118, 110, 0.35);
+        box-shadow: 0 16px 30px rgba(15, 118, 110, 0.12);
+      }
+
+      .doctor-card:hover {
+        transform: translateY(-2px);
+      }
+
+      .photo-slot {
+        width: 86px;
+        height: 86px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fef3c7, #e0f2f1);
+        border: 1px dashed rgba(15, 118, 110, 0.3);
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .photo-slot.large {
+        width: 100%;
+        height: 200px;
+        border-radius: 22px;
+      }
+
+      .doctor-info h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .doctor-meta,
+      .doctor-rate {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .doctor-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .primary-btn,
+      .ghost-btn {
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-family: inherit;
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+
+      .primary-btn {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .ghost-btn {
+        background: #fff;
+        border-color: var(--line);
+        color: var(--ink);
+      }
+
+      .detail-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .detail-card h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .detail-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .detail-section h4 {
+        margin: 0 0 6px;
+        font-size: 13px;
+      }
+
+      .detail-section p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .detail-section ul {
+        margin: 0;
+        padding-left: 16px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .rating {
+        font-size: 13px;
+        color: var(--sun);
+        letter-spacing: 2px;
+      }
+
+      .footer-left,
+      .footer-right {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @keyframes cardFade {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .site-header,
+        .site-footer {
+          padding: 0 18px;
+        }
+
+        .site-main {
+          padding: 16px;
+        }
+
+        .site-header {
+          height: 70px;
+        }
+
+        .site-footer {
+          height: 56px;
+        }
+
+        .photo-slot.large {
+          height: 160px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">
+        <div class="brand-mark"><span></span></div>
+        <div class="brand-copy">
+          <div class="org-title" id="orgTitle">Public Appointments</div>
+          <div class="org-tagline" id="orgTagline">Loading organization</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="chip" id="orgPhone">Phone: --</div>
+        <button class="icon-button" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 9.5c0-3.2 2.7-5.8 6-5.8s6 2.6 6 5.8v3.4c0 1 .4 2 .9 2.8H5.1c.5-.8.9-1.8.9-2.8V9.5Z"
+              stroke-width="1.5"
+            />
+            <path d="M9.5 18.5c.5 1.2 1.5 2 2.5 2s2-.8 2.5-2" stroke-width="1.5" />
+          </svg>
+        </button>
+        <button class="icon-button" aria-label="Theme toggle">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 3.5V6.5M12 17.5V20.5M4.6 6.1 6.7 8.1M17.3 16.9 19.4 18.9M3.5 12h3M17.5 12h3M4.6 17.9l2.1-2M17.3 7.1l2.1-2"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+            <circle cx="12" cy="12" r="4" stroke-width="1.5" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="site-main">
+      <div class="page-status" id="pageStatus">Loading public booking page...</div>
+      <div class="layout">
+        <aside class="panel booking">
+          <div>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Booking Appointment</div>
+                <div class="panel-subtitle" id="bookingSubtitle">
+                  Select a doctor and a time slot
+                </div>
+              </div>
+              <div class="chip" id="orgCity">City: --</div>
+            </div>
+          </div>
+
+          <div class="booking-select">
+            <label for="appointmentTypeSelect">Appointment type</label>
+            <select id="appointmentTypeSelect"></select>
+          </div>
+
+          <div class="calendar">
+            <div class="calendar-header">
+              <div class="calendar-title" id="calendarTitle">Month</div>
+              <div class="calendar-nav">
+                <button id="prevMonth" type="button">&#8249;</button>
+                <button id="nextMonth" type="button">&#8250;</button>
+              </div>
+            </div>
+            <div class="calendar-week">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+          </div>
+
+          <div class="slots">
+            <div class="panel-subtitle" id="selectedDateLabel">Select a date</div>
+            <div class="slot-grid" id="slotGrid"></div>
+          </div>
+
+          <div class="notes">
+            <h4>Patient Concerns</h4>
+            <ul>
+              <li>Describe your symptoms in detail.</li>
+              <li>Share preferred communication channel.</li>
+              <li>Bring previous test results if available.</li>
+            </ul>
+          </div>
+        </aside>
+
+        <section class="panel doctors">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Doctor List</div>
+              <div class="panel-subtitle">Resources available for appointment</div>
+            </div>
+            <div class="doctor-search">
+              <input
+                id="doctorSearch"
+                type="text"
+                placeholder="Search doctor, specialty"
+                aria-label="Search doctor"
+              />
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="6.5" stroke-width="1.5" stroke="currentColor" />
+                <path d="m16 16 4 4" stroke-width="1.5" stroke="currentColor" />
+              </svg>
+            </div>
+          </div>
+          <div class="doctor-list" id="doctorList"></div>
+        </section>
+
+        <aside class="panel detail">
+          <div class="detail-card" id="doctorDetail">
+            <div class="photo-slot large">Photo</div>
+            <div>
+              <div class="panel-title">Select a doctor</div>
+              <div class="panel-subtitle">Details appear here</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-left" id="orgAddress">Address: --</div>
+      <div class="footer-right" id="orgMeta">Public booking portal</div>
+    </footer>
+    <script>
+      (function () {
+        "use strict";
+
+        var state = {
+          slug: "",
+          org: null,
+          resources: [],
+          appointmentTypes: [],
+          selectedResourceId: "",
+          selectedTypeId: "",
+          selectedDate: new Date(),
+          selectedSlot: ""
+        };
+
+        var elements = {
+          orgTitle: document.getElementById("orgTitle"),
+          orgTagline: document.getElementById("orgTagline"),
+          orgPhone: document.getElementById("orgPhone"),
+          orgCity: document.getElementById("orgCity"),
+          orgAddress: document.getElementById("orgAddress"),
+          orgMeta: document.getElementById("orgMeta"),
+          pageStatus: document.getElementById("pageStatus"),
+          bookingSubtitle: document.getElementById("bookingSubtitle"),
+          appointmentTypeSelect: document.getElementById("appointmentTypeSelect"),
+          calendarTitle: document.getElementById("calendarTitle"),
+          calendarGrid: document.getElementById("calendarGrid"),
+          selectedDateLabel: document.getElementById("selectedDateLabel"),
+          slotGrid: document.getElementById("slotGrid"),
+          doctorList: document.getElementById("doctorList"),
+          doctorDetail: document.getElementById("doctorDetail"),
+          doctorSearch: document.getElementById("doctorSearch"),
+          prevMonth: document.getElementById("prevMonth"),
+          nextMonth: document.getElementById("nextMonth")
+        };
+
+        var defaultSlots = [
+          "08:00 AM",
+          "09:00 AM",
+          "10:00 AM",
+          "11:00 AM",
+          "12:30 PM",
+          "01:30 PM",
+          "02:30 PM",
+          "03:30 PM",
+          "04:30 PM",
+          "05:30 PM"
+        ];
+
+        function setStatus(message, isError) {
+          if (!elements.pageStatus) return;
+          if (!message) {
+            elements.pageStatus.style.display = "none";
+            return;
+          }
+          elements.pageStatus.style.display = "block";
+          elements.pageStatus.textContent = message;
+          elements.pageStatus.style.color = isError ? "#9a3412" : "#556276";
+          elements.pageStatus.style.borderColor = isError ? "rgba(154,52,18,0.4)" : "var(--line)";
+        }
+
+        function getSlugFromHost() {
+          var host = window.location.hostname.toLowerCase();
+          if (!host || host === "localhost" || host === "127.0.0.1") {
+            return "";
+          }
+          if (host.indexOf("www.") === 0) {
+            host = host.slice(4);
+          }
+          if (host.indexOf(".localhost") > -1) {
+            host = host.replace(".localhost", "");
+          }
+          return host;
+        }
+
+        function fallbackSlug() {
+          var params = new URLSearchParams(window.location.search);
+          return params.get("org") || "";
+        }
+
+        function formatMonthLabel(date) {
+          return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        }
+
+        function formatDateLabel(date) {
+          return date.toLocaleDateString("en-US", {
+            weekday: "short",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          });
+        }
+
+        function formatTimeLabel(date) {
+          var hours = date.getHours();
+          var minutes = date.getMinutes();
+          var suffix = hours >= 12 ? "PM" : "AM";
+          var displayHours = hours % 12 || 12;
+          var displayMinutes = minutes < 10 ? "0" + minutes : minutes;
+          return displayHours + ":" + displayMinutes + " " + suffix;
+        }
+
+        function toIsoLocal(date) {
+          var pad = function (value) {
+            return value < 10 ? "0" + value : "" + value;
+          };
+          return (
+            date.getFullYear() +
+            "-" +
+            pad(date.getMonth() + 1) +
+            "-" +
+            pad(date.getDate()) +
+            "T" +
+            pad(date.getHours()) +
+            ":" +
+            pad(date.getMinutes()) +
+            ":00"
+          );
+        }
+
+        function apiBase() {
+          return window.location.origin;
+        }
+
+        function fetchJson(url) {
+          return fetch(url).then(function (response) {
+            if (!response.ok) {
+              throw new Error("Request failed");
+            }
+            return response.json();
+          });
+        }
+
+        function renderOrg() {
+          if (!state.org) return;
+          var org = state.org;
+          document.title = (org.marketingName || org.name || "Public Appointments") + " | Booking";
+          elements.orgTitle.textContent = org.marketingName || org.name || "Public Appointments";
+          elements.orgTagline.textContent = org.industry || "Public booking portal";
+          elements.orgPhone.textContent = "Phone: " + (org.phone || "--");
+          elements.orgCity.textContent = "City: " + (org.address && org.address.city ? org.address.city : "--");
+          elements.orgAddress.textContent =
+            "Address: " +
+            (org.address
+              ? [org.address.street, org.address.city, org.address.state, org.address.postalCode]
+                  .filter(Boolean)
+                  .join(", ")
+              : "--");
+          elements.orgMeta.textContent = "Marketing name: " + (org.marketingName || "--");
+        }
+
+        function renderAppointmentTypes() {
+          var select = elements.appointmentTypeSelect;
+          if (!select) return;
+          select.innerHTML = "";
+          if (!state.appointmentTypes.length) {
+            var option = document.createElement("option");
+            option.textContent = "No appointment types";
+            option.value = "";
+            select.appendChild(option);
+            select.disabled = true;
+            state.selectedTypeId = "";
+            return;
+          }
+          select.disabled = false;
+          state.appointmentTypes.forEach(function (type) {
+            var option = document.createElement("option");
+            option.value = type.id || "";
+            option.textContent = type.name || type.id || "Appointment type";
+            select.appendChild(option);
+          });
+          if (!state.selectedTypeId && state.appointmentTypes[0]) {
+            state.selectedTypeId = state.appointmentTypes[0].id || "";
+          }
+          select.value = state.selectedTypeId;
+        }
+
+        function renderCalendar() {
+          var date = state.selectedDate;
+          if (!elements.calendarTitle || !elements.calendarGrid) return;
+          elements.calendarTitle.textContent = formatMonthLabel(date);
+          elements.calendarGrid.innerHTML = "";
+
+          var year = date.getFullYear();
+          var month = date.getMonth();
+          var firstDay = new Date(year, month, 1);
+          var startDay = firstDay.getDay();
+          var daysInMonth = new Date(year, month + 1, 0).getDate();
+          var daysInPrev = new Date(year, month, 0).getDate();
+
+          var cells = [];
+          for (var i = 0; i < startDay; i += 1) {
+            var prevDay = daysInPrev - startDay + i + 1;
+            cells.push({ day: prevDay, offset: -1 });
+          }
+          for (var day = 1; day <= daysInMonth; day += 1) {
+            cells.push({ day: day, offset: 0 });
+          }
+          while (cells.length % 7 !== 0) {
+            cells.push({ day: cells.length - (startDay + daysInMonth) + 1, offset: 1 });
+          }
+
+          cells.forEach(function (cell) {
+            var cellDate = new Date(year, month + cell.offset, cell.day);
+            var button = document.createElement("div");
+            button.className = "day-cell";
+            if (cell.offset !== 0) {
+              button.classList.add("outside");
+            }
+            if (
+              cellDate.toDateString() === state.selectedDate.toDateString()
+            ) {
+              button.classList.add("selected");
+            }
+            button.textContent = cell.day;
+            button.dataset.date = cellDate.toISOString();
+            button.addEventListener("click", function () {
+              state.selectedDate = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
+              renderCalendar();
+              renderSelectedDate();
+              updateAvailability();
+            });
+            elements.calendarGrid.appendChild(button);
+          });
+        }
+
+        function renderSelectedDate() {
+          if (!elements.selectedDateLabel) return;
+          elements.selectedDateLabel.textContent = formatDateLabel(state.selectedDate);
+        }
+
+        function renderSlots(slots, useFallback) {
+          if (!elements.slotGrid) return;
+          elements.slotGrid.innerHTML = "";
+          var list = slots && slots.length ? slots : defaultSlots;
+          list.forEach(function (slot) {
+            var label = typeof slot === "string" ? slot : formatTimeLabel(new Date(slot.start));
+            var button = document.createElement("div");
+            button.className = "slot-button";
+            if (useFallback || typeof slot === "string") {
+              button.classList.add("muted");
+            }
+            if (state.selectedSlot === label && !button.classList.contains("muted")) {
+              button.classList.add("active");
+            }
+            button.textContent = label;
+            if (!button.classList.contains("muted")) {
+              button.addEventListener("click", function () {
+                state.selectedSlot = label;
+                renderSlots(slots, false);
+              });
+            }
+            elements.slotGrid.appendChild(button);
+          });
+        }
+
+        function buildDoctorCard(resource, index) {
+          var card = document.createElement("article");
+          card.className = "doctor-card";
+          card.style.animationDelay = index * 0.05 + "s";
+          if (resource.id && resource.id === state.selectedResourceId) {
+            card.classList.add("active");
+          }
+
+          var photo = document.createElement("div");
+          photo.className = "photo-slot";
+          photo.textContent = "Photo";
+
+          var info = document.createElement("div");
+          info.className = "doctor-info";
+
+          var name = document.createElement("h3");
+          name.textContent = resource.name || "Doctor";
+
+          var meta = document.createElement("p");
+          meta.className = "doctor-meta";
+          meta.textContent = resource.type || "General practice";
+
+          var rate = document.createElement("p");
+          rate.className = "doctor-rate";
+          rate.textContent = "Rate: $" + (resource.capacity || 20) + " / hour";
+
+          var actions = document.createElement("div");
+          actions.className = "doctor-actions";
+
+          var bookButton = document.createElement("button");
+          bookButton.className = "primary-btn";
+          bookButton.textContent = "Book Now";
+          bookButton.addEventListener("click", function () {
+            if (resource.id) {
+              selectResource(resource.id);
+            }
+          });
+
+          var detailButton = document.createElement("button");
+          detailButton.className = "ghost-btn";
+          detailButton.textContent = "Detail";
+          detailButton.addEventListener("click", function () {
+            if (resource.id) {
+              selectResource(resource.id);
+            }
+          });
+
+          actions.appendChild(bookButton);
+          actions.appendChild(detailButton);
+
+          info.appendChild(name);
+          info.appendChild(meta);
+          info.appendChild(rate);
+          info.appendChild(actions);
+
+          card.appendChild(photo);
+          card.appendChild(info);
+          return card;
+        }
+
+        function renderDoctorList() {
+          if (!elements.doctorList) return;
+          elements.doctorList.innerHTML = "";
+          var query = elements.doctorSearch ? elements.doctorSearch.value.toLowerCase().trim() : "";
+          var filtered = state.resources.filter(function (resource) {
+            if (!query) return true;
+            var haystack = [resource.name, resource.type, resource.id].filter(Boolean).join(" ").toLowerCase();
+            return haystack.indexOf(query) > -1;
+          });
+
+          if (!filtered.length) {
+            var empty = document.createElement("div");
+            empty.className = "panel-subtitle";
+            empty.textContent = "No doctors found for this organization.";
+            elements.doctorList.appendChild(empty);
+            return;
+          }
+
+          filtered.forEach(function (resource, index) {
+            elements.doctorList.appendChild(buildDoctorCard(resource, index));
+          });
+        }
+
+        function renderDoctorDetail() {
+          if (!elements.doctorDetail) return;
+          elements.doctorDetail.innerHTML = "";
+          var resource = state.resources.find(function (item) {
+            return item.id === state.selectedResourceId;
+          });
+          if (!resource) {
+            elements.doctorDetail.innerHTML =
+              '<div class="photo-slot large">Photo</div><div><div class="panel-title">Select a doctor</div><div class="panel-subtitle">Details appear here</div></div>';
+            return;
+          }
+
+          var photo = document.createElement("div");
+          photo.className = "photo-slot large";
+          photo.textContent = "Photo";
+
+          var name = document.createElement("h3");
+          name.textContent = resource.name || "Doctor";
+
+          var metaRow = document.createElement("div");
+          metaRow.className = "detail-row";
+          metaRow.textContent = (resource.type || "General practice") + " | Rate: $" + (resource.capacity || 20) + " / hour";
+
+          var rating = document.createElement("div");
+          rating.className = "rating";
+          rating.textContent = "*****";
+
+          var experience = document.createElement("div");
+          experience.className = "detail-section";
+          experience.innerHTML =
+            "<h4>Experience</h4><p>Over 10 years supporting clients with tailored appointment plans and ongoing care.</p>";
+
+          var specialties = document.createElement("div");
+          specialties.className = "detail-section";
+          var typeNames = state.appointmentTypes
+            .filter(function (type) {
+              return !resource.allowedAppointmentTypeIds || resource.allowedAppointmentTypeIds.length === 0
+                ? true
+                : resource.allowedAppointmentTypeIds.indexOf(type.id) > -1;
+            })
+            .map(function (type) {
+              return type.name || type.id;
+            })
+            .filter(Boolean)
+            .slice(0, 5);
+          var listItems = typeNames.length
+            ? typeNames.map(function (name) {
+                return "<li>" + name + "</li>";
+              }).join("")
+            : "<li>General appointments</li>";
+          specialties.innerHTML = "<h4>Specialties</h4><ul>" + listItems + "</ul>";
+
+          var review = document.createElement("div");
+          review.className = "detail-section";
+          review.innerHTML =
+            "<h4>Reviews</h4><p>Clients highlight clear communication and quick follow up from this resource.</p>";
+
+          elements.doctorDetail.appendChild(photo);
+          elements.doctorDetail.appendChild(name);
+          elements.doctorDetail.appendChild(metaRow);
+          elements.doctorDetail.appendChild(rating);
+          elements.doctorDetail.appendChild(experience);
+          elements.doctorDetail.appendChild(specialties);
+          elements.doctorDetail.appendChild(review);
+        }
+
+        function selectResource(resourceId) {
+          state.selectedResourceId = resourceId || "";
+          renderDoctorList();
+          renderDoctorDetail();
+          updateAvailability();
+        }
+
+        function updateAvailability() {
+          renderSelectedDate();
+          if (!state.selectedTypeId) {
+            renderSlots([], true);
+            return;
+          }
+          var type = state.appointmentTypes.find(function (item) {
+            return item.id === state.selectedTypeId;
+          });
+          var requiresResource = type && type.requiresResource === true;
+          if (requiresResource && !state.selectedResourceId) {
+            renderSlots([], true);
+            elements.bookingSubtitle.textContent = "Select a doctor to see availability.";
+            return;
+          }
+          elements.bookingSubtitle.textContent = "Select a doctor and a time slot.";
+          var from = new Date(state.selectedDate);
+          from.setHours(8, 0, 0, 0);
+          var to = new Date(state.selectedDate);
+          to.setHours(18, 0, 0, 0);
+
+          var params = new URLSearchParams({
+            appointmentTypeId: state.selectedTypeId,
+            from: toIsoLocal(from),
+            to: toIsoLocal(to)
+          });
+          if (requiresResource && state.selectedResourceId) {
+            params.append("resourceId", state.selectedResourceId);
+          }
+
+          var url = apiBase() + "/api/public/organizations/" + state.slug + "/availability?" + params.toString();
+          fetchJson(url)
+            .then(function (slots) {
+              if (Array.isArray(slots) && slots.length) {
+                renderSlots(slots, false);
+              } else {
+                renderSlots([], true);
+              }
+            })
+            .catch(function () {
+              renderSlots([], true);
+            });
+        }
+
+        function initEvents() {
+          if (elements.appointmentTypeSelect) {
+            elements.appointmentTypeSelect.addEventListener("change", function (event) {
+              state.selectedTypeId = event.target.value;
+              updateAvailability();
+            });
+          }
+          if (elements.doctorSearch) {
+            elements.doctorSearch.addEventListener("input", function () {
+              renderDoctorList();
+            });
+          }
+          if (elements.prevMonth) {
+            elements.prevMonth.addEventListener("click", function () {
+              state.selectedDate = new Date(
+                state.selectedDate.getFullYear(),
+                state.selectedDate.getMonth() - 1,
+                1
+              );
+              renderCalendar();
+              renderSelectedDate();
+              updateAvailability();
+            });
+          }
+          if (elements.nextMonth) {
+            elements.nextMonth.addEventListener("click", function () {
+              state.selectedDate = new Date(
+                state.selectedDate.getFullYear(),
+                state.selectedDate.getMonth() + 1,
+                1
+              );
+              renderCalendar();
+              renderSelectedDate();
+              updateAvailability();
+            });
+          }
+        }
+
+        function loadData() {
+          state.slug = getSlugFromHost() || fallbackSlug();
+          if (!state.slug) {
+            setStatus("Missing organization slug. Use www.marketingName.localhost:8082", true);
+            return Promise.resolve();
+          }
+
+          var orgUrl = apiBase() + "/api/public/organizations/" + state.slug;
+          var typeUrl = orgUrl + "/appointment-types";
+          var resourceUrl = orgUrl + "/resources";
+
+          return fetchJson(orgUrl)
+            .then(function (org) {
+              state.org = org;
+              renderOrg();
+              return Promise.all([fetchJson(typeUrl), fetchJson(resourceUrl)]);
+            })
+            .then(function (data) {
+              state.appointmentTypes = Array.isArray(data[0]) ? data[0] : [];
+              state.resources = Array.isArray(data[1]) ? data[1] : [];
+              if (state.appointmentTypes[0]) {
+                state.selectedTypeId = state.appointmentTypes[0].id || "";
+              }
+              if (state.resources[0]) {
+                state.selectedResourceId = state.resources[0].id || "";
+              }
+              renderAppointmentTypes();
+              renderDoctorList();
+              renderDoctorDetail();
+              renderCalendar();
+              renderSelectedDate();
+              updateAvailability();
+              setStatus("", false);
+              document.body.classList.add("page-ready");
+            })
+            .catch(function () {
+              setStatus("Organization not found. Check the marketingName subdomain.", true);
+            });
+        }
+
+        initEvents();
+        loadData();
+      })();
+    </script>
+  </body>
+</html>

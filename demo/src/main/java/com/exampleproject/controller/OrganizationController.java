@@ -2,15 +2,18 @@ package com.exampleproject.controller;
 
 import com.exampleproject.model.Organization;
 import com.exampleproject.service.OrganizationService;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -36,6 +39,11 @@ public class OrganizationController {
     @PutMapping("/{id}")
     public Organization update(@PathVariable String id, @RequestBody Organization org) {
         return service.update(id, org);
+    }
+
+    @PostMapping(path = "/{id}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Organization uploadLogo(@PathVariable String id, @RequestParam("file") MultipartFile file) {
+        return service.updateLogo(id, file);
     }
 
     @DeleteMapping("/{id}")

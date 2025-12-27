@@ -166,17 +166,24 @@ public class UserController {
         boolean assigningPlatformRole = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(role -> role == UserRole.SUPER_PLATFORM_ADMIN
                         || role == UserRole.PLATFORM_ADMIN);
-        boolean assigningAuditorRole = user.getRoles() != null && user.getRoles().stream()
-                .anyMatch(role -> role == UserRole.AUDITOR);
+        boolean assigningRemovedRole = user.getRoles() != null && user.getRoles().stream()
+                .anyMatch(role -> role == UserRole.AUDITOR || role == UserRole.SERVICE_MANAGER);
+
+        if (assigningRemovedRole) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "SERVICE_MANAGER and AUDITOR roles are no longer supported"
+            );
+        }
 
         if (context.isSuperAdmin()) {
             return;
         }
         if (context.isPlatformAdmin()) {
-            if (assigningPlatformRole || assigningAuditorRole) {
+            if (assigningPlatformRole) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Platform admins cannot assign SUPER_PLATFORM_ADMIN, PLATFORM_ADMIN, or AUDITOR roles"
+                        "Platform admins cannot assign SUPER_PLATFORM_ADMIN or PLATFORM_ADMIN roles"
                 );
             }
             return;

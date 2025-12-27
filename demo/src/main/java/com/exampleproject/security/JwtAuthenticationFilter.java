@@ -36,6 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
+        if (path == null || path.isBlank()) {
+            return true;
+        }
         // CORS preflight should not be blocked
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;

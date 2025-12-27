@@ -7,6 +7,7 @@ import com.exampleproject.security.OrganizationAccessManager;
 import com.exampleproject.service.SubscriptionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -19,15 +20,18 @@ public class OrganizationService {
     private final OrganizationTypeRepository typeRepository;
     private final OrganizationAccessManager organizationAccessManager;
     private final SubscriptionService subscriptionService;
+    private final FileStorageService fileStorageService;
 
     public OrganizationService(OrganizationRepository repository,
                                OrganizationTypeRepository typeRepository,
                                OrganizationAccessManager organizationAccessManager,
-                               SubscriptionService subscriptionService) {
+                               SubscriptionService subscriptionService,
+                               FileStorageService fileStorageService) {
         this.repository = repository;
         this.typeRepository = typeRepository;
         this.organizationAccessManager = organizationAccessManager;
         this.subscriptionService = subscriptionService;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<Organization> findAll() {
@@ -85,6 +89,20 @@ public class OrganizationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
         organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
         repository.deleteById(id);
+    }
+
+    public Organization updateLogo(String id, MultipartFile file) {
+        Organization existing = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
+        String previousLogo = existing.getLogoImage();
+        String logoPath = fileStorageService.storeOrganizationLogo(existing.getId(), file);
+        existing.setLogoImage(logoPath);
+        Organization saved = repository.save(existing);
+        if (previousLogo != null && !previousLogo.isBlank() && !previousLogo.equals(logoPath)) {
+            fileStorageService.deleteIfExists(previousLogo);
+        }
+        return saved;
     }
 
     private String resolveTypeId(String typeName) {

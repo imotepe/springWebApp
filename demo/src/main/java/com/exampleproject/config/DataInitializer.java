@@ -1429,19 +1429,6 @@ public class DataInitializer {
                 null,
                 LocalDateTime.now().minusDays(20)
         );
-        User serviceManager = new User(
-                "user-service-manager",
-                "alex.martin",
-                "Alex",
-                "Martin",
-                "alex.martin@example.com",
-                encodedPassword,
-                EnumSet.of(UserRole.SERVICE_MANAGER),
-                ORG_AURORA_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(15)
-        );
         User agent = new User(
                 "user-agent",
                 "naima.khelifi",
@@ -1454,19 +1441,6 @@ public class DataInitializer {
                 UserStatus.ACTIVE,
                 null,
                 LocalDateTime.now().minusDays(10)
-        );
-        User auditor = new User(
-                "user-auditor",
-                "luc.nguyen",
-                "Luc",
-                "Nguyen",
-                "luc.nguyen@example.com",
-                encodedPassword,
-                EnumSet.of(UserRole.AUDITOR),
-                ORG_AURORA_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(25)
         );
         User practitioner = new User(
                 USER_PRACTITIONER_ID,
@@ -1507,19 +1481,6 @@ public class DataInitializer {
                 null,
                 LocalDateTime.now().minusDays(18)
         );
-        User rivieraServiceManager = new User(
-                "user-service-manager-riviera",
-                "mohamed.benali",
-                "Mohamed",
-                "Benali",
-                "mohamed.benali@riviera.fr",
-                encodedPassword,
-                EnumSet.of(UserRole.SERVICE_MANAGER),
-                ORG_RIVIERA_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(12)
-        );
         User rivieraAgent = new User(
                 "user-agent-riviera",
                 "chloe.perrin",
@@ -1532,19 +1493,6 @@ public class DataInitializer {
                 UserStatus.ACTIVE,
                 null,
                 LocalDateTime.now().minusDays(7)
-        );
-        User rivieraAuditor = new User(
-                "user-auditor-riviera",
-                "antoine.gillet",
-                "Antoine",
-                "Gillet",
-                "antoine.gillet@riviera.fr",
-                encodedPassword,
-                EnumSet.of(UserRole.AUDITOR),
-                ORG_RIVIERA_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(21)
         );
         User rivieraPractitioner = new User(
                 "user-practitioner-riviera",
@@ -1572,19 +1520,6 @@ public class DataInitializer {
                 null,
                 LocalDateTime.now().minusDays(17)
         );
-        User helixServiceManager = new User(
-                "user-service-manager-helix",
-                "pauline.renard",
-                "Pauline",
-                "Renard",
-                "pauline.renard@helix.health",
-                encodedPassword,
-                EnumSet.of(UserRole.SERVICE_MANAGER),
-                ORG_HELIX_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(9)
-        );
         User helixAgent = new User(
                 "user-agent-helix",
                 "marc.diallo",
@@ -1597,19 +1532,6 @@ public class DataInitializer {
                 UserStatus.ACTIVE,
                 null,
                 LocalDateTime.now().minusDays(4)
-        );
-        User helixAuditor = new User(
-                "user-auditor-helix",
-                "ines.rahman",
-                "Ines",
-                "Rahman",
-                "ines.rahman@helix.health",
-                encodedPassword,
-                EnumSet.of(UserRole.AUDITOR),
-                ORG_HELIX_ID,
-                UserStatus.ACTIVE,
-                null,
-                LocalDateTime.now().minusDays(26)
         );
         User helixPractitioner = new User(
                 "user-practitioner-helix",
@@ -1627,20 +1549,14 @@ public class DataInitializer {
         return List.of(
                 platformAdmin,
                 orgAdmin,
-                serviceManager,
                 agent,
-                auditor,
                 practitioner,
                 ilyesSuperAdmin,
                 rivieraOrgAdmin,
-                rivieraServiceManager,
                 rivieraAgent,
-                rivieraAuditor,
                 rivieraPractitioner,
                 helixOrgAdmin,
-                helixServiceManager,
                 helixAgent,
-                helixAuditor,
                 helixPractitioner
         );
     }

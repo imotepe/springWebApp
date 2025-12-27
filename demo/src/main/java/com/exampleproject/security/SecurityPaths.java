@@ -11,6 +11,8 @@ public final class SecurityPaths {
 
     public static final String[] PUBLIC = {
             "/",
+            "/index.html",
+            "/uploads/**",
 
             // Auth and public APIs
             "/api/auth/**",
