@@ -41,9 +41,10 @@ public class AvailabilityService {
             String appointmentTypeId,
             String resourceId,
             LocalDateTime from,
-            LocalDateTime to
+            LocalDateTime to,
+            Integer durationMinutes
     ) {
-        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, true);
+        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, durationMinutes, true);
     }
 
     public List<AvailabilitySlot> findAvailableSlotsPublic(
@@ -51,9 +52,10 @@ public class AvailabilityService {
             String appointmentTypeId,
             String resourceId,
             LocalDateTime from,
-            LocalDateTime to
+            LocalDateTime to,
+            Integer durationMinutes
     ) {
-        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, false);
+        return computeAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, durationMinutes, false);
     }
 
     private List<AvailabilitySlot> computeAvailableSlots(
@@ -62,6 +64,7 @@ public class AvailabilityService {
             String resourceId,
             LocalDateTime from,
             LocalDateTime to,
+            Integer durationMinutes,
             boolean enforceOrgAccess
     ) {
         if (orgId == null || orgId.isBlank()) {
@@ -103,7 +106,9 @@ public class AvailabilityService {
             }
         }
 
-        int durationMinutes = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        int duration = resolveDurationMinutes(type, durationMinutes);
+        int maxDuration = resolveMaxDurationMinutes(type);
+        int bufferMinutes = Math.max(maxDuration, 1440);
         ScheduleConfig schedule = resource != null && resource.getScheduleOverride() != null
                 ? resource.getScheduleOverride()
                 : org.getScheduleConfig();
@@ -114,9 +119,19 @@ public class AvailabilityService {
         }
 
         // Fetch existing appointments in range to check conflicts
+        LocalDateTime fetchFrom = from.minusMinutes(bufferMinutes);
+        LocalDateTime fetchTo = to.plusMinutes(bufferMinutes);
         List<Appointment> existing = resource != null
-                ? appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(orgId, resource.getId(), from, to)
-                : appointmentRepository.findByOrgIdAndStartTimeBetween(orgId, from, to);
+                ? appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(orgId, resource.getId(), fetchFrom, fetchTo)
+                : appointmentRepository.findByOrgIdAndStartTimeBetween(orgId, fetchFrom, fetchTo);
+
+        int capacity = 1;
+        if (resource != null) {
+            Integer resourceCapacity = resource.getCapacity();
+            if (resourceCapacity != null && resourceCapacity > 0) {
+                capacity = resourceCapacity;
+            }
+        }
 
         List<AvailabilitySlot> slots = new ArrayList<>();
         LocalDate date = from.toLocalDate();
@@ -172,13 +187,13 @@ public class AvailabilityService {
                 if (windowStart.isAfter(to)) break;
 
                 LocalDateTime cursor = windowStart.isBefore(from) ? from : windowStart;
-                while (!cursor.plusMinutes(durationMinutes).isAfter(windowEnd) && !cursor.plusMinutes(durationMinutes).isAfter(to)) {
-                    LocalDateTime candidateEnd = cursor.plusMinutes(durationMinutes);
+                while (!cursor.plusMinutes(duration).isAfter(windowEnd) && !cursor.plusMinutes(duration).isAfter(to)) {
+                    LocalDateTime candidateEnd = cursor.plusMinutes(duration);
                     if (!overlapsBreak(cursor, candidateEnd, date, dayBreaks) &&
-                        !overlapsAppointments(cursor, candidateEnd, existing)) {
+                        hasCapacity(cursor, candidateEnd, existing, capacity)) {
                         slots.add(new AvailabilitySlot(cursor, candidateEnd));
                     }
-                    cursor = cursor.plusMinutes(durationMinutes);
+                    cursor = cursor.plusMinutes(duration);
                 }
             }
             date = date.plusDays(1);
@@ -217,18 +232,52 @@ public class AvailabilityService {
         return false;
     }
 
-    private boolean overlapsAppointments(LocalDateTime start, LocalDateTime end, List<Appointment> appts) {
+    private boolean hasCapacity(LocalDateTime start, LocalDateTime end, List<Appointment> appts, int capacity) {
+        int requiredCapacity = Math.max(1, capacity);
+        int overlaps = 0;
         for (Appointment a : appts) {
             if (a.getStatus() == AppointmentStatus.CANCELLED) continue;
             LocalDateTime as = a.getStartTime();
             LocalDateTime ae = a.getEndTime();
-            if (overlap(start, end, as, ae)) return true;
+            if (overlap(start, end, as, ae)) {
+                overlaps += 1;
+                if (overlaps >= requiredCapacity) {
+                    return false;
+                }
+            }
         }
-        return false;
+        return true;
     }
 
     private boolean overlap(LocalDateTime s1, LocalDateTime e1, LocalDateTime s2, LocalDateTime e2) {
         return s1.isBefore(e2) && s2.isBefore(e1);
+    }
+
+    private int resolveDurationMinutes(AppointmentType type, Integer requestedMinutes) {
+        int defaultDuration = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        if (requestedMinutes == null) {
+            return defaultDuration;
+        }
+        if (requestedMinutes <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "durationMinutes must be positive");
+        }
+        Set<Integer> allowed = new HashSet<>(Optional.ofNullable(type.getAllowedDurations()).orElse(Collections.emptyList()));
+        allowed.add(defaultDuration);
+        if (!allowed.contains(requestedMinutes)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "durationMinutes not allowed for appointment type");
+        }
+        return requestedMinutes;
+    }
+
+    private int resolveMaxDurationMinutes(AppointmentType type) {
+        int maxDuration = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        List<Integer> allowed = Optional.ofNullable(type.getAllowedDurations()).orElse(Collections.emptyList());
+        for (Integer value : allowed) {
+            if (value != null && value > maxDuration) {
+                maxDuration = value;
+            }
+        }
+        return Math.max(maxDuration, 30);
     }
 
     private List<TimeWindow> sanitizeTimeWindows(List<TimeWindow> windows) {

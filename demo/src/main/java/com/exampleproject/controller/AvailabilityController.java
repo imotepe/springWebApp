@@ -26,9 +26,9 @@ public class AvailabilityController {
             @RequestParam String appointmentTypeId,
             @RequestParam(required = false) String resourceId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Integer durationMinutes
     ) {
-        return availabilityService.findAvailableSlots(orgId, appointmentTypeId, resourceId, from, to);
+        return availabilityService.findAvailableSlots(orgId, appointmentTypeId, resourceId, from, to, durationMinutes);
     }
 }
-

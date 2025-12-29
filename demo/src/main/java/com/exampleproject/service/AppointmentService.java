@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -119,6 +120,7 @@ public class AppointmentService {
         appointment.setId(null);
         ensureOrgForWrite(appointment, context, null);
         validateAppointment(appointment);
+        ensureResourceCapacity(appointment, null);
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
         }
@@ -132,6 +134,7 @@ public class AppointmentService {
         Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
         ensureOrgForWrite(appointment, context, existing);
         validateAppointment(appointment);
+        ensureResourceCapacity(appointment, existing);
         appointment.setId(id);
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
@@ -368,6 +371,58 @@ public class AppointmentService {
         }
         if (!startTime.isBefore(endTime)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End time must be after start time");
+        }
+    }
+
+    private void ensureResourceCapacity(Appointment appointment, Appointment existing) {
+        String resourceId = appointment.getResourceId();
+        if (resourceId == null || resourceId.isBlank()) {
+            return;
+        }
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not exist"));
+        if (resource.getOrgId() != null && !resource.getOrgId().equals(appointment.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not belong to organization");
+        }
+        int capacity = 1;
+        Integer resourceCapacity = resource.getCapacity();
+        if (resourceCapacity != null && resourceCapacity > 0) {
+            capacity = resourceCapacity;
+        }
+        if (capacity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource capacity must be positive");
+        }
+        LocalDateTime start = appointment.getStartTime();
+        LocalDateTime end = appointment.getEndTime();
+        long durationMinutes = Math.max(1, Duration.between(start, end).toMinutes());
+        long bufferMinutes = Math.max(durationMinutes, 1440);
+        LocalDateTime from = start.minusMinutes(bufferMinutes);
+        LocalDateTime to = end.plusMinutes(bufferMinutes);
+        List<Appointment> candidates = appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(
+                appointment.getOrgId(),
+                resourceId,
+                from,
+                to
+        );
+        int overlaps = 0;
+        for (Appointment candidate : candidates) {
+            if (candidate.getStatus() == AppointmentStatus.CANCELLED) {
+                continue;
+            }
+            if (existing != null && existing.getId() != null && existing.getId().equals(candidate.getId())) {
+                continue;
+            }
+            LocalDateTime candidateStart = candidate.getStartTime();
+            LocalDateTime candidateEnd = candidate.getEndTime();
+            if (candidateStart == null || candidateEnd == null) {
+                continue;
+            }
+            if (candidateStart.isBefore(end) && candidateEnd.isAfter(start)) {
+                overlaps += 1;
+                if (overlaps >= capacity) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Resource capacity reached for this slot");
+                }
+            }
         }
     }
 

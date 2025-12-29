@@ -78,7 +78,8 @@ public class PublicBookingController {
             @RequestParam String appointmentTypeId,
             @RequestParam(required = false) String resourceId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Integer durationMinutes
     ) {
         Organization org = resolveOrg(slug);
         return availabilityService.findAvailableSlotsPublic(
@@ -86,8 +87,30 @@ public class PublicBookingController {
                 appointmentTypeId,
                 resourceId,
                 from,
-                to
+                to,
+                durationMinutes
         );
+    }
+
+    @GetMapping("/{slug}/customers/search")
+    public List<Customer> searchCustomers(
+            @PathVariable String slug,
+            @RequestParam(required = false) String msisdn,
+            @RequestParam(required = false) String firstName
+    ) {
+        Organization org = resolveOrg(slug);
+        String phone = normalizePhone(msisdn);
+        String name = Optional.ofNullable(firstName).orElse("").trim();
+        if (phone.isEmpty() && name.isEmpty()) {
+            return List.of();
+        }
+        String phoneFilter = phone.isEmpty() ? "" : phone;
+        String nameFilter = name.isEmpty() ? "" : name;
+        return customerRepository.findByOrgIdAndPhoneContainingAndFirstNameContainingIgnoreCase(
+                org.getId(),
+                phoneFilter,
+                nameFilter
+        ).stream().limit(20).toList();
     }
 
     @PostMapping("/{slug}/appointments")
@@ -106,11 +129,9 @@ public class PublicBookingController {
         }
 
         Resource resource = null;
-        if (type.isRequiresResource()) {
-            if (request.resourceId() == null || request.resourceId().isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resourceId is required for this type");
-            }
-            resource = resourceRepository.findById(request.resourceId())
+        String requestedResourceId = request.resourceId();
+        if (requestedResourceId != null && !requestedResourceId.isBlank()) {
+            resource = resourceRepository.findById(requestedResourceId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
             if (!org.getId().equals(resource.getOrgId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not belong to organization");
@@ -120,15 +141,21 @@ public class PublicBookingController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type not allowed on resource");
             }
         }
+        if (type.isRequiresResource() && resource == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resourceId is required for this type");
+        }
 
-        if (request.email() == null || request.email().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+        if (request.firstName() == null || request.firstName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "firstName is required");
+        }
+        if (request.phone() == null || request.phone().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "phone is required");
         }
         LocalDateTime start = parseDateTime(request.startTime(), "startTime");
-        Integer duration = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        int duration = resolveDurationMinutes(type, request.durationMinutes());
         LocalDateTime end = start.plusMinutes(duration);
 
-        ensureSlotFree(org.getId(), resource != null ? resource.getId() : null, start, end);
+        ensureSlotFree(org.getId(), type.getId(), resource != null ? resource.getId() : null, start, duration);
         Customer customer = findOrCreateCustomer(org.getId(), request);
 
         Appointment appointment = new Appointment(
@@ -147,7 +174,12 @@ public class PublicBookingController {
     }
 
     private Customer findOrCreateCustomer(String orgId, PublicBookingRequest request) {
-        Optional<Customer> existing = customerRepository.findByOrgIdAndEmailIgnoreCase(orgId, request.email());
+        String phone = normalizePhone(request.phone());
+        Optional<Customer> existing = customerRepository.findByOrgIdAndPhoneAndFirstNameIgnoreCase(
+                orgId,
+                phone,
+                request.firstName()
+        );
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -157,7 +189,7 @@ public class PublicBookingController {
                 request.lastName(),
                 request.firstName(),
                 request.email(),
-                request.phone(),
+                phone,
                 request.notes(),
                 null,
                 List.of()
@@ -165,18 +197,18 @@ public class PublicBookingController {
         return customerRepository.save(customer);
     }
 
-    private void ensureSlotFree(String orgId, String resourceId, LocalDateTime start, LocalDateTime end) {
-        LocalDateTime from = start.minusMinutes(60);
-        LocalDateTime to = end.plusMinutes(60);
-        List<Appointment> candidates = resourceId != null
-                ? appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(orgId, resourceId, from, to)
-                : appointmentRepository.findByOrgIdAndStartTimeBetween(orgId, from, to);
-        boolean overlaps = candidates.stream().anyMatch(appt -> {
-            LocalDateTime aStart = appt.getStartTime();
-            LocalDateTime aEnd = appt.getEndTime();
-            return aStart != null && aEnd != null && aStart.isBefore(end) && aEnd.isAfter(start);
-        });
-        if (overlaps) {
+    private void ensureSlotFree(String orgId, String appointmentTypeId, String resourceId, LocalDateTime start, int durationMinutes) {
+        LocalDateTime end = start.plusMinutes(durationMinutes);
+        List<AvailabilitySlot> slots = availabilityService.findAvailableSlotsPublic(
+                orgId,
+                appointmentTypeId,
+                resourceId,
+                start,
+                end,
+                durationMinutes
+        );
+        boolean available = slots.stream().anyMatch(slot -> start.equals(slot.getStart()));
+        if (!available) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot already booked");
         }
     }
@@ -197,6 +229,26 @@ public class PublicBookingController {
         }
     }
 
+    private int resolveDurationMinutes(AppointmentType type, Integer requestedMinutes) {
+        int defaultDuration = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        if (requestedMinutes == null) {
+            return defaultDuration;
+        }
+        if (requestedMinutes <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "durationMinutes must be positive");
+        }
+        Set<Integer> allowed = Set.copyOf(Optional.ofNullable(type.getAllowedDurations()).orElse(List.of()));
+        if (!allowed.contains(requestedMinutes) && requestedMinutes != defaultDuration) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "durationMinutes not allowed for appointment type");
+        }
+        return requestedMinutes;
+    }
+
+    private String normalizePhone(String value) {
+        if (value == null) return "";
+        return value.trim();
+    }
+
     public record PublicBookingRequest(
             String firstName,
             String lastName,
@@ -204,6 +256,7 @@ public class PublicBookingController {
             String phone,
             String appointmentTypeId,
             String resourceId,
+            Integer durationMinutes,
             String startTime,
             String notes
     ) {

@@ -238,6 +238,50 @@
         font-size: 14px;
       }
 
+      .booking-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .booking-grid.full {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-field label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .form-field input,
+      .form-field textarea {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        font-family: inherit;
+        font-size: 14px;
+        resize: vertical;
+      }
+
+      .booking-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .booking-status {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
       .calendar {
         background: var(--panel-soft);
         border-radius: 18px;
@@ -409,6 +453,33 @@
         transform: translateY(-2px);
       }
 
+      .agenda-preview {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .agenda-chip {
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .agenda-chip.active {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        border-color: rgba(15, 118, 110, 0.3);
+      }
+
+      .agenda-chip.muted {
+        background: #f9fafb;
+        color: #97a1ad;
+      }
+
       .photo-slot {
         width: 86px;
         height: 86px;
@@ -502,6 +573,25 @@
         padding-left: 16px;
         font-size: 12px;
         color: var(--muted);
+      }
+
+      .customer-results {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px dashed var(--line);
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .customer-result {
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        font-size: 12px;
+        cursor: pointer;
       }
 
       .rating {
@@ -611,6 +701,11 @@
             <select id="appointmentTypeSelect"></select>
           </div>
 
+          <div class="booking-select">
+            <label for="durationSelect">Duration</label>
+            <select id="durationSelect"></select>
+          </div>
+
           <div class="calendar">
             <div class="calendar-header">
               <div class="calendar-title" id="calendarTitle">Month</div>
@@ -633,6 +728,7 @@
 
           <div class="slots">
             <div class="panel-subtitle" id="selectedDateLabel">Select a date</div>
+            <div class="panel-subtitle" id="selectedSlotLabel">No slot selected</div>
             <div class="slot-grid" id="slotGrid"></div>
           </div>
 
@@ -649,8 +745,8 @@
         <section class="panel doctors">
           <div class="panel-header">
             <div>
-              <div class="panel-title">Doctor List</div>
-              <div class="panel-subtitle">Resources available for appointment</div>
+              <div class="panel-title">Resource Agenda</div>
+              <div class="panel-subtitle">Each resource has its own availability</div>
             </div>
             <div class="doctor-search">
               <input
@@ -676,6 +772,64 @@
               <div class="panel-subtitle">Details appear here</div>
             </div>
           </div>
+
+          <div class="detail-card">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Customer details</div>
+                <div class="panel-subtitle">Search by MSISDN and first name</div>
+              </div>
+            </div>
+
+            <div class="booking-grid">
+              <div class="form-field">
+                <label for="searchMsisdn">MSISDN</label>
+                <input id="searchMsisdn" type="text" placeholder="+212600000000" />
+              </div>
+              <div class="form-field">
+                <label for="searchFirstName">First name</label>
+                <input id="searchFirstName" type="text" placeholder="Sara" />
+              </div>
+            </div>
+
+            <div class="booking-actions">
+              <button class="ghost-btn" id="searchCustomerBtn" type="button">Search customer</button>
+              <div class="panel-subtitle" id="customerSearchStatus"></div>
+            </div>
+
+            <div class="customer-results" id="customerResults"></div>
+
+            <div class="booking-grid">
+              <div class="form-field">
+                <label for="bookingFirstName">First name</label>
+                <input id="bookingFirstName" type="text" placeholder="First name" />
+              </div>
+              <div class="form-field">
+                <label for="bookingLastName">Last name</label>
+                <input id="bookingLastName" type="text" placeholder="Last name" />
+              </div>
+              <div class="form-field">
+                <label for="bookingEmail">Email</label>
+                <input id="bookingEmail" type="email" placeholder="email@example.com" />
+              </div>
+              <div class="form-field">
+                <label for="bookingPhone">MSISDN</label>
+                <input id="bookingPhone" type="text" placeholder="+212600000000" />
+              </div>
+            </div>
+
+            <div class="booking-grid full">
+              <div class="form-field">
+                <label for="bookingNotes">Notes</label>
+                <textarea id="bookingNotes" rows="3" placeholder="Symptoms, preferred contact, etc."></textarea>
+              </div>
+            </div>
+
+            <div class="booking-actions">
+              <button class="primary-btn" id="bookButton" type="button">Book appointment</button>
+              <div class="booking-status" id="bookingStatus"></div>
+            </div>
+          </div>
         </aside>
       </div>
     </main>
@@ -696,7 +850,12 @@
           selectedResourceId: "",
           selectedTypeId: "",
           selectedDate: new Date(),
-          selectedSlot: ""
+          selectedSlotStart: "",
+          selectedSlotEnd: "",
+          selectedDurationMinutes: null,
+          availableSlots: [],
+          resourceSlots: {},
+          customerMatches: []
         };
 
         var elements = {
@@ -709,15 +868,29 @@
           pageStatus: document.getElementById("pageStatus"),
           bookingSubtitle: document.getElementById("bookingSubtitle"),
           appointmentTypeSelect: document.getElementById("appointmentTypeSelect"),
+          durationSelect: document.getElementById("durationSelect"),
           calendarTitle: document.getElementById("calendarTitle"),
           calendarGrid: document.getElementById("calendarGrid"),
           selectedDateLabel: document.getElementById("selectedDateLabel"),
+          selectedSlotLabel: document.getElementById("selectedSlotLabel"),
           slotGrid: document.getElementById("slotGrid"),
           doctorList: document.getElementById("doctorList"),
           doctorDetail: document.getElementById("doctorDetail"),
           doctorSearch: document.getElementById("doctorSearch"),
           prevMonth: document.getElementById("prevMonth"),
-          nextMonth: document.getElementById("nextMonth")
+          nextMonth: document.getElementById("nextMonth"),
+          searchMsisdn: document.getElementById("searchMsisdn"),
+          searchFirstName: document.getElementById("searchFirstName"),
+          searchCustomerBtn: document.getElementById("searchCustomerBtn"),
+          customerResults: document.getElementById("customerResults"),
+          customerSearchStatus: document.getElementById("customerSearchStatus"),
+          bookingFirstName: document.getElementById("bookingFirstName"),
+          bookingLastName: document.getElementById("bookingLastName"),
+          bookingEmail: document.getElementById("bookingEmail"),
+          bookingPhone: document.getElementById("bookingPhone"),
+          bookingNotes: document.getElementById("bookingNotes"),
+          bookingStatus: document.getElementById("bookingStatus"),
+          bookButton: document.getElementById("bookButton")
         };
 
         var defaultSlots = [
@@ -784,6 +957,32 @@
           var displayHours = hours % 12 || 12;
           var displayMinutes = minutes < 10 ? "0" + minutes : minutes;
           return displayHours + ":" + displayMinutes + " " + suffix;
+        }
+
+        function formatDurationLabel(minutes) {
+          if (!minutes || minutes <= 0) return "--";
+          if (minutes % 60 === 0) {
+            var hours = minutes / 60;
+            return hours + " hour" + (hours > 1 ? "s" : "");
+          }
+          return minutes + " min";
+        }
+
+        function formatSlotLabel(slot) {
+          if (!slot || !slot.start) return "--";
+          var start = new Date(slot.start);
+          var end = slot.end ? new Date(slot.end) : null;
+          var label = formatTimeLabel(start);
+          if (end) {
+            label += " - " + formatTimeLabel(end);
+          }
+          return label;
+        }
+
+        function availabilityKey(resourceId) {
+          var dayKey = state.selectedDate.toISOString().slice(0, 10);
+          var duration = state.selectedDurationMinutes || 0;
+          return (resourceId || "org") + "|" + dayKey + "|" + duration;
         }
 
         function toIsoLocal(date) {
@@ -859,6 +1058,55 @@
             state.selectedTypeId = state.appointmentTypes[0].id || "";
           }
           select.value = state.selectedTypeId;
+          renderDurationOptions();
+        }
+
+        function getDurationOptions(type) {
+          if (!type) return [];
+          var options = [];
+          if (type.defaultDurationMinutes) {
+            options.push(type.defaultDurationMinutes);
+          }
+          if (Array.isArray(type.allowedDurations)) {
+            type.allowedDurations.forEach(function (value) {
+              if (options.indexOf(value) === -1) {
+                options.push(value);
+              }
+            });
+          }
+          return options.filter(function (value) {
+            return value && value > 0;
+          });
+        }
+
+        function renderDurationOptions() {
+          var select = elements.durationSelect;
+          if (!select) return;
+          var type = state.appointmentTypes.find(function (item) {
+            return item.id === state.selectedTypeId;
+          });
+          var options = getDurationOptions(type);
+          select.innerHTML = "";
+          if (!options.length) {
+            var fallback = document.createElement("option");
+            fallback.textContent = "Default duration";
+            fallback.value = "";
+            select.appendChild(fallback);
+            select.disabled = true;
+            state.selectedDurationMinutes = null;
+            return;
+          }
+          select.disabled = false;
+          options.forEach(function (minutes) {
+            var option = document.createElement("option");
+            option.value = String(minutes);
+            option.textContent = formatDurationLabel(minutes);
+            select.appendChild(option);
+          });
+          if (!state.selectedDurationMinutes || options.indexOf(state.selectedDurationMinutes) === -1) {
+            state.selectedDurationMinutes = options[0];
+          }
+          select.value = String(state.selectedDurationMinutes);
         }
 
         function renderCalendar() {
@@ -904,7 +1152,8 @@
               state.selectedDate = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
               renderCalendar();
               renderSelectedDate();
-              updateAvailability();
+              updateAvailability(true);
+              refreshResourceAgendas();
             });
             elements.calendarGrid.appendChild(button);
           });
@@ -915,29 +1164,46 @@
           elements.selectedDateLabel.textContent = formatDateLabel(state.selectedDate);
         }
 
+        function renderSelectedSlot() {
+          if (!elements.selectedSlotLabel) return;
+          if (!state.selectedSlotStart) {
+            elements.selectedSlotLabel.textContent = "No slot selected";
+            return;
+          }
+          var slot = {
+            start: state.selectedSlotStart,
+            end: state.selectedSlotEnd
+          };
+          elements.selectedSlotLabel.textContent = "Selected: " + formatSlotLabel(slot);
+        }
+
         function renderSlots(slots, useFallback) {
           if (!elements.slotGrid) return;
           elements.slotGrid.innerHTML = "";
           var list = slots && slots.length ? slots : defaultSlots;
           list.forEach(function (slot) {
-            var label = typeof slot === "string" ? slot : formatTimeLabel(new Date(slot.start));
+            var isFallback = typeof slot === "string";
+            var label = isFallback ? slot : formatSlotLabel(slot);
             var button = document.createElement("div");
             button.className = "slot-button";
-            if (useFallback || typeof slot === "string") {
+            if (useFallback || isFallback) {
               button.classList.add("muted");
             }
-            if (state.selectedSlot === label && !button.classList.contains("muted")) {
+            if (state.selectedSlotStart === slot.start && !button.classList.contains("muted")) {
               button.classList.add("active");
             }
             button.textContent = label;
             if (!button.classList.contains("muted")) {
               button.addEventListener("click", function () {
-                state.selectedSlot = label;
+                state.selectedSlotStart = slot.start;
+                state.selectedSlotEnd = slot.end || "";
+                renderSelectedSlot();
                 renderSlots(slots, false);
               });
             }
             elements.slotGrid.appendChild(button);
           });
+          renderSelectedSlot();
         }
 
         function buildDoctorCard(resource, index) {
@@ -990,10 +1256,46 @@
           actions.appendChild(bookButton);
           actions.appendChild(detailButton);
 
+          var agenda = document.createElement("div");
+          agenda.className = "agenda-preview";
+          var agendaKey = availabilityKey(resource.id);
+          var hasAgenda = Object.prototype.hasOwnProperty.call(state.resourceSlots, agendaKey);
+          var agendaSlots = hasAgenda ? state.resourceSlots[agendaKey] : [];
+
+          if (!state.selectedTypeId || !state.selectedDurationMinutes) {
+            var hint = document.createElement("div");
+            hint.className = "agenda-chip muted";
+            hint.textContent = "Select appointment type";
+            agenda.appendChild(hint);
+          } else if (!hasAgenda) {
+            var loading = document.createElement("div");
+            loading.className = "agenda-chip muted";
+            loading.textContent = "Loading agenda";
+            agenda.appendChild(loading);
+          } else if (!agendaSlots.length) {
+            var empty = document.createElement("div");
+            empty.className = "agenda-chip muted";
+            empty.textContent = "No slots";
+            agenda.appendChild(empty);
+          } else {
+            agendaSlots.slice(0, 4).forEach(function (slot) {
+              var chip = document.createElement("div");
+              chip.className = "agenda-chip";
+              chip.textContent = formatTimeLabel(new Date(slot.start));
+              chip.addEventListener("click", function () {
+                if (resource.id) {
+                  selectResource(resource.id, slot);
+                }
+              });
+              agenda.appendChild(chip);
+            });
+          }
+
           info.appendChild(name);
           info.appendChild(meta);
           info.appendChild(rate);
           info.appendChild(actions);
+          info.appendChild(agenda);
 
           card.appendChild(photo);
           card.appendChild(info);
@@ -1089,16 +1391,84 @@
           elements.doctorDetail.appendChild(review);
         }
 
-        function selectResource(resourceId) {
+        function selectResource(resourceId, slot) {
           state.selectedResourceId = resourceId || "";
+          if (slot && slot.start) {
+            state.selectedSlotStart = slot.start;
+            state.selectedSlotEnd = slot.end || "";
+          } else {
+            state.selectedSlotStart = "";
+            state.selectedSlotEnd = "";
+          }
           renderDoctorList();
           renderDoctorDetail();
-          updateAvailability();
+          updateAvailability(!slot);
         }
 
-        function updateAvailability() {
+        function fetchAvailability(resourceId, onDone) {
+          var from = new Date(state.selectedDate);
+          from.setHours(8, 0, 0, 0);
+          var to = new Date(state.selectedDate);
+          to.setHours(18, 0, 0, 0);
+
+          var params = new URLSearchParams({
+            appointmentTypeId: state.selectedTypeId,
+            from: toIsoLocal(from),
+            to: toIsoLocal(to)
+          });
+          if (resourceId) {
+            params.append("resourceId", resourceId);
+          }
+          if (state.selectedDurationMinutes) {
+            params.append("durationMinutes", String(state.selectedDurationMinutes));
+          }
+
+          var url = apiBase() + "/api/public/organizations/" + state.slug + "/availability?" + params.toString();
+          return fetchJson(url)
+            .then(function (slots) {
+              onDone(Array.isArray(slots) ? slots : []);
+              return slots;
+            })
+            .catch(function () {
+              onDone([]);
+            });
+        }
+
+        function loadAvailabilityForResource(resourceId, onDone) {
+          var key = availabilityKey(resourceId);
+          if (Object.prototype.hasOwnProperty.call(state.resourceSlots, key)) {
+            if (onDone) onDone(state.resourceSlots[key]);
+            return Promise.resolve(state.resourceSlots[key]);
+          }
+          return fetchAvailability(resourceId, function (slots) {
+            state.resourceSlots[key] = slots;
+            if (onDone) onDone(slots);
+          });
+        }
+
+        function refreshResourceAgendas() {
+          state.resourceSlots = {};
+          if (!state.selectedTypeId || !state.selectedDurationMinutes) {
+            renderDoctorList();
+            return;
+          }
+          var tasks = state.resources.map(function (resource) {
+            if (!resource.id) return Promise.resolve();
+            return loadAvailabilityForResource(resource.id);
+          });
+          Promise.allSettled(tasks).then(function () {
+            renderDoctorList();
+          });
+        }
+
+        function updateAvailability(resetSlot) {
           renderSelectedDate();
-          if (!state.selectedTypeId) {
+          if (resetSlot !== false) {
+            state.selectedSlotStart = "";
+            state.selectedSlotEnd = "";
+          }
+          renderSelectedSlot();
+          if (!state.selectedTypeId || !state.selectedDurationMinutes) {
             renderSlots([], true);
             return;
           }
@@ -1112,31 +1482,169 @@
             return;
           }
           elements.bookingSubtitle.textContent = "Select a doctor and a time slot.";
-          var from = new Date(state.selectedDate);
-          from.setHours(8, 0, 0, 0);
-          var to = new Date(state.selectedDate);
-          to.setHours(18, 0, 0, 0);
-
-          var params = new URLSearchParams({
-            appointmentTypeId: state.selectedTypeId,
-            from: toIsoLocal(from),
-            to: toIsoLocal(to)
-          });
-          if (requiresResource && state.selectedResourceId) {
-            params.append("resourceId", state.selectedResourceId);
+          var resourceId = state.selectedResourceId || "";
+          if (!resourceId && requiresResource) {
+            renderSlots([], true);
+            return;
           }
 
-          var url = apiBase() + "/api/public/organizations/" + state.slug + "/availability?" + params.toString();
+          loadAvailabilityForResource(resourceId || null, function (slots) {
+            state.availableSlots = slots;
+            if (Array.isArray(slots) && slots.length) {
+              renderSlots(slots, false);
+            } else {
+              renderSlots([], true);
+            }
+          });
+        }
+
+        function normalizeMsisdn(value) {
+          if (!value) return "";
+          return value.replace(/\s+/g, "").trim();
+        }
+
+        function setCustomerSearchStatus(message, isError) {
+          if (!elements.customerSearchStatus) return;
+          elements.customerSearchStatus.textContent = message || "";
+          elements.customerSearchStatus.style.color = isError ? "#9a3412" : "var(--muted)";
+        }
+
+        function setBookingStatus(message, isError) {
+          if (!elements.bookingStatus) return;
+          elements.bookingStatus.textContent = message || "";
+          elements.bookingStatus.style.color = isError ? "#9a3412" : "var(--muted)";
+        }
+
+        function renderCustomerResults(customers) {
+          if (!elements.customerResults) return;
+          elements.customerResults.innerHTML = "";
+          if (!customers || !customers.length) {
+            elements.customerResults.style.display = "none";
+            return;
+          }
+          elements.customerResults.style.display = "flex";
+          customers.forEach(function (customer) {
+            var item = document.createElement("div");
+            item.className = "customer-result";
+            var name = [customer.firstName, customer.name].filter(Boolean).join(" ").trim();
+            var detail = [customer.phone, customer.email].filter(Boolean).join(" | ");
+            item.textContent = (name || "Customer") + (detail ? " · " + detail : "");
+            item.addEventListener("click", function () {
+              applyCustomer(customer);
+            });
+            elements.customerResults.appendChild(item);
+          });
+        }
+
+        function applyCustomer(customer) {
+          if (!customer) return;
+          if (elements.bookingFirstName) elements.bookingFirstName.value = customer.firstName || "";
+          if (elements.bookingLastName) elements.bookingLastName.value = customer.name || "";
+          if (elements.bookingEmail) elements.bookingEmail.value = customer.email || "";
+          if (elements.bookingPhone) elements.bookingPhone.value = customer.phone || "";
+          setCustomerSearchStatus("Customer selected", false);
+        }
+
+        function searchCustomers() {
+          if (!state.slug) return;
+          var msisdn = normalizeMsisdn(elements.searchMsisdn ? elements.searchMsisdn.value : "");
+          var firstName = elements.searchFirstName ? elements.searchFirstName.value.trim() : "";
+          if (!msisdn && !firstName) {
+            setCustomerSearchStatus("Enter MSISDN or first name to search.", true);
+            renderCustomerResults([]);
+            return;
+          }
+          setCustomerSearchStatus("Searching...", false);
+          var params = new URLSearchParams();
+          if (msisdn) params.append("msisdn", msisdn);
+          if (firstName) params.append("firstName", firstName);
+          var url = apiBase() + "/api/public/organizations/" + state.slug + "/customers/search?" + params.toString();
           fetchJson(url)
-            .then(function (slots) {
-              if (Array.isArray(slots) && slots.length) {
-                renderSlots(slots, false);
+            .then(function (customers) {
+              state.customerMatches = Array.isArray(customers) ? customers : [];
+              renderCustomerResults(state.customerMatches);
+              if (!state.customerMatches.length) {
+                setCustomerSearchStatus("No matching customers found.", false);
               } else {
-                renderSlots([], true);
+                setCustomerSearchStatus("Select a customer from the list.", false);
               }
             })
             .catch(function () {
-              renderSlots([], true);
+              setCustomerSearchStatus("Search failed. Try again.", true);
+              renderCustomerResults([]);
+            });
+        }
+
+        function bookAppointment() {
+          if (!state.slug) return;
+          var firstName = elements.bookingFirstName ? elements.bookingFirstName.value.trim() : "";
+          var lastName = elements.bookingLastName ? elements.bookingLastName.value.trim() : "";
+          var email = elements.bookingEmail ? elements.bookingEmail.value.trim() : "";
+          var phone = normalizeMsisdn(elements.bookingPhone ? elements.bookingPhone.value : "");
+          var notes = elements.bookingNotes ? elements.bookingNotes.value.trim() : "";
+          if (!firstName || !phone) {
+            setBookingStatus("First name and MSISDN are required.", true);
+            return;
+          }
+          if (!state.selectedTypeId) {
+            setBookingStatus("Select an appointment type.", true);
+            return;
+          }
+          var type = state.appointmentTypes.find(function (item) {
+            return item.id === state.selectedTypeId;
+          });
+          var requiresResource = type && type.requiresResource === true;
+          if (requiresResource && !state.selectedResourceId) {
+            setBookingStatus("Select a doctor before booking.", true);
+            return;
+          }
+          if (!state.selectedSlotStart) {
+            setBookingStatus("Select a time slot.", true);
+            return;
+          }
+          if (!state.selectedDurationMinutes) {
+            setBookingStatus("Select an appointment duration.", true);
+            return;
+          }
+
+          var payload = {
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            phone: phone,
+            appointmentTypeId: state.selectedTypeId,
+            resourceId: state.selectedResourceId || null,
+            durationMinutes: state.selectedDurationMinutes,
+            startTime: state.selectedSlotStart,
+            notes: notes
+          };
+
+          setBookingStatus("Booking appointment...", false);
+          var url = apiBase() + "/api/public/organizations/" + state.slug + "/appointments";
+          fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          })
+            .then(function (response) {
+              if (response.ok) {
+                return response.json();
+              }
+              return response.text().then(function (text) {
+                throw new Error(text || "Booking failed");
+              });
+            })
+            .then(function () {
+              setBookingStatus("Appointment booked. We will contact you shortly.", false);
+              state.selectedSlotStart = "";
+              state.selectedSlotEnd = "";
+              renderSelectedSlot();
+              updateAvailability(true);
+              refreshResourceAgendas();
+            })
+            .catch(function (error) {
+              var message = error && error.message ? error.message : "Booking failed.";
+              setBookingStatus(message, true);
             });
         }
 
@@ -1144,7 +1652,17 @@
           if (elements.appointmentTypeSelect) {
             elements.appointmentTypeSelect.addEventListener("change", function (event) {
               state.selectedTypeId = event.target.value;
-              updateAvailability();
+              renderDurationOptions();
+              updateAvailability(true);
+              refreshResourceAgendas();
+            });
+          }
+          if (elements.durationSelect) {
+            elements.durationSelect.addEventListener("change", function (event) {
+              var value = parseInt(event.target.value, 10);
+              state.selectedDurationMinutes = Number.isNaN(value) ? null : value;
+              updateAvailability(true);
+              refreshResourceAgendas();
             });
           }
           if (elements.doctorSearch) {
@@ -1161,7 +1679,8 @@
               );
               renderCalendar();
               renderSelectedDate();
-              updateAvailability();
+              updateAvailability(true);
+              refreshResourceAgendas();
             });
           }
           if (elements.nextMonth) {
@@ -1173,7 +1692,18 @@
               );
               renderCalendar();
               renderSelectedDate();
-              updateAvailability();
+              updateAvailability(true);
+              refreshResourceAgendas();
+            });
+          }
+          if (elements.searchCustomerBtn) {
+            elements.searchCustomerBtn.addEventListener("click", function () {
+              searchCustomers();
+            });
+          }
+          if (elements.bookButton) {
+            elements.bookButton.addEventListener("click", function () {
+              bookAppointment();
             });
           }
         }
@@ -1209,7 +1739,10 @@
               renderDoctorDetail();
               renderCalendar();
               renderSelectedDate();
-              updateAvailability();
+              renderSelectedSlot();
+              updateAvailability(true);
+              refreshResourceAgendas();
+              renderCustomerResults([]);
               setStatus("", false);
               document.body.classList.add("page-ready");
             })
