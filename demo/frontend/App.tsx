@@ -690,6 +690,39 @@ const buildDateTimeValue = (date: string, time: string) => {
   return `${safeDate}T${safeTime}:00`;
 };
 
+const DEFAULT_USER_EXPIRY_DAYS = 90;
+
+const buildDefaultUserExpiry = () => {
+  const expiresTime = '00:00';
+  const date = new Date();
+  date.setDate(date.getDate() + DEFAULT_USER_EXPIRY_DAYS);
+  const expiresDate = formatIsoDate(date);
+  return {
+    expiresAt: buildDateTimeValue(expiresDate, expiresTime),
+    expiresDate,
+    expiresTime,
+  };
+};
+
+const buildDefaultUserForm = (): UserFormState => {
+  const expiry = buildDefaultUserExpiry();
+  return {
+    id: null,
+    username: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    passwordConfirm: '',
+    roles: [],
+    homeOrganizationId: '',
+    status: 'ACTIVE',
+    expiresAt: expiry.expiresAt,
+    expiresDate: expiry.expiresDate,
+    expiresTime: expiry.expiresTime,
+  };
+};
+
 const formatTimeFromParts = (hour: string, minute: string) => {
   const h = Math.max(0, Math.min(23, parseInt(hour, 10) || 0))
     .toString()
@@ -883,7 +916,7 @@ function OrganizationPickerField({
                     style={[styles.dropdownItemLabel, value === org.id && styles.dropdownItemLabelSelected]}
                     numberOfLines={1}
                   >
-                    {org.id || org.name}
+                    {org.marketingName || org.name || org.id}
                   </Text>
                   <Text style={styles.dropdownItemDescription} numberOfLines={1}>
                     {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
@@ -2920,21 +2953,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [userError, setUserError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [userOrgFilter, setUserOrgFilter] = useState('');
-  const [userForm, setUserForm] = useState<UserFormState>({
-    id: null,
-    username: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    passwordConfirm: '',
-    roles: [],
-    homeOrganizationId: '',
-    status: 'ACTIVE',
-    expiresAt: '',
-    expiresDate: '',
-    expiresTime: '00:00',
-  });
+  const [userForm, setUserForm] = useState<UserFormState>(buildDefaultUserForm);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerLoading, setCustomerLoading] = useState(false);
   const [customerSaving, setCustomerSaving] = useState(false);
@@ -3374,21 +3393,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [isPlatformUser, loadResourceAppointmentTypes, resourceForm.orgId]);
 
   const resetUserForm = useCallback(() => {
-    setUserForm({
-      id: null,
-      username: '',
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-      passwordConfirm: '',
-      roles: [],
-      homeOrganizationId: '',
-      status: 'ACTIVE',
-      expiresAt: '',
-      expiresDate: '',
-      expiresTime: '00:00',
-    });
+    setUserForm(buildDefaultUserForm());
     setUserError(null);
     setUserMessage(null);
     setHomeOrgPickerOpen(false);
@@ -6324,7 +6329,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             ]}
                             numberOfLines={1}
                           >
-                            {org.id || org.name}
+                            {org.marketingName || org.name || org.id}
                           </Text>
                           <Text style={styles.dropdownItemDescription} numberOfLines={1}>
                             {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
