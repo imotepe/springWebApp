@@ -170,14 +170,29 @@ public class User {
     public void setPassword(String password) { this.password = password; }
 
     public Set<UserRole> getRoles() {
-        return roles.isEmpty() ? EnumSet.noneOf(UserRole.class) : EnumSet.copyOf(roles);
+        if (roles == null || roles.isEmpty()) {
+            return EnumSet.noneOf(UserRole.class);
+        }
+        EnumSet<UserRole> sanitized = EnumSet.noneOf(UserRole.class);
+        for (UserRole role : roles) {
+            if (role != null) {
+                sanitized.add(role);
+            }
+        }
+        return sanitized;
     }
     public void setRoles(Set<UserRole> roles) {
         if (roles == null || roles.isEmpty()) {
             this.roles = EnumSet.noneOf(UserRole.class);
             return;
         }
-        this.roles = EnumSet.copyOf(roles);
+        EnumSet<UserRole> sanitized = EnumSet.noneOf(UserRole.class);
+        for (UserRole role : roles) {
+            if (role != null) {
+                sanitized.add(role);
+            }
+        }
+        this.roles = sanitized;
     }
 
     public String getHomeOrganizationId() {

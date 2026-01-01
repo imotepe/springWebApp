@@ -10,6 +10,7 @@ Seed users (initial data)
 | luc.nguyen         | luc.nguyen@example.com         | ChangeMe123!  | AUDITOR                 | Aurora Service Center    |
 | emma.leroy         | emma.leroy@example.com         | ChangeMe123!  | PRACTITIONER            | Aurora Service Center    |
 | aitbelakcemi       | aitbelkacem.lyes@gmail.com     | Nac456*l      | SUPER_PLATFORM_ADMIN    | Global (none)            |
+| super.admin        | super.admin@example.com        | ChangeMe123!  | SUPER_PLATFORM_ADMIN    | Global (none)            |
 | lea.fontaine       | lea.fontaine@riviera.fr        | ChangeMe123!  | ORGANIZATION_ADMIN      | Riviera Community Hub    |
 | mohamed.benali     | mohamed.benali@riviera.fr      | ChangeMe123!  | SERVICE_MANAGER         | Riviera Community Hub    |
 | chloe.perrin       | chloe.perrin@riviera.fr        | ChangeMe123!  | AGENT                   | Riviera Community Hub    |

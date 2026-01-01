@@ -1468,6 +1468,19 @@ public class DataInitializer {
                 null,
                 LocalDateTime.now().minusDays(40)
         );
+        User superAdmin = new User(
+                "user-super-admin",
+                "super.admin",
+                "Super",
+                "Admin",
+                "super.admin@example.com",
+                encodedPassword,
+                EnumSet.of(UserRole.SUPER_PLATFORM_ADMIN),
+                null,
+                UserStatus.ACTIVE,
+                null,
+                LocalDateTime.now().minusDays(12)
+        );
         User rivieraOrgAdmin = new User(
                 "user-org-admin-riviera",
                 "lea.fontaine",
@@ -1552,6 +1565,7 @@ public class DataInitializer {
                 agent,
                 practitioner,
                 ilyesSuperAdmin,
+                superAdmin,
                 rivieraOrgAdmin,
                 rivieraAgent,
                 rivieraPractitioner,
