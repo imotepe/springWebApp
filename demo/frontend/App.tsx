@@ -7347,7 +7347,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       </Text>
                       <Text style={styles.orgMeta}>Roles: {formatUserRoles(user.roles)}</Text>
                       <Text style={styles.orgMeta}>
-                        Home org: {user.homeOrganizationId || 'Platform'}
+                        Home org:{' '}
+                        {user.homeOrganizationId
+                          ? getOrganizationLabel(homeOrgBase, user.homeOrganizationId)
+                          : 'Platform'}
                         {user.createdAt ? ` - Created ${user.createdAt}` : ''}
                       </Text>
                       <View style={styles.orgActions}>
@@ -7483,7 +7486,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             ]}
                             numberOfLines={1}
                           >
-                            {org.id || org.name}
+                            {org.marketingName || org.name || org.id}
                           </Text>
                           <Text style={styles.dropdownItemDescription} numberOfLines={1}>
                             {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
