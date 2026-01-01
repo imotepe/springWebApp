@@ -2350,6 +2350,7 @@ type ScheduleEditorProps = {
   setNewBreakWindow: Dispatch<SetStateAction<TimeWindowInput>>;
   addBreakWindow: () => void;
   removeBreakWindow: (day: DayName, index: number) => void;
+  clearHoursAndBreaks: () => void;
   newHoliday: HolidayInput;
   setNewHoliday: Dispatch<SetStateAction<HolidayInput>>;
   holidayWindow: TimeWindowInput;
@@ -2374,6 +2375,7 @@ function ScheduleEditor({
   setNewBreakWindow,
   addBreakWindow,
   removeBreakWindow,
+  clearHoursAndBreaks,
   newHoliday,
   setNewHoliday,
   holidayWindow,
@@ -2403,7 +2405,7 @@ function ScheduleEditor({
       </View>
 
       <View style={[styles.inputField, { marginTop: 10 }]}>
-        <Text style={styles.label}>Edit day</Text>
+        <Text style={styles.sectionTitle}>Edit day</Text>
         <View style={styles.typeChips}>
           {DAY_NAMES.map((day) => (
             <Pressable
@@ -2418,7 +2420,8 @@ function ScheduleEditor({
       </View>
 
       <View style={[styles.inputField, { marginTop: 8 }]}>
-        <Text style={styles.label}>Apply hours & breaks to</Text>
+        <Text style={styles.sectionTitle}>Apply hours & breaks to</Text>
+        <Text style={styles.helperText}>Leave empty to apply only to {DAY_LABELS[activeDay]}.</Text>
         <View style={styles.typeChips}>
           {DAY_NAMES.map((day) => {
             const selected = applyDays.includes(day);
@@ -2433,6 +2436,9 @@ function ScheduleEditor({
             );
           })}
         </View>
+        <Pressable onPress={clearHoursAndBreaks} style={styles.secondaryChipCompact}>
+          <Text style={styles.secondaryChipText}>Clear all hours & breaks</Text>
+        </Pressable>
       </View>
 
       <View style={styles.sectionHeaderRow}>
@@ -2870,7 +2876,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [scheduleOrgId, setScheduleOrgId] = useState<string | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
   const [activeDay, setActiveDay] = useState<DayName>('MONDAY');
-  const [scheduleApplyDays, setScheduleApplyDays] = useState<DayName[]>(['MONDAY']);
+  const [scheduleApplyDays, setScheduleApplyDays] = useState<DayName[]>([]);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleSaving, setScheduleSaving] = useState(false);
@@ -2981,7 +2987,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [resourceScheduleEnabled, setResourceScheduleEnabled] = useState(false);
   const [resourceScheduleForm, setResourceScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
   const [resourceActiveDay, setResourceActiveDay] = useState<DayName>('MONDAY');
-  const [resourceApplyDays, setResourceApplyDays] = useState<DayName[]>(['MONDAY']);
+  const [resourceApplyDays, setResourceApplyDays] = useState<DayName[]>([]);
   const [resourceScheduleError, setResourceScheduleError] = useState<string | null>(null);
   const [resourceNewBusinessWindow, setResourceNewBusinessWindow] = useState<TimeWindowInput>({
     start: '09:00',
@@ -3471,7 +3477,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourceScheduleEnabled(false);
     setResourceScheduleForm(defaultScheduleForm());
     setResourceActiveDay('MONDAY');
-    setResourceApplyDays(['MONDAY']);
+    setResourceApplyDays([]);
     setResourceScheduleError(null);
     setResourceNewBusinessWindow({ start: '09:00', end: '17:00' });
     setResourceNewBreakWindow({ start: '12:00', end: '13:00' });
@@ -3618,7 +3624,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setScheduleOrgId(org.id ?? null);
     setScheduleForm(normalizeScheduleForm(org.scheduleConfig));
     setActiveDay('MONDAY');
-    setScheduleApplyDays(['MONDAY']);
+    setScheduleApplyDays([]);
     setScheduleMessage(`Editing schedule for ${org.name}`);
     setScheduleError(null);
   };
@@ -3627,7 +3633,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setScheduleOrgId(null);
     setScheduleForm(defaultScheduleForm());
     setActiveDay('MONDAY');
-    setScheduleApplyDays(['MONDAY']);
+    setScheduleApplyDays([]);
     setScheduleMessage(null);
     setScheduleError(null);
   };
@@ -5111,9 +5117,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setScheduleApplyDays((prev) => {
       const exists = prev.includes(day);
       const next = exists ? prev.filter((d) => d !== day) : [...prev, day];
-      if (next.length === 0) {
-        return prev;
-      }
       return DAY_NAMES.filter((name) => next.includes(name));
     });
   };
@@ -5153,6 +5156,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return { ...prev, breaks };
     });
     setNewBreakWindow({ start: '12:00', end: '13:00' });
+    setScheduleError(null);
+  };
+
+  const clearScheduleHoursAndBreaks = () => {
+    setScheduleForm((prev) => {
+      const businessHours = { ...prev.businessHours };
+      const breaks = { ...prev.breaks };
+      DAY_NAMES.forEach((day) => {
+        businessHours[day] = [];
+        breaks[day] = [];
+      });
+      return { ...prev, businessHours, breaks };
+    });
     setScheduleError(null);
   };
 
@@ -5225,9 +5241,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourceApplyDays((prev) => {
       const exists = prev.includes(day);
       const next = exists ? prev.filter((d) => d !== day) : [...prev, day];
-      if (next.length === 0) {
-        return prev;
-      }
       return DAY_NAMES.filter((name) => next.includes(name));
     });
   };
@@ -5267,6 +5280,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return { ...prev, breaks };
     });
     setResourceNewBreakWindow({ start: '12:00', end: '13:00' });
+    setResourceScheduleError(null);
+  };
+
+  const clearResourceHoursAndBreaks = () => {
+    setResourceScheduleForm((prev) => {
+      const businessHours = { ...prev.businessHours };
+      const breaks = { ...prev.breaks };
+      DAY_NAMES.forEach((day) => {
+        businessHours[day] = [];
+        breaks[day] = [];
+      });
+      return { ...prev, businessHours, breaks };
+    });
     setResourceScheduleError(null);
   };
 
@@ -6098,6 +6124,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   setNewBreakWindow={setNewBreakWindow}
                   addBreakWindow={addBreakWindow}
                   removeBreakWindow={removeBreakWindow}
+                  clearHoursAndBreaks={clearScheduleHoursAndBreaks}
                   newHoliday={newHoliday}
                   setNewHoliday={setNewHoliday}
                   holidayWindow={holidayWindow}
@@ -6435,6 +6462,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 setNewBreakWindow={setResourceNewBreakWindow}
                 addBreakWindow={addResourceBreakWindow}
                 removeBreakWindow={removeResourceBreakWindow}
+                clearHoursAndBreaks={clearResourceHoursAndBreaks}
                 newHoliday={resourceNewHoliday}
                 setNewHoliday={setResourceNewHoliday}
                 holidayWindow={resourceHolidayWindow}
