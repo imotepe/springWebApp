@@ -2887,6 +2887,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
   const isPlatformUser = roles.some((role) => PLATFORM_ROLES.includes(role));
+  const isAgent = roles.includes('AGENT');
   const canManageOrganizations = isPlatformUser;
   const canManageOrgTypes = isPlatformUser;
   const assignableRoles = useMemo<UserRole[]>(() => {
@@ -2900,25 +2901,57 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [isPlatformAdminOnly, isSuperAdmin]);
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
+  const canViewSchedule = !isAgent;
+  const canViewUsers = !isAgent;
+  const canViewResources = !isAgent;
+  const canViewAppointmentTypes = !isAgent;
   const availableTabs = useMemo<TabKey[]>(() => {
     const tabs: TabKey[] = [];
+    if (isAgent) {
+      if (canViewCustomers) {
+        tabs.push('customers');
+      }
+      if (canViewAppointments) {
+        tabs.push('appointments');
+      }
+      return tabs;
+    }
     if (canManageOrganizations) {
       tabs.push('orgs');
     }
     if (canManageOrgTypes) {
       tabs.push('types');
     }
-    tabs.push('schedule', 'users');
+    if (canViewSchedule) {
+      tabs.push('schedule');
+    }
+    if (canViewUsers) {
+      tabs.push('users');
+    }
     if (canViewCustomers) {
       tabs.push('customers');
     }
-    tabs.push('resources');
+    if (canViewResources) {
+      tabs.push('resources');
+    }
     if (canViewAppointments) {
       tabs.push('appointments');
     }
-    tabs.push('appointmentTypes');
+    if (canViewAppointmentTypes) {
+      tabs.push('appointmentTypes');
+    }
     return tabs;
-  }, [canManageOrgTypes, canManageOrganizations, canViewAppointments, canViewCustomers]);
+  }, [
+    canManageOrgTypes,
+    canManageOrganizations,
+    canViewAppointmentTypes,
+    canViewAppointments,
+    canViewCustomers,
+    canViewResources,
+    canViewSchedule,
+    canViewUsers,
+    isAgent,
+  ]);
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
       setActiveTab(availableTabs[0] ?? 'orgs');
@@ -5533,22 +5566,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </Text>
             </Pressable>
           ) : null}
-          <Pressable
-            style={[styles.tabButton, activeTab === 'schedule' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('schedule')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'schedule' && styles.tabButtonTextActive]}>
-              Schedule
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tabButton, activeTab === 'users' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('users')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'users' && styles.tabButtonTextActive]}>
-              Users
-            </Text>
-          </Pressable>
+          {canViewSchedule ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'schedule' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('schedule')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'schedule' && styles.tabButtonTextActive]}>
+                Schedule
+              </Text>
+            </Pressable>
+          ) : null}
+          {canViewUsers ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'users' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('users')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'users' && styles.tabButtonTextActive]}>
+                Users
+              </Text>
+            </Pressable>
+          ) : null}
           {canViewCustomers ? (
             <Pressable
               style={[styles.tabButton, activeTab === 'customers' && styles.tabButtonActive]}
@@ -5559,14 +5596,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </Text>
             </Pressable>
           ) : null}
-          <Pressable
-            style={[styles.tabButton, activeTab === 'resources' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('resources')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'resources' && styles.tabButtonTextActive]}>
-              Resources
-            </Text>
-          </Pressable>
+          {canViewResources ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'resources' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('resources')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'resources' && styles.tabButtonTextActive]}>
+                Resources
+              </Text>
+            </Pressable>
+          ) : null}
           {canViewAppointments ? (
             <Pressable
               style={[styles.tabButton, activeTab === 'appointments' && styles.tabButtonActive]}
@@ -5577,14 +5616,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </Text>
             </Pressable>
           ) : null}
-          <Pressable
-            style={[styles.tabButton, activeTab === 'appointmentTypes' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('appointmentTypes')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'appointmentTypes' && styles.tabButtonTextActive]}>
-              Appointment types
-            </Text>
-          </Pressable>
+          {canViewAppointmentTypes ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'appointmentTypes' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('appointmentTypes')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'appointmentTypes' && styles.tabButtonTextActive]}>
+                Appointment types
+              </Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
 
         {activeTab === 'orgs' && canManageOrganizations ? (
@@ -6062,7 +6103,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={typeSaving}
             />
           </>
-        ) : activeTab === 'schedule' ? (
+        ) : activeTab === 'schedule' && canViewSchedule ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -6191,7 +6232,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               <Text style={styles.statusText}>Select an organization to edit its schedule.</Text>
             )}
           </>
-        ) : activeTab === 'resources' ? (
+        ) : activeTab === 'resources' && canViewResources ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -6863,7 +6904,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </>
             ) : null}
           </>
-        ) : activeTab === 'appointmentTypes' ? (
+        ) : activeTab === 'appointmentTypes' && canViewAppointmentTypes ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -7317,7 +7358,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </>
             ) : null}
           </>
-        ) : (
+        ) : activeTab === 'users' && canViewUsers ? (
           <>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -7621,7 +7662,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={userSaving}
             />
           </>
-        )}
+        ) : null}
       </View>
     </ScrollView>
   );

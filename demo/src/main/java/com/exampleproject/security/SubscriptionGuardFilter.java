@@ -58,7 +58,8 @@ public class SubscriptionGuardFilter extends OncePerRequestFilter {
         }
 
         User user = (User) authentication.getPrincipal();
-        if (user.getRoles().stream().anyMatch(PLATFORM_ROLES::contains)) {
+        boolean isAgent = user.getRoles().contains(UserRole.AGENT);
+        if (!isAgent && user.getRoles().stream().anyMatch(PLATFORM_ROLES::contains)) {
             filterChain.doFilter(request, response);
             return;
         }

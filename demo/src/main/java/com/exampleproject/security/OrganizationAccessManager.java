@@ -39,9 +39,10 @@ public class OrganizationAccessManager {
     public OrganizationAccessContext currentContext() {
         User user = currentUserProvider.getCurrentUser();
         Set<UserRole> roles = user.getRoles() == null ? EnumSet.noneOf(UserRole.class) : EnumSet.copyOf(user.getRoles());
-        boolean superAdmin = roles.contains(UserRole.SUPER_PLATFORM_ADMIN);
-        boolean platformAdmin = roles.contains(UserRole.PLATFORM_ADMIN);
-        boolean platformUser = roles.stream().anyMatch(PLATFORM_ROLES::contains);
+        boolean agentScoped = roles.contains(UserRole.AGENT);
+        boolean superAdmin = roles.contains(UserRole.SUPER_PLATFORM_ADMIN) && !agentScoped;
+        boolean platformAdmin = roles.contains(UserRole.PLATFORM_ADMIN) && !agentScoped;
+        boolean platformUser = superAdmin || platformAdmin;
         return new OrganizationAccessContext(
                 user,
                 superAdmin,
