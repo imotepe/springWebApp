@@ -753,6 +753,24 @@ const getOrganizationLabel = (organizations: Organization[], value: string) => {
   return match.marketingName || match.name || value;
 };
 
+const formatAppointmentTypeLabels = (ids: string[] | undefined, labelMap: Map<string, string>) => {
+  if (!ids || ids.length === 0) return 'Any';
+  const seen = new Set<string>();
+  const labels = ids
+    .map((id) => {
+      const safeId = (id ?? '').trim();
+      if (!safeId) return '';
+      return labelMap.get(safeId) || safeId;
+    })
+    .filter((label) => {
+      if (!label) return false;
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
+  return labels.length > 0 ? labels.join(', ') : 'Any';
+};
+
 const formatCustomerName = (customer: Customer) => {
   const parts = [customer.firstName, customer.name].filter(Boolean);
   if (parts.length > 0) {
@@ -5087,6 +5105,30 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   }, [resourceForm.orgId, users]);
 
+  const appointmentTypeLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    appointmentTypes.forEach((type) => {
+      const id = (type.id ?? '').trim();
+      if (!id) return;
+      map.set(id, (type.name ?? '').trim() || id);
+    });
+    return map;
+  }, [appointmentTypes]);
+
+  const userLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((user) => {
+      const id = (user.id ?? '').trim();
+      if (!id) return;
+      const first = (user.firstName ?? '').trim();
+      const last = (user.lastName ?? '').trim();
+      const fullName = `${first} ${last}`.trim();
+      const label = fullName || (user.username ?? '').trim() || (user.email ?? '').trim() || id;
+      map.set(id, label);
+    });
+    return map;
+  }, [users]);
+
   const sortedTypes = useMemo(() => {
     return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
   }, [filteredTypes]);
@@ -6222,17 +6264,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       <Text style={styles.orgType}>{resource.type || 'Type N/A'}</Text>
                     </View>
                     <Text style={styles.orgMeta}>
-                      Org: {resource.orgId || 'N/A'} - Kind: {resource.kind || 'ASSET'} - Active:{' '}
+                      Org: {resource.orgId ? getOrganizationLabel(homeOrgBase, resource.orgId) : 'N/A'} - Kind:{' '}
+                      {resource.kind || 'ASSET'} - Active:{' '}
                       {resource.active ? 'Yes' : 'No'}
                     </Text>
                     <Text style={styles.orgMeta}>
-                      Allowed appt types: {(resource.allowedAppointmentTypeIds || []).join(', ') || 'Any'}
+                      Allowed appt types:{' '}
+                      {formatAppointmentTypeLabels(resource.allowedAppointmentTypeIds, appointmentTypeLabelMap)}
                     </Text>
                     <Text style={styles.orgMeta}>
                       Schedule: {resource.scheduleOverride ? 'Custom override' : 'Org default'}
                     </Text>
                     {resource.practitionerUserId ? (
-                      <Text style={styles.orgMeta}>Practitioner user: {resource.practitionerUserId}</Text>
+                      <Text style={styles.orgMeta}>
+                        Practitioner user:{' '}
+                        {userLabelMap.get(resource.practitionerUserId) ?? resource.practitionerUserId}
+                      </Text>
                     ) : null}
                     <View style={styles.orgActions}>
                       <Pressable onPress={() => startResourceEdit(resource)} style={styles.orgAction}>
