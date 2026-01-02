@@ -771,6 +771,47 @@ const buildDateTimeValue = (date: string, time: string) => {
   return `${safeDate}T${safeTime}:00`;
 };
 
+const buildDateTimeFromParts = (date: string, time: string) => {
+  const value = buildDateTimeValue(date, time);
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+};
+
+const addMinutesToDateTime = (date: string, time: string, minutes: number) => {
+  const base = buildDateTimeFromParts(date, time);
+  if (!base) return null;
+  const next = new Date(base.getTime() + minutes * 60000);
+  return { date: formatIsoDate(next), time: formatTimeFromDate(next) };
+};
+
+const calculateDurationMinutes = (startValue: string, endValue: string) => {
+  if (!startValue || !endValue) return null;
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return null;
+  }
+  return minutes;
+};
+
+const calculateDurationMinutesFromParts = (
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+) => {
+  const startValue = buildDateTimeValue(startDate, startTime);
+  const endValue = buildDateTimeValue(endDate, endTime);
+  if (!startValue || !endValue) return null;
+  return calculateDurationMinutes(startValue, endValue);
+};
+
 const getDayNameFromDate = (date: Date): DayName => {
   const index = date.getDay();
   return DAY_INDEX_TO_NAME[index] ?? 'MONDAY';
@@ -782,6 +823,24 @@ const AGENDA_END_HOUR = 18;
 const AGENDA_SLOT_MINUTES = 30;
 const AGENDA_SLOT_HEIGHT = 44;
 const AGENDA_HEADER_HEIGHT = 72;
+
+const resolveAppointmentTypeDurations = (type?: AppointmentTypeDto | null) => {
+  const allowed = (type?.allowedDurations ?? [])
+    .map((value) => (Number.isFinite(value) ? Math.round(value) : null))
+    .filter((value): value is number => value != null && value > 0);
+  const defaultMinutesRaw = type?.defaultDurationMinutes;
+  const defaultMinutes =
+    defaultMinutesRaw && Number.isFinite(defaultMinutesRaw) && defaultMinutesRaw > 0
+      ? Math.round(defaultMinutesRaw)
+      : allowed[0] ?? AGENDA_SLOT_MINUTES;
+  const allowedSet = new Set<number>();
+  if (defaultMinutes > 0) {
+    allowedSet.add(defaultMinutes);
+  }
+  allowed.forEach((value) => allowedSet.add(value));
+  const allowedList = Array.from(allowedSet).sort((a, b) => a - b);
+  return { defaultMinutes, allowedSet, allowedList };
+};
 
 const buildDefaultUserExpiry = () => {
   const expiresTime = '00:00';
@@ -820,6 +879,12 @@ const formatTimeFromParts = (hour: string, minute: string) => {
     .padStart(2, '0');
   const m = minute.padStart(2, '0');
   return `${h}:${m}`;
+};
+
+const formatTimeFromDate = (date: Date) => {
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+  return `${hour}:${minute}`;
 };
 
 const parseCommaList = (value: string) => {
@@ -4036,6 +4101,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   }, [appointmentAllowedTypeIds, appointmentOrgId, appointmentTypes]);
 
+  const appointmentSelectedType = useMemo(() => {
+    const appointmentTypeId = appointmentForm.appointmentTypeId.trim();
+    if (!appointmentTypeId) return null;
+    return appointmentTypes.find((type) => type.id === appointmentTypeId) ?? null;
+  }, [appointmentForm.appointmentTypeId, appointmentTypes]);
+
+  const appointmentDurationOptions = useMemo(
+    () => resolveAppointmentTypeDurations(appointmentSelectedType),
+    [appointmentSelectedType],
+  );
+
   useEffect(() => {
     const appointmentTypeId = appointmentForm.appointmentTypeId.trim();
     if (!appointmentTypeId) return;
@@ -4055,6 +4131,47 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     const next = date ? buildDateTimeValue(date, appointmentEndTime) : '';
     setAppointmentForm((prev) => (prev.endTime === next ? prev : { ...prev, endTime: next }));
   }, [appointmentEndDate, appointmentEndTime]);
+
+  const applyAppointmentDuration = useCallback(
+    (durationMinutes: number) => {
+      const startDate = appointmentStartDate.trim();
+      const startTime = appointmentStartTime.trim();
+      if (!startDate || !startTime) return;
+      const next = addMinutesToDateTime(startDate, startTime, durationMinutes);
+      if (!next) return;
+      setAppointmentEndDate(next.date);
+      setAppointmentEndTime(next.time);
+    },
+    [appointmentStartDate, appointmentStartTime],
+  );
+
+  useEffect(() => {
+    if (!appointmentSelectedType) return;
+    const startDate = appointmentStartDate.trim();
+    const startTime = appointmentStartTime.trim();
+    if (!startDate || !startTime) return;
+    const { allowedSet, defaultMinutes } = appointmentDurationOptions;
+    let durationMinutes = defaultMinutes;
+    const currentDuration = calculateDurationMinutesFromParts(
+      appointmentStartDate,
+      appointmentStartTime,
+      appointmentEndDate,
+      appointmentEndTime,
+    );
+    if (currentDuration && allowedSet.has(currentDuration)) {
+      durationMinutes = currentDuration;
+    } else if (allowedSet.size > 0 && !allowedSet.has(durationMinutes)) {
+      durationMinutes = Math.min(...allowedSet);
+    }
+    if (!durationMinutes || durationMinutes <= 0) return;
+    applyAppointmentDuration(durationMinutes);
+  }, [
+    applyAppointmentDuration,
+    appointmentDurationOptions,
+    appointmentSelectedType,
+    appointmentStartDate,
+    appointmentStartTime,
+  ]);
 
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
@@ -4864,9 +4981,33 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setAppointmentError('Appointment type is required.');
       return false;
     }
+    if (appointmentSelectedType?.requiresResource && !appointmentForm.resourceId.trim()) {
+      setAppointmentError('Resource is required for this appointment type.');
+      return false;
+    }
     if (!appointmentForm.startTime.trim() || !appointmentForm.endTime.trim()) {
       setAppointmentError('Start and end are required.');
       return false;
+    }
+    const durationMinutes = calculateDurationMinutesFromParts(
+      appointmentStartDate,
+      appointmentStartTime,
+      appointmentEndDate,
+      appointmentEndTime,
+    );
+    if (!durationMinutes) {
+      setAppointmentError('End time must be after start time.');
+      return false;
+    }
+    if (appointmentSelectedType) {
+      if (
+        appointmentDurationOptions.allowedSet.size > 0 &&
+        !appointmentDurationOptions.allowedSet.has(durationMinutes)
+      ) {
+        const allowedLabel = appointmentDurationOptions.allowedList.join(', ');
+        setAppointmentError(`Duration must be ${allowedLabel} minutes for this appointment type.`);
+        return false;
+      }
     }
     setAppointmentError(null);
     return true;
@@ -5573,6 +5714,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [agendaSlotMinutes],
   );
 
+  const getAppointmentDurationMinutes = useCallback(
+    (appointment: Appointment) => {
+      const type = appointment.appointmentTypeId
+        ? appointmentTypeMap.get(appointment.appointmentTypeId) ?? null
+        : null;
+      const { allowedSet, defaultMinutes } = resolveAppointmentTypeDurations(type);
+      const durationMinutes = calculateDurationMinutes(
+        appointment.startTime ?? '',
+        appointment.endTime ?? '',
+      );
+      if (durationMinutes && allowedSet.has(durationMinutes)) {
+        return durationMinutes;
+      }
+      if (allowedSet.size > 0) {
+        return allowedSet.has(defaultMinutes) ? defaultMinutes : Math.min(...allowedSet);
+      }
+      return defaultMinutes > 0 ? defaultMinutes : agendaSlotMinutes;
+    },
+    [agendaSlotMinutes, appointmentTypeMap],
+  );
+
   const buildAgendaDateTime = useCallback(
     (minutes: number) => {
       const next = new Date(agendaDateBase);
@@ -5654,16 +5816,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         return;
       }
       const start = buildAgendaDateTime(minutes);
-      const end = selectedAppointment.endTime
-        ? new Date(selectedAppointment.endTime)
-        : null;
-      const currentStart = selectedAppointment.startTime
-        ? new Date(selectedAppointment.startTime)
-        : null;
-      const durationMinutes =
-        currentStart && end && !Number.isNaN(end.getTime()) && !Number.isNaN(currentStart.getTime())
-          ? Math.max(agendaSlotMinutes, Math.round((end.getTime() - currentStart.getTime()) / 60000))
-          : agendaSlotMinutes;
+      const durationMinutes = getAppointmentDurationMinutes(selectedAppointment);
       if (!isAgendaSlotOpen(resourceId, minutes, durationMinutes)) {
         return;
       }
@@ -5708,6 +5861,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       authFetch,
       buildAgendaDateTime,
       formatAgendaTime,
+      getAppointmentDurationMinutes,
       isAgendaSlotOpen,
       loadAppointments,
     ],

@@ -4,12 +4,14 @@ import com.exampleproject.model.Appointment;
 import com.exampleproject.model.AppointmentEvent;
 import com.exampleproject.model.AppointmentEventType;
 import com.exampleproject.model.AppointmentStatus;
+import com.exampleproject.model.AppointmentType;
 import com.exampleproject.model.Customer;
 import com.exampleproject.model.CustomerInteraction;
 import com.exampleproject.model.Resource;
 import com.exampleproject.model.User;
 import com.exampleproject.model.UserRole;
 import com.exampleproject.repository.AppointmentRepository;
+import com.exampleproject.repository.AppointmentTypeRepository;
 import com.exampleproject.repository.CustomerRepository;
 import com.exampleproject.repository.ResourceRepository;
 import com.exampleproject.security.CurrentUserProvider;
@@ -21,7 +23,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,6 +35,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings("null")
 public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
+    private final AppointmentTypeRepository appointmentTypeRepository;
     private final CustomerRepository customerRepository;
     private final ResourceRepository resourceRepository;
     private final CurrentUserProvider currentUserProvider;
@@ -37,12 +43,14 @@ public class AppointmentService {
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
+            AppointmentTypeRepository appointmentTypeRepository,
             CustomerRepository customerRepository,
             ResourceRepository resourceRepository,
             CurrentUserProvider currentUserProvider,
             OrganizationAccessManager organizationAccessManager
     ) {
         this.appointmentRepository = appointmentRepository;
+        this.appointmentTypeRepository = appointmentTypeRepository;
         this.customerRepository = customerRepository;
         this.resourceRepository = resourceRepository;
         this.currentUserProvider = currentUserProvider;
@@ -120,7 +128,10 @@ public class AppointmentService {
         appointment.setId(null);
         ensureOrgForWrite(appointment, context, null);
         validateAppointment(appointment);
-        ensureResourceCapacity(appointment, null);
+        AppointmentType type = resolveAppointmentType(appointment);
+        Resource resource = resolveAppointmentResource(appointment, type);
+        enforceAppointmentTypeDuration(appointment, type);
+        ensureResourceCapacity(appointment, null, resource);
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
         }
@@ -134,7 +145,10 @@ public class AppointmentService {
         Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
         ensureOrgForWrite(appointment, context, existing);
         validateAppointment(appointment);
-        ensureResourceCapacity(appointment, existing);
+        AppointmentType type = resolveAppointmentType(appointment);
+        Resource resource = resolveAppointmentResource(appointment, type);
+        enforceAppointmentTypeDuration(appointment, type);
+        ensureResourceCapacity(appointment, existing, resource);
         appointment.setId(id);
         if (appointment.getStatus() == null) {
             appointment.setStatus(AppointmentStatus.SCHEDULED);
@@ -296,6 +310,72 @@ public class AppointmentService {
         }
     }
 
+    private AppointmentType resolveAppointmentType(Appointment appointment) {
+        String typeId = appointment.getAppointmentTypeId();
+        if (typeId == null || typeId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "appointmentTypeId is required");
+        }
+        AppointmentType type = appointmentTypeRepository.findById(typeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment type not found"));
+        if (type.getOrgId() != null && !type.getOrgId().equals(appointment.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment type does not belong to organization");
+        }
+        return type;
+    }
+
+    private Resource resolveAppointmentResource(Appointment appointment, AppointmentType type) {
+        String resourceId = appointment.getResourceId();
+        if (type.isRequiresResource() && (resourceId == null || resourceId.isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resourceId is required for this appointment type");
+        }
+        if (resourceId == null || resourceId.isBlank()) {
+            return null;
+        }
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not exist"));
+        if (resource.getOrgId() != null && !resource.getOrgId().equals(appointment.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not belong to organization");
+        }
+        Set<String> allowedTypes = Optional.ofNullable(resource.getAllowedAppointmentTypeIds()).orElse(Collections.emptySet());
+        if (!allowedTypes.isEmpty() && !allowedTypes.contains(type.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment type not allowed on resource");
+        }
+        return resource;
+    }
+
+    private void enforceAppointmentTypeDuration(Appointment appointment, AppointmentType type) {
+        LocalDateTime start = appointment.getStartTime();
+        LocalDateTime end = appointment.getEndTime();
+        if (start == null || end == null) {
+            return;
+        }
+        long durationMinutes = Duration.between(start, end).toMinutes();
+        if (durationMinutes <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End time must be after start time");
+        }
+        int defaultDuration = Optional.ofNullable(type.getDefaultDurationMinutes()).orElse(30);
+        if (defaultDuration <= 0) {
+            defaultDuration = 30;
+        }
+        Set<Integer> allowed = new HashSet<>();
+        allowed.add(defaultDuration);
+        for (Integer value : Optional.ofNullable(type.getAllowedDurations()).orElse(Collections.emptyList())) {
+            if (value != null && value > 0) {
+                allowed.add(value);
+            }
+        }
+        if (!allowed.contains((int) durationMinutes)) {
+            String allowedLabel = allowed.stream()
+                    .sorted()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(", "));
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Appointment duration must be one of " + allowedLabel + " minutes"
+            );
+        }
+    }
+
     private void sanitizeAppointmentForPractitioner(Appointment appointment, UserAccessContext context) {
         enforcePractitionerOwnership(appointment, context.practitionerResource());
         List<AppointmentEvent> events = appointment.getEvents();
@@ -375,17 +455,24 @@ public class AppointmentService {
     }
 
     private void ensureResourceCapacity(Appointment appointment, Appointment existing) {
+        ensureResourceCapacity(appointment, existing, null);
+    }
+
+    private void ensureResourceCapacity(Appointment appointment, Appointment existing, Resource resource) {
         String resourceId = appointment.getResourceId();
         if (resourceId == null || resourceId.isBlank()) {
             return;
         }
-        Resource resource = resourceRepository.findById(resourceId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not exist"));
-        if (resource.getOrgId() != null && !resource.getOrgId().equals(appointment.getOrgId())) {
+        Resource resolved = resource;
+        if (resolved == null || resolved.getId() == null || !resolved.getId().equals(resourceId)) {
+            resolved = resourceRepository.findById(resourceId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not exist"));
+        }
+        if (resolved.getOrgId() != null && !resolved.getOrgId().equals(appointment.getOrgId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource does not belong to organization");
         }
         int capacity = 1;
-        Integer resourceCapacity = resource.getCapacity();
+        Integer resourceCapacity = resolved.getCapacity();
         if (resourceCapacity != null && resourceCapacity > 0) {
             capacity = resourceCapacity;
         }
@@ -400,7 +487,7 @@ public class AppointmentService {
         LocalDateTime to = end.plusMinutes(bufferMinutes);
         List<Appointment> candidates = appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(
                 appointment.getOrgId(),
-                resourceId,
+                resolved.getId(),
                 from,
                 to
         );
