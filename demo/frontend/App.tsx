@@ -339,6 +339,7 @@ type CustomerInteractionFormState = {
 type TabKey =
   | 'orgs'
   | 'types'
+  | 'agenda'
   | 'schedule'
   | 'users'
   | 'customers'
@@ -691,6 +692,10 @@ const buildDateTimeValue = (date: string, time: string) => {
 };
 
 const DEFAULT_USER_EXPIRY_DAYS = 90;
+const AGENDA_START_HOUR = 8;
+const AGENDA_END_HOUR = 18;
+const AGENDA_SLOT_MINUTES = 30;
+const AGENDA_SLOT_HEIGHT = 44;
 
 const buildDefaultUserExpiry = () => {
   const expiresTime = '00:00';
@@ -2901,6 +2906,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [isPlatformAdminOnly, isSuperAdmin]);
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
+  const canViewAgenda = isAgent;
   const canViewSchedule = !isAgent;
   const canViewUsers = !isAgent;
   const canViewResources = !isAgent;
@@ -2908,6 +2914,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const availableTabs = useMemo<TabKey[]>(() => {
     const tabs: TabKey[] = [];
     if (isAgent) {
+      if (canViewAgenda) {
+        tabs.push('agenda');
+      }
       if (canViewCustomers) {
         tabs.push('customers');
       }
@@ -2944,6 +2953,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [
     canManageOrgTypes,
     canManageOrganizations,
+    canViewAgenda,
     canViewAppointmentTypes,
     canViewAppointments,
     canViewCustomers,
@@ -3126,6 +3136,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     requiresResource: false,
     active: true,
   });
+  const [agendaDate, setAgendaDate] = useState(() => formatIsoDate(new Date()));
+  const [agendaSelectedAppointmentId, setAgendaSelectedAppointmentId] = useState<string | null>(null);
+  const [agendaMoveMessage, setAgendaMoveMessage] = useState<string | null>(null);
+  const [agendaMoveError, setAgendaMoveError] = useState<string | null>(null);
+  const [agendaMoving, setAgendaMoving] = useState(false);
+
+  useEffect(() => {
+    setAgendaSelectedAppointmentId(null);
+    setAgendaMoveMessage(null);
+    setAgendaMoveError(null);
+  }, [agendaDate]);
 
   const authHeaders = useMemo(
     () => ({
@@ -5138,6 +5159,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   }, [resourceForm.orgId, users]);
 
+  const customerLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    customers.forEach((customer) => {
+      const id = (customer.id ?? '').trim();
+      if (!id) return;
+      map.set(id, formatCustomerName(customer));
+    });
+    return map;
+  }, [customers]);
+
+  const resourceLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    resources.forEach((resource) => {
+      const id = (resource.id ?? '').trim();
+      if (!id) return;
+      map.set(id, resource.name || resource.type || id);
+    });
+    return map;
+  }, [resources]);
+
   const appointmentTypeLabelMap = useMemo(() => {
     const map = new Map<string, string>();
     appointmentTypes.forEach((type) => {
@@ -5172,6 +5213,102 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return appointments.filter((appt) => appt.customerId === customerForm.id);
   }, [appointments, customerForm.id, interactionAppointments]);
 
+  const agendaSlots = useMemo(() => {
+    const slots: { index: number; minutes: number; label: string }[] = [];
+    const startMinutes = AGENDA_START_HOUR * 60;
+    const endMinutes = AGENDA_END_HOUR * 60;
+    for (let minutes = startMinutes; minutes < endMinutes; minutes += AGENDA_SLOT_MINUTES) {
+      const hour = Math.floor(minutes / 60)
+        .toString()
+        .padStart(2, '0');
+      const minute = (minutes % 60).toString().padStart(2, '0');
+      slots.push({
+        index: (minutes - startMinutes) / AGENDA_SLOT_MINUTES,
+        minutes,
+        label: `${hour}:${minute}`,
+      });
+    }
+    return slots;
+  }, []);
+
+  const agendaAppointments = useMemo(() => {
+    return appointments.filter((appt) => {
+      if (!appt.startTime) return false;
+      if (appt.status === 'CANCELLED') return false;
+      const { date } = splitDateTime(appt.startTime);
+      return date === agendaDate;
+    });
+  }, [agendaDate, appointments]);
+
+  const agendaResources = useMemo(() => {
+    const activeResources = resources.filter((resource) => resource.active !== false);
+    const hasUnassigned = agendaAppointments.some((appt) => !appt.resourceId);
+    if (!hasUnassigned) {
+      return activeResources;
+    }
+    return [
+      ...activeResources,
+      {
+        id: 'unassigned',
+        name: 'Unassigned',
+        type: 'N/A',
+        orgId: '',
+        active: true,
+        kind: 'ASSET',
+      } as Resource,
+    ];
+  }, [agendaAppointments, resources]);
+
+  const agendaAppointmentsByResource = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    agendaResources.forEach((resource) => {
+      map.set(resource.id || 'unassigned', []);
+    });
+    agendaAppointments.forEach((appt) => {
+      const key = appt.resourceId || 'unassigned';
+      const list = map.get(key);
+      if (list) {
+        list.push(appt);
+      } else {
+        map.set(key, [appt]);
+      }
+    });
+    map.forEach((list) => {
+      list.sort((a, b) => Date.parse(a.startTime || '') - Date.parse(b.startTime || ''));
+    });
+    return map;
+  }, [agendaAppointments, agendaResources]);
+
+  const agendaFillRate = useMemo(() => {
+    const slotCount = agendaSlots.length;
+    const resourceCount = agendaResources.length;
+    if (slotCount === 0 || resourceCount === 0) return 0;
+    const totalSlots = slotCount * resourceCount;
+    const bookedSlots = agendaAppointments.reduce((sum, appt) => {
+      const start = appt.startTime ? new Date(appt.startTime) : null;
+      const end = appt.endTime ? new Date(appt.endTime) : null;
+      if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return sum;
+      }
+      const durationMinutes = Math.max(
+        AGENDA_SLOT_MINUTES,
+        Math.round((end.getTime() - start.getTime()) / 60000),
+      );
+      return sum + Math.max(1, Math.ceil(durationMinutes / AGENDA_SLOT_MINUTES));
+    }, 0);
+    return Math.min(100, Math.round((bookedSlots / totalSlots) * 100));
+  }, [agendaAppointments, agendaResources.length, agendaSlots.length]);
+
+  const agendaDateBase = useMemo(() => {
+    const [year, month, day] = agendaDate.split('-').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0);
+  }, [agendaDate]);
+
+  const agendaSelectedAppointment = useMemo(() => {
+    if (!agendaSelectedAppointmentId) return null;
+    return appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
+  }, [agendaSelectedAppointmentId, appointments]);
+
   const totalTypePages = useMemo(
     () => Math.max(1, Math.ceil(sortedTypes.length / PAGE_SIZE)),
     [sortedTypes.length],
@@ -5184,6 +5321,141 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   useEffect(() => {
     if (typePage > totalTypePages) setTypePage(totalTypePages);
   }, [typePage, totalTypePages]);
+
+  const agendaStartMinutes = AGENDA_START_HOUR * 60;
+  const agendaEndMinutes = AGENDA_END_HOUR * 60;
+
+  const getAgendaSlotIndex = useCallback(
+    (date: Date) => {
+      const minutes = date.getHours() * 60 + date.getMinutes();
+      if (minutes < agendaStartMinutes || minutes >= agendaEndMinutes) {
+        return null;
+      }
+      return Math.floor((minutes - agendaStartMinutes) / AGENDA_SLOT_MINUTES);
+    },
+    [agendaEndMinutes, agendaStartMinutes],
+  );
+
+  const getAgendaSlotSpan = useCallback((start: Date, end: Date) => {
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return 1;
+    }
+    const durationMinutes = Math.max(
+      AGENDA_SLOT_MINUTES,
+      Math.round((end.getTime() - start.getTime()) / 60000),
+    );
+    return Math.max(1, Math.ceil(durationMinutes / AGENDA_SLOT_MINUTES));
+  }, []);
+
+  const buildAgendaDateTime = useCallback(
+    (minutes: number) => {
+      const next = new Date(agendaDateBase);
+      next.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+      return next;
+    },
+    [agendaDateBase],
+  );
+
+  const formatAgendaTime = useCallback((date: Date) => {
+    const hour = date.getHours().toString().padStart(2, '0');
+    const minute = date.getMinutes().toString().padStart(2, '0');
+    return `${hour}:${minute}`;
+  }, []);
+
+  const shiftAgendaDate = useCallback(
+    (offsetDays: number) => {
+      const next = new Date(agendaDateBase);
+      next.setDate(next.getDate() + offsetDays);
+      setAgendaDate(formatIsoDate(next));
+    },
+    [agendaDateBase],
+  );
+
+  const getResourceFillRate = useCallback(
+    (resourceId: string) => {
+      const appointmentsForResource = agendaAppointmentsByResource.get(resourceId) ?? [];
+      const totalSlots = agendaSlots.length;
+      if (totalSlots === 0) return 0;
+      const bookedSlots = appointmentsForResource.reduce((sum, appt) => {
+        const start = appt.startTime ? new Date(appt.startTime) : null;
+        const end = appt.endTime ? new Date(appt.endTime) : null;
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+          return sum;
+        }
+        return sum + getAgendaSlotSpan(start, end);
+      }, 0);
+      return Math.min(100, Math.round((bookedSlots / totalSlots) * 100));
+    },
+    [agendaAppointmentsByResource, agendaSlots.length, getAgendaSlotSpan],
+  );
+
+  const clearAgendaSelection = useCallback(() => {
+    setAgendaSelectedAppointmentId(null);
+    setAgendaMoveMessage(null);
+    setAgendaMoveError(null);
+  }, []);
+
+  const handleAgendaAppointmentPress = useCallback((appointment: Appointment) => {
+    if (!appointment.id) return;
+    setAgendaSelectedAppointmentId(appointment.id);
+    setAgendaMoveMessage('Click a time slot to move this appointment.');
+    setAgendaMoveError(null);
+  }, []);
+
+  const handleAgendaSlotPress = useCallback(
+    async (resourceId: string, minutes: number) => {
+      if (!agendaSelectedAppointment) {
+        return;
+      }
+      if (!agendaSelectedAppointment.id) {
+        return;
+      }
+      const start = buildAgendaDateTime(minutes);
+      const end = agendaSelectedAppointment.endTime
+        ? new Date(agendaSelectedAppointment.endTime)
+        : null;
+      const currentStart = agendaSelectedAppointment.startTime
+        ? new Date(agendaSelectedAppointment.startTime)
+        : null;
+      const durationMinutes =
+        currentStart && end && !Number.isNaN(end.getTime()) && !Number.isNaN(currentStart.getTime())
+          ? Math.max(AGENDA_SLOT_MINUTES, Math.round((end.getTime() - currentStart.getTime()) / 60000))
+          : AGENDA_SLOT_MINUTES;
+      const newEnd = new Date(start.getTime() + durationMinutes * 60000);
+      const nextResourceId = resourceId === 'unassigned' ? null : resourceId;
+      const payload: Appointment = {
+        ...agendaSelectedAppointment,
+        id: agendaSelectedAppointment.id,
+        resourceId: nextResourceId || undefined,
+        startTime: start.toISOString(),
+        endTime: newEnd.toISOString(),
+        status: agendaSelectedAppointment.status || 'SCHEDULED',
+        events: agendaSelectedAppointment.events ?? [],
+      };
+      setAgendaMoving(true);
+      setAgendaMoveMessage('Moving appointment...');
+      setAgendaMoveError(null);
+      try {
+        const res = await authFetch(`/api/appointments/${agendaSelectedAppointment.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          setAgendaMoveError(await parseErrorMessage(res));
+          setAgendaMoveMessage(null);
+          return;
+        }
+        await loadAppointments();
+        setAgendaMoveMessage('Appointment moved.');
+      } catch (error) {
+        setAgendaMoveError(error instanceof Error ? error.message : 'Unable to move appointment.');
+        setAgendaMoveMessage(null);
+      } finally {
+        setAgendaMoving(false);
+      }
+    },
+    [agendaSelectedAppointment, authFetch, buildAgendaDateTime, loadAppointments],
+  );
 
   const toggleWorkingDay = (day: DayName) => {
     setScheduleForm((prev) => {
@@ -5563,6 +5835,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             >
               <Text style={[styles.tabButtonText, activeTab === 'types' && styles.tabButtonTextActive]}>
                 Organization types
+              </Text>
+            </Pressable>
+          ) : null}
+          {canViewAgenda ? (
+            <Pressable
+              style={[styles.tabButton, activeTab === 'agenda' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('agenda')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'agenda' && styles.tabButtonTextActive]}>
+                Agenda
               </Text>
             </Pressable>
           ) : null}
@@ -6102,6 +6384,245 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onPress={handleTypeSave}
               disabled={typeSaving}
             />
+          </>
+        ) : activeTab === 'agenda' && canViewAgenda ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Agenda by resource</Text>
+                <View style={styles.sectionActions}>
+                  <Pressable
+                    onPress={() => setAgendaDate(formatIsoDate(new Date()))}
+                    style={styles.secondaryChipCompact}
+                  >
+                    <Text style={styles.secondaryChipText}>Today</Text>
+                  </Pressable>
+                  <Pressable onPress={() => shiftAgendaDate(-1)} style={styles.secondaryChipCompact}>
+                    <Text style={styles.secondaryChipText}>Prev</Text>
+                  </Pressable>
+                  <Pressable onPress={() => shiftAgendaDate(1)} style={styles.secondaryChipCompact}>
+                    <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.row}>
+                <View style={styles.flexHalf}>
+                  <DatePickerField
+                    label="Day"
+                    placeholder="YYYY-MM-DD"
+                    value={agendaDate}
+                    onChangeText={setAgendaDate}
+                  />
+                </View>
+                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
+                  <View style={styles.statusPill}>
+                    <Text style={styles.statusText}>Daily fill rate: {agendaFillRate}%</Text>
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.helperText}>
+                Select an appointment to view details, then click a time slot to move it.
+              </Text>
+            </View>
+
+            {agendaMoveMessage ? (
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>{agendaMoveMessage}</Text>
+              </View>
+            ) : null}
+            {agendaMoveError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{agendaMoveError}</Text>
+              </View>
+            ) : null}
+
+            {agendaResources.length === 0 ? (
+              <Text style={styles.statusText}>No resources available for agenda view.</Text>
+            ) : (
+              <View className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <View className="flex-row">
+                  <View className="w-20 border-r border-slate-200 bg-slate-50">
+                    <View className="h-12 items-center justify-center border-b border-slate-200 bg-slate-100">
+                      <Text className="text-[11px] uppercase tracking-[1px] text-slate-500">Time</Text>
+                    </View>
+                    {agendaSlots.map((slot) => (
+                      <View
+                        key={slot.index}
+                        className="items-center justify-center border-b border-slate-200"
+                        style={{ height: AGENDA_SLOT_HEIGHT }}
+                      >
+                        <Text className="text-[11px] text-slate-500">{slot.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View>
+                      <View className="flex-row border-b border-slate-200 bg-slate-100">
+                        {agendaResources.map((resource) => {
+                          const resourceId = resource.id || 'unassigned';
+                          const fillRate = getResourceFillRate(resourceId);
+                          return (
+                            <View key={resourceId} className="w-56 border-r border-slate-200 px-3 py-2">
+                              <Text className="text-[13px] font-semibold text-slate-900" numberOfLines={1}>
+                                {resource.name || resource.type || resourceId}
+                              </Text>
+                              <Text className="text-[11px] text-slate-500" numberOfLines={1}>
+                                {resource.type || resource.kind || 'Resource'}
+                              </Text>
+                              <View className="mt-1 self-start rounded-full bg-slate-900/10 px-2 py-0.5">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[0.5px] text-slate-600">
+                                  {fillRate}% full
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                      <View className="flex-row">
+                        {agendaResources.map((resource) => {
+                          const resourceId = resource.id || 'unassigned';
+                          const appointmentsForResource =
+                            agendaAppointmentsByResource.get(resourceId) ?? [];
+                          return (
+                            <View key={resourceId} className="w-56 border-r border-slate-200 bg-white">
+                              <View
+                                className="relative bg-white"
+                                style={{ height: agendaSlots.length * AGENDA_SLOT_HEIGHT }}
+                              >
+                                {agendaSlots.map((slot) => {
+                                  const slotClassName = agendaSelectedAppointment
+                                    ? 'border-b border-slate-100 bg-amber-50/40'
+                                    : 'border-b border-slate-100';
+                                  return (
+                                    <Pressable
+                                      key={`${resourceId}-${slot.index}`}
+                                      className={slotClassName}
+                                      style={{ height: AGENDA_SLOT_HEIGHT }}
+                                      onPress={() => handleAgendaSlotPress(resourceId, slot.minutes)}
+                                      disabled={agendaMoving || !agendaSelectedAppointment}
+                                    />
+                                  );
+                                })}
+                                {appointmentsForResource.map((appt) => {
+                                  if (!appt.startTime) return null;
+                                  const start = new Date(appt.startTime);
+                                  if (Number.isNaN(start.getTime())) return null;
+                                  const fallbackEnd = new Date(
+                                    start.getTime() + AGENDA_SLOT_MINUTES * 60000,
+                                  );
+                                  const end = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
+                                  const slotIndex = getAgendaSlotIndex(start);
+                                  if (slotIndex === null) return null;
+                                  const slotSpan = Math.min(
+                                    agendaSlots.length - slotIndex,
+                                    getAgendaSlotSpan(start, end),
+                                  );
+                                  const top = slotIndex * AGENDA_SLOT_HEIGHT;
+                                  const height = slotSpan * AGENDA_SLOT_HEIGHT;
+                                  const isSelected = agendaSelectedAppointmentId === appt.id;
+                                  const appointmentClassName = isSelected
+                                    ? 'absolute left-2 right-2 rounded-xl border border-emerald-500 bg-emerald-100 px-2 py-1.5 shadow'
+                                    : 'absolute left-2 right-2 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 shadow-sm';
+                                  const customerLabel = appt.customerId
+                                    ? customerLabelMap.get(appt.customerId) ?? appt.customerId
+                                    : 'Customer';
+                                  const apptTypeLabel = appt.appointmentTypeId
+                                    ? appointmentTypeLabelMap.get(appt.appointmentTypeId) ??
+                                      appt.appointmentTypeId
+                                    : 'Type';
+                                  const startLabel = formatAgendaTime(start);
+                                  const endLabel = formatAgendaTime(end);
+                                  return (
+                                    <Pressable
+                                      key={appt.id ?? `${appt.customerId}-${appt.startTime}`}
+                                      className={appointmentClassName}
+                                      style={{ top, height }}
+                                      onPress={() => handleAgendaAppointmentPress(appt)}
+                                    >
+                                      <Text className="text-[12px] font-semibold text-slate-900" numberOfLines={1}>
+                                        {customerLabel}
+                                      </Text>
+                                      <Text className="text-[11px] text-emerald-700" numberOfLines={1}>
+                                        {apptTypeLabel} {startLabel}-{endLabel}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            <View className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 gap-2">
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Appointment details</Text>
+                {agendaSelectedAppointment ? (
+                  <Pressable onPress={clearAgendaSelection} style={styles.secondaryChipCompact}>
+                    <Text style={styles.secondaryChipText}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {agendaSelectedAppointment ? (
+                (() => {
+                  const startParts = splitDateTime(agendaSelectedAppointment.startTime ?? '');
+                  const endParts = agendaSelectedAppointment.endTime
+                    ? splitDateTime(agendaSelectedAppointment.endTime)
+                    : null;
+                  const timeLabel = endParts?.time
+                    ? `${startParts.time}-${endParts.time}`
+                    : startParts.time || 'N/A';
+                  return (
+                    <>
+                      <Text style={styles.orgMeta}>ID: {agendaSelectedAppointment.id || 'N/A'}</Text>
+                      <Text style={styles.orgMeta}>
+                        Customer:{' '}
+                        {agendaSelectedAppointment.customerId
+                          ? customerLabelMap.get(agendaSelectedAppointment.customerId) ??
+                            agendaSelectedAppointment.customerId
+                          : 'N/A'}
+                      </Text>
+                      <Text style={styles.orgMeta}>
+                        Resource:{' '}
+                        {agendaSelectedAppointment.resourceId
+                          ? resourceLabelMap.get(agendaSelectedAppointment.resourceId) ??
+                            agendaSelectedAppointment.resourceId
+                          : 'Unassigned'}
+                      </Text>
+                      <Text style={styles.orgMeta}>
+                        Type:{' '}
+                        {agendaSelectedAppointment.appointmentTypeId
+                          ? appointmentTypeLabelMap.get(agendaSelectedAppointment.appointmentTypeId) ??
+                            agendaSelectedAppointment.appointmentTypeId
+                          : 'N/A'}
+                      </Text>
+                      {agendaSelectedAppointment.orgId ? (
+                        <Text style={styles.orgMeta}>
+                          Organization: {getOrganizationLabel(homeOrgBase, agendaSelectedAppointment.orgId)}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.orgMeta}>Date: {startParts.date || agendaDate || 'N/A'}</Text>
+                      <Text style={styles.orgMeta}>Time: {timeLabel}</Text>
+                      <Text style={styles.orgMeta}>
+                        Status: {agendaSelectedAppointment.status || 'SCHEDULED'}
+                      </Text>
+                      {agendaSelectedAppointment.notes ? (
+                        <Text style={styles.orgMeta}>Notes: {agendaSelectedAppointment.notes}</Text>
+                      ) : null}
+                    </>
+                  );
+                })()
+              ) : (
+                <Text style={styles.statusText}>Select an appointment to see details.</Text>
+              )}
+            </View>
           </>
         ) : activeTab === 'schedule' && canViewSchedule ? (
           <>
