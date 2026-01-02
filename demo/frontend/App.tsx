@@ -890,6 +890,13 @@ const formatTimeFromDate = (date: Date) => {
   return `${hour}:${minute}`;
 };
 
+const formatMinutesToTime = (minutes: number) => {
+  const safeMinutes = Math.max(0, Math.min(23 * 60 + 59, Math.round(minutes)));
+  const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
+  const minute = (safeMinutes % 60).toString().padStart(2, '0');
+  return `${hour}:${minute}`;
+};
+
 const parseCommaList = (value: string) => {
   const seen = new Set<string>();
   return value
@@ -5605,22 +5612,68 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaScheduleWindowsByResource, agendaSlotMinutes]);
 
   const agendaSlots = useMemo(() => {
-    const slots: { index: number; minutes: number; label: string }[] = [];
+    const slots: { index: number; minutes: number }[] = [];
     const startMinutes = agendaScheduleRange.start;
     const endMinutes = agendaScheduleRange.end;
     for (let minutes = startMinutes; minutes < endMinutes; minutes += agendaSlotMinutes) {
-      const hour = Math.floor(minutes / 60)
-        .toString()
-        .padStart(2, '0');
-      const minute = (minutes % 60).toString().padStart(2, '0');
       slots.push({
         index: (minutes - startMinutes) / agendaSlotMinutes,
         minutes,
-        label: `${hour}:${minute}`,
       });
     }
     return slots;
   }, [agendaScheduleRange.end, agendaScheduleRange.start, agendaSlotMinutes]);
+
+  const agendaResourceSlotDurations = useMemo(() => {
+    const map = new Map<string, number[]>();
+    agendaResources.forEach((resource) => {
+      const resourceId = resource.id || 'unassigned';
+      const durations = new Set<number>();
+      const ids = resource.allowedAppointmentTypeIds ?? [];
+      const typeIds = ids.length > 0
+        ? ids
+        : appointmentTypes
+            .filter((type) => !resource.orgId || !type.orgId || type.orgId === resource.orgId)
+            .map((type) => type.id)
+            .filter((id): id is string => Boolean(id));
+      typeIds.forEach((typeId) => {
+        const type = appointmentTypeMap.get(typeId);
+        if (!type) return;
+        const { allowedList, defaultMinutes } = resolveAppointmentTypeDurations(type);
+        if (allowedList.length > 0) {
+          allowedList.forEach((value) => durations.add(value));
+          return;
+        }
+        if (defaultMinutes > 0) {
+          durations.add(defaultMinutes);
+        }
+      });
+      if (durations.size === 0) {
+        durations.add(agendaSlotMinutes);
+      }
+      map.set(resourceId, Array.from(durations).sort((a, b) => a - b));
+    });
+    return map;
+  }, [agendaResources, appointmentTypeMap, appointmentTypes, agendaSlotMinutes]);
+
+  const agendaAvailableStartTimes = useMemo(() => {
+    const times = new Set<number>();
+    agendaResources.forEach((resource) => {
+      const resourceId = resource.id || 'unassigned';
+      const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
+      const durations = agendaResourceSlotDurations.get(resourceId) ?? [agendaSlotMinutes];
+      durations.forEach((duration) => {
+        if (duration <= 0) return;
+        windows.forEach((window) => {
+          const latestStart = window.end - duration;
+          for (let minutes = window.start; minutes <= latestStart; minutes += duration) {
+            times.add(minutes);
+          }
+        });
+      });
+    });
+    return Array.from(times).sort((a, b) => a - b);
+  }, [agendaResources, agendaResourceSlotDurations, agendaScheduleWindowsByResource, agendaSlotMinutes]);
 
   const agendaAppointmentsByResource = useMemo(() => {
     const map = new Map<string, Appointment[]>();
@@ -5715,17 +5768,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     isAgendaToday,
   ]);
 
-  const getAgendaSlotIndex = useCallback(
-    (date: Date) => {
-      const minutes = date.getHours() * 60 + date.getMinutes();
-      if (minutes < agendaStartMinutes || minutes >= agendaEndMinutes) {
-        return null;
-      }
-      return Math.floor((minutes - agendaStartMinutes) / agendaSlotMinutes);
-    },
-    [agendaEndMinutes, agendaSlotMinutes, agendaStartMinutes],
-  );
-
   const getAgendaSlotSpan = useCallback(
     (start: Date, end: Date) => {
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
@@ -5760,6 +5802,81 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     },
     [agendaSlotMinutes, appointmentTypeMap],
   );
+
+  const agendaSelectedDurationMinutes = useMemo(() => {
+    if (!agendaSelectedAppointment) return null;
+    return getAppointmentDurationMinutes(agendaSelectedAppointment);
+  }, [agendaSelectedAppointment, getAppointmentDurationMinutes]);
+
+  const agendaSelectedStartsByResource = useMemo(() => {
+    const map = new Map<string, number[]>();
+    if (!agendaSelectedAppointment) return map;
+    const durationMinutes =
+      agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0
+        ? agendaSelectedDurationMinutes
+        : agendaSlotMinutes;
+    if (durationMinutes <= 0) {
+      return map;
+    }
+    agendaResources.forEach((resource) => {
+      const resourceId = resource.id || 'unassigned';
+      const allowedTypeIds = resource.allowedAppointmentTypeIds ?? [];
+      if (
+        allowedTypeIds.length > 0 &&
+        agendaSelectedAppointment.appointmentTypeId &&
+        !allowedTypeIds.includes(agendaSelectedAppointment.appointmentTypeId)
+      ) {
+        map.set(resourceId, []);
+        return;
+      }
+      const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
+      const starts = new Set<number>();
+      windows.forEach((window) => {
+        const latestStart = window.end - durationMinutes;
+        for (let minutes = window.start; minutes <= latestStart; minutes += durationMinutes) {
+          starts.add(minutes);
+        }
+      });
+      map.set(resourceId, Array.from(starts).sort((a, b) => a - b));
+    });
+    return map;
+  }, [
+    agendaResources,
+    agendaScheduleWindowsByResource,
+    agendaSelectedAppointment,
+    agendaSelectedDurationMinutes,
+    agendaSlotMinutes,
+  ]);
+
+  const agendaSelectedStartTimes = useMemo(() => {
+    const set = new Set<number>();
+    agendaSelectedStartsByResource.forEach((starts) => {
+      starts.forEach((minutes) => set.add(minutes));
+    });
+    return set;
+  }, [agendaSelectedStartsByResource]);
+
+  const agendaTimeMarkers = useMemo(() => {
+    const baseMinutes =
+      agendaAvailableStartTimes.length > 0
+        ? agendaAvailableStartTimes
+        : agendaSlots.map((slot) => slot.minutes);
+    return baseMinutes.map((minutes) => {
+      const top = ((minutes - agendaStartMinutes) / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
+      return {
+        minutes,
+        top,
+        label: formatMinutesToTime(minutes),
+        isSelected: agendaSelectedStartTimes.has(minutes),
+      };
+    });
+  }, [
+    agendaAvailableStartTimes,
+    agendaSelectedStartTimes,
+    agendaSlotMinutes,
+    agendaSlots,
+    agendaStartMinutes,
+  ]);
 
   const buildAgendaAppointmentLayout = useCallback(
     (appointmentsForResource: Appointment[]) => {
@@ -5892,7 +6009,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!appointment.id) return;
     agendaSelectedAppointmentRef.current = appointment;
     setAgendaSelectedAppointmentId(appointment.id);
-    setAgendaMoveMessage('Click a time slot to move this appointment.');
+    setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
     setAgendaMoveError(null);
   }, []);
 
@@ -5914,6 +6031,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         return;
       }
       if (!selectedAppointment.id) {
+        return;
+      }
+      const allowedStarts = agendaSelectedStartsByResource.get(resourceId);
+      if (!allowedStarts || !allowedStarts.includes(minutes)) {
         return;
       }
       const start = buildAgendaDateTime(minutes);
@@ -5958,7 +6079,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     },
     [
       agendaSelectedAppointment,
-      agendaSlotMinutes,
+      agendaSelectedStartsByResource,
       authFetch,
       buildAgendaDateTime,
       formatAgendaTime,
@@ -6965,7 +7086,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           className="items-center justify-center border-b border-slate-200"
                           style={{ height: AGENDA_SLOT_HEIGHT }}
                         >
-                          <Text className="text-[11px] text-slate-500">{slot.label}</Text>
+                        </View>
+                      ))}
+                      {agendaTimeMarkers.map((marker) => (
+                        <View
+                          key={`agenda-marker-${marker.minutes}`}
+                          pointerEvents="none"
+                          style={[styles.agendaTimeMarker, { top: marker.top }]}
+                        >
+                          <Text
+                            style={[
+                              styles.agendaTimeMarkerText,
+                              marker.isSelected && styles.agendaTimeMarkerTextActive,
+                            ]}
+                          >
+                            {marker.label}
+                          </Text>
                         </View>
                       ))}
                       {agendaNowOffset != null ? (
@@ -7026,20 +7162,53 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                 {agendaSlots.map((slot) => {
                                   const isOpen = isAgendaSlotOpen(resourceId, slot.minutes);
                                   const slotClassName = isOpen
-                                    ? agendaSelectedAppointment
-                                      ? 'border-b border-slate-100 bg-amber-50/40'
-                                      : 'border-b border-slate-100'
+                                    ? 'border-b border-slate-100'
                                     : 'border-b border-slate-200 bg-slate-100/60';
                                   return (
-                                    <Pressable
+                                    <View
                                       key={`${resourceId}-${slot.index}`}
                                       className={slotClassName}
                                       style={{ height: AGENDA_SLOT_HEIGHT }}
-                                      onPress={() => handleAgendaSlotPress(resourceId, slot.minutes)}
-                                      disabled={agendaMoving || !agendaSelectedAppointment || !isOpen}
                                     />
                                   );
                                 })}
+                                {agendaSelectedAppointment
+                                  ? (agendaSelectedStartsByResource.get(resourceId) ?? []).map(
+                                      (minutes) => {
+                                        if (
+                                          minutes < agendaStartMinutes ||
+                                          minutes >= agendaEndMinutes
+                                        ) {
+                                          return null;
+                                        }
+                                        const durationMinutes =
+                                          agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0
+                                            ? agendaSelectedDurationMinutes
+                                            : agendaSlotMinutes;
+                                        const top =
+                                          ((minutes - agendaStartMinutes) / agendaSlotMinutes) *
+                                          AGENDA_SLOT_HEIGHT;
+                                        const height =
+                                          (durationMinutes / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
+                                        return (
+                                          <Pressable
+                                            key={`${resourceId}-start-${minutes}`}
+                                            style={[
+                                              styles.agendaSlotCandidate,
+                                              {
+                                                top,
+                                                height,
+                                                left: AGENDA_APPOINTMENT_PADDING,
+                                                right: AGENDA_APPOINTMENT_PADDING,
+                                              },
+                                            ]}
+                                            onPress={() => handleAgendaSlotPress(resourceId, minutes)}
+                                            disabled={agendaMoving}
+                                          />
+                                        );
+                                      },
+                                    )
+                                  : null}
                                 {appointmentsForResource.map((appt) => {
                                   if (!appt.startTime) return null;
                                   const start = new Date(appt.startTime);
@@ -7053,14 +7222,24 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     Number.isNaN(endCandidate.getTime()) || endCandidate <= start
                                       ? fallbackEnd
                                       : endCandidate;
-                                  const slotIndex = getAgendaSlotIndex(start);
-                                  if (slotIndex === null) return null;
-                                  const slotSpan = Math.min(
-                                    agendaSlots.length - slotIndex,
-                                    getAgendaSlotSpan(start, end),
+                                  const startMinutes = start.getHours() * 60 + start.getMinutes();
+                                  const endMinutes = end.getHours() * 60 + end.getMinutes();
+                                  if (startMinutes < agendaStartMinutes || startMinutes >= agendaEndMinutes) {
+                                    return null;
+                                  }
+                                  const rawDurationMinutes = Math.max(
+                                    agendaSlotMinutes,
+                                    Math.round((end.getTime() - start.getTime()) / 60000),
                                   );
-                                  const top = slotIndex * AGENDA_SLOT_HEIGHT;
-                                  const height = slotSpan * AGENDA_SLOT_HEIGHT;
+                                  const cappedDurationMinutes = Math.min(
+                                    rawDurationMinutes,
+                                    agendaEndMinutes - startMinutes,
+                                  );
+                                  const top =
+                                    ((startMinutes - agendaStartMinutes) / agendaSlotMinutes) *
+                                    AGENDA_SLOT_HEIGHT;
+                                  const height =
+                                    (cappedDurationMinutes / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
                                   const layoutKey = appt.id ?? `${appt.customerId}-${appt.startTime}`;
                                   const layout = appointmentLayout.get(layoutKey);
                                   const columnCount = layout?.columnCount ?? 1;
@@ -9303,6 +9482,30 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#EF4444',
     zIndex: 5,
+  },
+  agendaTimeMarker: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: -8 }],
+  },
+  agendaTimeMarkerText: {
+    color: '#64748B',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 10,
+  },
+  agendaTimeMarkerTextActive: {
+    color: '#F97316',
+  },
+  agendaSlotCandidate: {
+    position: 'absolute',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    backgroundColor: 'rgba(249, 115, 22, 0.14)',
   },
   sectionActions: {
     flexDirection: 'row',
