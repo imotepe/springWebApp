@@ -6070,6 +6070,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         }
         await loadAppointments();
         setAgendaMoveMessage('Appointment moved.');
+        setAgendaSelectedAppointmentId(null);
+        agendaSelectedAppointmentRef.current = null;
       } catch (error) {
         setAgendaMoveError(error instanceof Error ? error.message : 'Unable to move appointment.');
         setAgendaMoveMessage(null);
@@ -7172,43 +7174,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     />
                                   );
                                 })}
-                                {agendaSelectedAppointment
-                                  ? (agendaSelectedStartsByResource.get(resourceId) ?? []).map(
-                                      (minutes) => {
-                                        if (
-                                          minutes < agendaStartMinutes ||
-                                          minutes >= agendaEndMinutes
-                                        ) {
-                                          return null;
-                                        }
-                                        const durationMinutes =
-                                          agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0
-                                            ? agendaSelectedDurationMinutes
-                                            : agendaSlotMinutes;
-                                        const top =
-                                          ((minutes - agendaStartMinutes) / agendaSlotMinutes) *
-                                          AGENDA_SLOT_HEIGHT;
-                                        const height =
-                                          (durationMinutes / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
-                                        return (
-                                          <Pressable
-                                            key={`${resourceId}-start-${minutes}`}
-                                            style={[
-                                              styles.agendaSlotCandidate,
-                                              {
-                                                top,
-                                                height,
-                                                left: AGENDA_APPOINTMENT_PADDING,
-                                                right: AGENDA_APPOINTMENT_PADDING,
-                                              },
-                                            ]}
-                                            onPress={() => handleAgendaSlotPress(resourceId, minutes)}
-                                            disabled={agendaMoving}
-                                          />
-                                        );
-                                      },
-                                    )
-                                  : null}
                                 {appointmentsForResource.map((appt) => {
                                   if (!appt.startTime) return null;
                                   const start = new Date(appt.startTime);
@@ -7280,6 +7245,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                       className={appointmentClassName}
                                       style={{ top, height, left, width: columnWidth }}
                                       onPress={() => handleAgendaAppointmentPress(appt)}
+                                      pointerEvents={agendaSelectedAppointment ? 'none' : 'auto'}
                                     >
                                       <Text className="text-[12px] font-semibold text-slate-900 leading-tight" numberOfLines={1}>
                                         {customerLabel}
@@ -7295,6 +7261,43 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     </Pressable>
                                   );
                                 })}
+                                {agendaSelectedAppointment
+                                  ? (agendaSelectedStartsByResource.get(resourceId) ?? []).map(
+                                      (minutes) => {
+                                        if (
+                                          minutes < agendaStartMinutes ||
+                                          minutes >= agendaEndMinutes
+                                        ) {
+                                          return null;
+                                        }
+                                        const durationMinutes =
+                                          agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0
+                                            ? agendaSelectedDurationMinutes
+                                            : agendaSlotMinutes;
+                                        const top =
+                                          ((minutes - agendaStartMinutes) / agendaSlotMinutes) *
+                                          AGENDA_SLOT_HEIGHT;
+                                        const height =
+                                          (durationMinutes / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
+                                        return (
+                                          <Pressable
+                                            key={`${resourceId}-start-${minutes}`}
+                                            style={[
+                                              styles.agendaSlotCandidate,
+                                              {
+                                                top,
+                                                height,
+                                                left: AGENDA_APPOINTMENT_PADDING,
+                                                right: AGENDA_APPOINTMENT_PADDING,
+                                              },
+                                            ]}
+                                            onPress={() => handleAgendaSlotPress(resourceId, minutes)}
+                                            disabled={agendaMoving}
+                                          />
+                                        );
+                                      },
+                                    )
+                                  : null}
                               </View>
                             </View>
                           );
@@ -9506,6 +9509,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDBA74',
     backgroundColor: 'rgba(249, 115, 22, 0.14)',
+    zIndex: 4,
   },
   sectionActions: {
     flexDirection: 'row',
