@@ -823,6 +823,9 @@ const AGENDA_END_HOUR = 18;
 const AGENDA_SLOT_MINUTES = 30;
 const AGENDA_SLOT_HEIGHT = 44;
 const AGENDA_HEADER_HEIGHT = 72;
+const AGENDA_RESOURCE_COLUMN_WIDTH = 224;
+const AGENDA_APPOINTMENT_PADDING = 8;
+const AGENDA_APPOINTMENT_GAP = 6;
 
 const resolveAppointmentTypeDurations = (type?: AppointmentTypeDto | null) => {
   const allowed = (type?.allowedDurations ?? [])
@@ -5735,6 +5738,81 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [agendaSlotMinutes, appointmentTypeMap],
   );
 
+  const buildAgendaAppointmentLayout = useCallback(
+    (appointmentsForResource: Appointment[]) => {
+      const items = appointmentsForResource
+        .map((appt) => {
+          if (!appt.startTime) return null;
+          const start = new Date(appt.startTime);
+          if (Number.isNaN(start.getTime())) return null;
+          const durationMinutes = getAppointmentDurationMinutes(appt);
+          const fallbackEnd = new Date(start.getTime() + durationMinutes * 60000);
+          const endCandidate = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
+          const end =
+            Number.isNaN(endCandidate.getTime()) || endCandidate <= start ? fallbackEnd : endCandidate;
+          const key = appt.id ?? `${appt.customerId}-${appt.startTime}`;
+          const startMinutes = start.getHours() * 60 + start.getMinutes();
+          const endMinutes = end.getHours() * 60 + end.getMinutes();
+          return { key, startMinutes, endMinutes };
+        })
+        .filter((item): item is { key: string; startMinutes: number; endMinutes: number } => Boolean(item))
+        .sort((a, b) => {
+          if (a.startMinutes !== b.startMinutes) {
+            return a.startMinutes - b.startMinutes;
+          }
+          return a.endMinutes - b.endMinutes;
+        });
+
+      const layouts = new Map<string, { columnIndex: number; columnCount: number }>();
+      if (items.length === 0) {
+        return layouts;
+      }
+      let cluster: { key: string; startMinutes: number; endMinutes: number }[] = [];
+      let clusterEnd = -Infinity;
+
+      const flushCluster = () => {
+        if (cluster.length === 0) return;
+        const columnEnds: number[] = [];
+        cluster.forEach((item) => {
+          let columnIndex = columnEnds.findIndex((end) => item.startMinutes >= end);
+          if (columnIndex === -1) {
+            columnIndex = columnEnds.length;
+            columnEnds.push(item.endMinutes);
+          } else {
+            columnEnds[columnIndex] = item.endMinutes;
+          }
+          layouts.set(item.key, { columnIndex, columnCount: 1 });
+        });
+        const columnCount = Math.max(1, columnEnds.length);
+        cluster.forEach((item) => {
+          const layout = layouts.get(item.key);
+          if (!layout) return;
+          layout.columnCount = columnCount;
+        });
+      };
+
+      items.forEach((item) => {
+        if (cluster.length === 0) {
+          cluster = [item];
+          clusterEnd = item.endMinutes;
+          return;
+        }
+        if (item.startMinutes < clusterEnd) {
+          cluster.push(item);
+          clusterEnd = Math.max(clusterEnd, item.endMinutes);
+          return;
+        }
+        flushCluster();
+        cluster = [item];
+        clusterEnd = item.endMinutes;
+      });
+      flushCluster();
+
+      return layouts;
+    },
+    [getAppointmentDurationMinutes],
+  );
+
   const buildAgendaDateTime = useCallback(
     (minutes: number) => {
       const next = new Date(agendaDateBase);
@@ -6901,6 +6979,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           const resourceId = resource.id || 'unassigned';
                           const appointmentsForResource =
                             agendaAppointmentsByResource.get(resourceId) ?? [];
+                          const appointmentLayout = buildAgendaAppointmentLayout(appointmentsForResource);
                           return (
                             <View key={resourceId} className="w-56 border-r border-slate-200 bg-white">
                               <View
@@ -6928,10 +7007,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                   if (!appt.startTime) return null;
                                   const start = new Date(appt.startTime);
                                   if (Number.isNaN(start.getTime())) return null;
+                                  const durationMinutes = getAppointmentDurationMinutes(appt);
                                   const fallbackEnd = new Date(
-                                    start.getTime() + agendaSlotMinutes * 60000,
+                                    start.getTime() + durationMinutes * 60000,
                                   );
-                                  const end = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
+                                  const endCandidate = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
+                                  const end =
+                                    Number.isNaN(endCandidate.getTime()) || endCandidate <= start
+                                      ? fallbackEnd
+                                      : endCandidate;
                                   const slotIndex = getAgendaSlotIndex(start);
                                   if (slotIndex === null) return null;
                                   const slotSpan = Math.min(
@@ -6940,10 +7024,23 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                   );
                                   const top = slotIndex * AGENDA_SLOT_HEIGHT;
                                   const height = slotSpan * AGENDA_SLOT_HEIGHT;
+                                  const layoutKey = appt.id ?? `${appt.customerId}-${appt.startTime}`;
+                                  const layout = appointmentLayout.get(layoutKey);
+                                  const columnCount = layout?.columnCount ?? 1;
+                                  const columnIndex = layout?.columnIndex ?? 0;
+                                  const availableWidth =
+                                    AGENDA_RESOURCE_COLUMN_WIDTH -
+                                    AGENDA_APPOINTMENT_PADDING * 2 -
+                                    AGENDA_APPOINTMENT_GAP * (columnCount - 1);
+                                  const columnWidth =
+                                    columnCount > 0 ? availableWidth / columnCount : availableWidth;
+                                  const left =
+                                    AGENDA_APPOINTMENT_PADDING +
+                                    columnIndex * (columnWidth + AGENDA_APPOINTMENT_GAP);
                                   const isSelected = agendaSelectedAppointmentId === appt.id;
                                   const appointmentClassName = isSelected
-                                    ? 'absolute left-2 right-2 rounded-xl border border-emerald-500 bg-emerald-100 px-2 py-1.5 shadow'
-                                    : 'absolute left-2 right-2 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 shadow-sm';
+                                    ? 'absolute rounded-xl border border-emerald-500 bg-emerald-100 px-2 py-1.5 shadow'
+                                    : 'absolute rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 shadow-sm';
                                   const customerLabel = appt.customerId
                                     ? customerLabelMap.get(appt.customerId) ?? appt.customerId
                                     : 'Customer';
@@ -6965,7 +7062,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     <Pressable
                                       key={appt.id ?? `${appt.customerId}-${appt.startTime}`}
                                       className={appointmentClassName}
-                                      style={{ top, height }}
+                                      style={{ top, height, left, width: columnWidth }}
                                       onPress={() => handleAgendaAppointmentPress(appt)}
                                     >
                                       <Text className="text-[12px] font-semibold text-slate-900 leading-tight" numberOfLines={1}>
