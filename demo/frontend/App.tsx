@@ -5862,10 +5862,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaSelectedStartsByResource]);
 
   const agendaTimeMarkers = useMemo(() => {
-    const baseMinutes =
+    const selectedMinutes = agendaSelectedAppointment
+      ? Array.from(agendaSelectedStartTimes).sort((a, b) => a - b)
+      : null;
+    const baseMinutes = selectedMinutes ?? (
       agendaAvailableStartTimes.length > 0
         ? agendaAvailableStartTimes
-        : agendaSlots.map((slot) => slot.minutes);
+        : agendaSlots.map((slot) => slot.minutes)
+    );
     return baseMinutes.map((minutes) => {
       const top = ((minutes - agendaStartMinutes) / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
       return {
@@ -5877,6 +5881,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   }, [
     agendaAvailableStartTimes,
+    agendaSelectedAppointment,
     agendaSelectedStartTimes,
     agendaSlotMinutes,
     agendaSlots,
