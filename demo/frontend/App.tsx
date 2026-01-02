@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ActivityIndicator,
   Alert,
+  GestureResponderEvent,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -5725,6 +5726,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
   }, [agendaSelectedAppointmentId, appointments]);
   const agendaSelectedAppointmentRef = useRef<Appointment | null>(null);
+  const agendaSelectedResourceId = useMemo(() => {
+    if (!agendaSelectedAppointment) return null;
+    return agendaSelectedAppointment.resourceId ?? 'unassigned';
+  }, [agendaSelectedAppointment]);
 
   useEffect(() => {
     if (!agendaSelectedAppointmentId) {
@@ -6004,6 +6009,29 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaMoveError(null);
     agendaSelectedAppointmentRef.current = null;
   }, []);
+
+  const handleAgendaOutsidePress = useCallback(() => {
+    if (!agendaSelectedAppointmentId) {
+      return;
+    }
+    clearAgendaSelection();
+  }, [agendaSelectedAppointmentId, clearAgendaSelection]);
+
+  const handleAgendaResourcePress = useCallback(
+    (resourceId: string, event?: GestureResponderEvent) => {
+      if (!agendaSelectedAppointmentId) {
+        return;
+      }
+      if (agendaSelectedResourceId === resourceId) {
+        if (event && typeof event.stopPropagation === 'function') {
+          event.stopPropagation();
+        }
+        return;
+      }
+      clearAgendaSelection();
+    },
+    [agendaSelectedAppointmentId, agendaSelectedResourceId, clearAgendaSelection],
+  );
 
   const handleAgendaAppointmentPress = useCallback((appointment: Appointment) => {
     if (!appointment.id) return;
@@ -7020,7 +7048,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             />
           </>
         ) : activeTab === 'agenda' && canViewAgenda ? (
-          <>
+          <Pressable onPress={handleAgendaOutsidePress}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Agenda by resource</Text>
@@ -7124,10 +7152,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           const resourceId = resource.id || 'unassigned';
                           const fillRate = getResourceFillRate(resourceId);
                           return (
-                            <View
+                            <Pressable
                               key={resourceId}
                               className="w-56 border-r border-slate-200 px-3 py-2 justify-center"
                               style={{ height: AGENDA_HEADER_HEIGHT }}
+                              onPress={(event) => handleAgendaResourcePress(resourceId, event)}
                             >
                               <View className="gap-1">
                                 <Text className="text-[13px] font-semibold text-slate-900" numberOfLines={1}>
@@ -7142,7 +7171,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                   </Text>
                                 </View>
                               </View>
-                            </View>
+                            </Pressable>
                           );
                         })}
                       </View>
@@ -7156,7 +7185,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             agendaAppointmentsByResource.get(resourceId) ?? [];
                           const appointmentLayout = buildAgendaAppointmentLayout(appointmentsForResource);
                           return (
-                            <View key={resourceId} className="w-56 border-r border-slate-200 bg-white">
+                            <Pressable
+                              key={resourceId}
+                              className="w-56 border-r border-slate-200 bg-white"
+                              onPress={(event) => handleAgendaResourcePress(resourceId, event)}
+                            >
                               <View
                                 className="relative bg-white"
                                 style={{ height: agendaSlots.length * AGENDA_SLOT_HEIGHT }}
@@ -7299,7 +7332,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     )
                                   : null}
                               </View>
-                            </View>
+                            </Pressable>
                           );
                         })}
                         {agendaNowOffset != null ? (
@@ -7379,7 +7412,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.statusText}>Select an appointment to see details.</Text>
               )}
             </View>
-          </>
+          </Pressable>
         ) : activeTab === 'schedule' && canViewSchedule ? (
           <>
             <View style={styles.sectionHeader}>
