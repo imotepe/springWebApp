@@ -53,6 +53,7 @@ type DatePickerFieldProps = {
   value: string;
   onChangeText: (value: string) => void;
   testID?: string;
+  variant?: 'default' | 'agenda';
 };
 
 type TimeInputProps = {
@@ -483,6 +484,7 @@ const MONTH_LABELS = [
   'December',
 ];
 const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DAY_GRID_GAP = 10;
 const DAY_LABELS: Record<DayName, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',
@@ -696,6 +698,7 @@ const AGENDA_START_HOUR = 8;
 const AGENDA_END_HOUR = 18;
 const AGENDA_SLOT_MINUTES = 30;
 const AGENDA_SLOT_HEIGHT = 44;
+const AGENDA_HEADER_HEIGHT = 72;
 
 const buildDefaultUserExpiry = () => {
   const expiresTime = '00:00';
@@ -2084,7 +2087,14 @@ function DurationMultiSelectField({
   );
 }
 
-function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeText, testID }: DatePickerFieldProps) {
+function DatePickerField({
+  label,
+  placeholder = 'YYYY-MM-DD',
+  value,
+  onChangeText,
+  testID,
+  variant = 'default',
+}: DatePickerFieldProps) {
   const parsedValue = useMemo(() => parseDateValue(value), [value]);
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => parsedValue ?? new Date());
@@ -2229,8 +2239,8 @@ function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeTex
                 onLayout={(e) => {
                   const width = e.nativeEvent.layout.width;
                   if (width > 0) {
-                    const size = Math.floor(width / 7);
-                    setDayCellSize(size > 28 ? size : 32);
+                    const size = Math.floor((width - DAY_GRID_GAP * 6) / 7);
+                    setDayCellSize(size > 0 ? size : 32);
                   }
                 }}
               >
@@ -2268,22 +2278,42 @@ function DatePickerField({ label, placeholder = 'YYYY-MM-DD', value, onChangeTex
   return (
     <View style={styles.inputField}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable
-        onPress={() => setOpen(true)}
-        onPressIn={() => setOpen(true)}
-        testID={testID}
-        style={({ pressed }) => [
-          styles.dateInputShell,
-          open && styles.dateInputShellActive,
-          pressed && styles.dateInputShellPressed,
-        ]}
-      >
-        <Text style={[styles.dateValue, !value && styles.datePlaceholder]}>{value || placeholder}</Text>
-        <View style={styles.dateIcon}>
-          <View style={styles.dateIconTop} />
-          <View style={styles.dateIconBody} />
-        </View>
-      </Pressable>
+      {variant === 'agenda' ? (
+        <Pressable
+          onPress={() => setOpen(true)}
+          onPressIn={() => setOpen(true)}
+          testID={testID}
+          className={`flex-row items-center justify-between rounded-2xl border bg-white px-4 py-3 shadow-sm ${
+            open ? 'border-emerald-400' : 'border-slate-200'
+          }`}
+          style={({ pressed }) => (pressed ? { opacity: 0.9 } : null)}
+        >
+          <Text className={value ? 'text-base font-semibold text-slate-900' : 'text-base text-slate-400'}>
+            {value || placeholder}
+          </Text>
+          <View className="h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
+            <View className="h-1.5 w-4 rounded-full bg-slate-700" />
+            <View className="mt-1 h-2.5 w-4 rounded border border-slate-400" />
+          </View>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={() => setOpen(true)}
+          onPressIn={() => setOpen(true)}
+          testID={testID}
+          style={({ pressed }) => [
+            styles.dateInputShell,
+            open && styles.dateInputShellActive,
+            pressed && styles.dateInputShellPressed,
+          ]}
+        >
+          <Text style={[styles.dateValue, !value && styles.datePlaceholder]}>{value || placeholder}</Text>
+          <View style={styles.dateIcon}>
+            <View style={styles.dateIconTop} />
+            <View style={styles.dateIconBody} />
+          </View>
+        </Pressable>
+      )}
 
       <Modal
         visible={open}
@@ -6412,6 +6442,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     placeholder="YYYY-MM-DD"
                     value={agendaDate}
                     onChangeText={setAgendaDate}
+                    variant="agenda"
                   />
                 </View>
                 <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
@@ -6442,7 +6473,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               <View className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <View className="flex-row">
                   <View className="w-20 border-r border-slate-200 bg-slate-50">
-                    <View className="h-12 items-center justify-center border-b border-slate-200 bg-slate-100">
+                    <View
+                      className="items-center justify-center border-b border-slate-200 bg-slate-100"
+                      style={{ height: AGENDA_HEADER_HEIGHT }}
+                    >
                       <Text className="text-[11px] uppercase tracking-[1px] text-slate-500">Time</Text>
                     </View>
                     {agendaSlots.map((slot) => (
@@ -6457,22 +6491,31 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View>
-                      <View className="flex-row border-b border-slate-200 bg-slate-100">
+                      <View
+                        className="flex-row border-b border-slate-200 bg-slate-100"
+                        style={{ height: AGENDA_HEADER_HEIGHT }}
+                      >
                         {agendaResources.map((resource) => {
                           const resourceId = resource.id || 'unassigned';
                           const fillRate = getResourceFillRate(resourceId);
                           return (
-                            <View key={resourceId} className="w-56 border-r border-slate-200 px-3 py-2">
-                              <Text className="text-[13px] font-semibold text-slate-900" numberOfLines={1}>
-                                {resource.name || resource.type || resourceId}
-                              </Text>
-                              <Text className="text-[11px] text-slate-500" numberOfLines={1}>
-                                {resource.type || resource.kind || 'Resource'}
-                              </Text>
-                              <View className="mt-1 self-start rounded-full bg-slate-900/10 px-2 py-0.5">
-                                <Text className="text-[10px] font-semibold uppercase tracking-[0.5px] text-slate-600">
-                                  {fillRate}% full
+                            <View
+                              key={resourceId}
+                              className="w-56 border-r border-slate-200 px-3 py-2 justify-center"
+                              style={{ height: AGENDA_HEADER_HEIGHT }}
+                            >
+                              <View className="gap-1">
+                                <Text className="text-[13px] font-semibold text-slate-900" numberOfLines={1}>
+                                  {resource.name || resource.type || resourceId}
                                 </Text>
+                                <Text className="text-[11px] text-slate-500" numberOfLines={1}>
+                                  {resource.type || resource.kind || 'Resource'}
+                                </Text>
+                                <View className="self-start rounded-full bg-slate-900/10 px-2 py-0.5">
+                                  <Text className="text-[10px] font-semibold uppercase tracking-[0.5px] text-slate-600">
+                                    {fillRate}% full
+                                  </Text>
+                                </View>
                               </View>
                             </View>
                           );
@@ -8484,10 +8527,10 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 6,
     flexWrap: 'wrap',
-    gap: 10,
+    gap: DAY_GRID_GAP,
     paddingHorizontal: 0,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   dayCell: {
     borderRadius: 12,
