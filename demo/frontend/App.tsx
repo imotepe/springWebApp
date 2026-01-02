@@ -5862,21 +5862,20 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaSelectedStartsByResource]);
 
   const agendaTimeMarkers = useMemo(() => {
-    const selectedMinutes = agendaSelectedAppointment
-      ? Array.from(agendaSelectedStartTimes).sort((a, b) => a - b)
-      : null;
-    const baseMinutes = selectedMinutes ?? (
+    const baseMinutes =
       agendaAvailableStartTimes.length > 0
         ? agendaAvailableStartTimes
-        : agendaSlots.map((slot) => slot.minutes)
-    );
+        : agendaSlots.map((slot) => slot.minutes);
+    const hasSelection = Boolean(agendaSelectedAppointment);
     return baseMinutes.map((minutes) => {
       const top = ((minutes - agendaStartMinutes) / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
+      const isSelected = agendaSelectedStartTimes.has(minutes);
       return {
         minutes,
         top,
         label: formatMinutesToTime(minutes),
-        isSelected: agendaSelectedStartTimes.has(minutes),
+        isSelected,
+        isMuted: hasSelection && !isSelected,
       };
     });
   }, [
@@ -7133,6 +7132,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             style={[
                               styles.agendaTimeMarkerText,
                               marker.isSelected && styles.agendaTimeMarkerTextActive,
+                              marker.isMuted && styles.agendaTimeMarkerTextMuted,
                             ]}
                           >
                             {marker.label}
@@ -9540,6 +9540,9 @@ const styles = StyleSheet.create({
   },
   agendaTimeMarkerTextActive: {
     color: '#F97316',
+  },
+  agendaTimeMarkerTextMuted: {
+    opacity: 0.15,
   },
   agendaSlotCandidate: {
     position: 'absolute',
