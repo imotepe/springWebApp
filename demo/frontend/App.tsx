@@ -23,7 +23,16 @@ import {
   Manrope_700Bold,
   useFonts,
 } from '@expo-google-fonts/manrope';
-import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 type LoginFormState = {
   identifier: string;
@@ -5512,6 +5521,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!agendaSelectedAppointmentId) return null;
     return appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
   }, [agendaSelectedAppointmentId, appointments]);
+  const agendaSelectedAppointmentRef = useRef<Appointment | null>(null);
+
+  useEffect(() => {
+    if (!agendaSelectedAppointmentId) {
+      agendaSelectedAppointmentRef.current = null;
+      return;
+    }
+    agendaSelectedAppointmentRef.current =
+      appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
+  }, [agendaSelectedAppointmentId, appointments]);
 
   const totalTypePages = useMemo(
     () => Math.max(1, Math.ceil(sortedTypes.length / PAGE_SIZE)),
@@ -5603,20 +5622,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaSelectedAppointmentId(null);
     setAgendaMoveMessage(null);
     setAgendaMoveError(null);
+    agendaSelectedAppointmentRef.current = null;
   }, []);
 
   const handleAgendaAppointmentPress = useCallback((appointment: Appointment) => {
     if (!appointment.id) return;
+    agendaSelectedAppointmentRef.current = appointment;
     setAgendaSelectedAppointmentId(appointment.id);
     setAgendaMoveMessage('Click a time slot to move this appointment.');
     setAgendaMoveError(null);
   }, []);
 
   const isAgendaSlotOpen = useCallback(
-    (resourceId: string, minutes: number) => {
+    (resourceId: string, minutes: number, durationMinutes = agendaSlotMinutes) => {
       const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
       return windows.some(
-        (window) => minutes >= window.start && minutes + agendaSlotMinutes <= window.end,
+        (window) => minutes >= window.start && minutes + durationMinutes <= window.end,
       );
     },
     [agendaScheduleWindowsByResource, agendaSlotMinutes],
@@ -5624,42 +5645,46 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const handleAgendaSlotPress = useCallback(
     async (resourceId: string, minutes: number) => {
-      if (!agendaSelectedAppointment) {
+      const selectedAppointment =
+        agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+      if (!selectedAppointment) {
         return;
       }
-      if (!agendaSelectedAppointment.id) {
-        return;
-      }
-      if (!isAgendaSlotOpen(resourceId, minutes)) {
+      if (!selectedAppointment.id) {
         return;
       }
       const start = buildAgendaDateTime(minutes);
-      const end = agendaSelectedAppointment.endTime
-        ? new Date(agendaSelectedAppointment.endTime)
+      const end = selectedAppointment.endTime
+        ? new Date(selectedAppointment.endTime)
         : null;
-      const currentStart = agendaSelectedAppointment.startTime
-        ? new Date(agendaSelectedAppointment.startTime)
+      const currentStart = selectedAppointment.startTime
+        ? new Date(selectedAppointment.startTime)
         : null;
       const durationMinutes =
         currentStart && end && !Number.isNaN(end.getTime()) && !Number.isNaN(currentStart.getTime())
           ? Math.max(agendaSlotMinutes, Math.round((end.getTime() - currentStart.getTime()) / 60000))
           : agendaSlotMinutes;
+      if (!isAgendaSlotOpen(resourceId, minutes, durationMinutes)) {
+        return;
+      }
       const newEnd = new Date(start.getTime() + durationMinutes * 60000);
       const nextResourceId = resourceId === 'unassigned' ? null : resourceId;
+      const startValue = buildDateTimeValue(formatIsoDate(start), formatAgendaTime(start));
+      const endValue = buildDateTimeValue(formatIsoDate(newEnd), formatAgendaTime(newEnd));
       const payload: Appointment = {
-        ...agendaSelectedAppointment,
-        id: agendaSelectedAppointment.id,
+        ...selectedAppointment,
+        id: selectedAppointment.id,
         resourceId: nextResourceId || undefined,
-        startTime: start.toISOString(),
-        endTime: newEnd.toISOString(),
-        status: agendaSelectedAppointment.status || 'SCHEDULED',
-        events: agendaSelectedAppointment.events ?? [],
+        startTime: startValue,
+        endTime: endValue,
+        status: selectedAppointment.status || 'SCHEDULED',
+        events: selectedAppointment.events ?? [],
       };
       setAgendaMoving(true);
       setAgendaMoveMessage('Moving appointment...');
       setAgendaMoveError(null);
       try {
-        const res = await authFetch(`/api/appointments/${agendaSelectedAppointment.id}`, {
+        const res = await authFetch(`/api/appointments/${selectedAppointment.id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
@@ -5682,6 +5707,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       agendaSlotMinutes,
       authFetch,
       buildAgendaDateTime,
+      formatAgendaTime,
       isAgendaSlotOpen,
       loadAppointments,
     ],
