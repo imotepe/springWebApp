@@ -72,6 +72,8 @@ type DayName = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SAT
 
 type TimeWindowInput = { start: string; end: string };
 
+type TimeWindowMinutes = { start: number; end: number };
+
 type HolidayInput = {
   date: string;
   allDay: boolean;
@@ -494,6 +496,15 @@ const DAY_LABELS: Record<DayName, string> = {
   SATURDAY: 'Saturday',
   SUNDAY: 'Sunday',
 };
+const DAY_INDEX_TO_NAME: DayName[] = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+];
 const USER_ROLES: UserRole[] = [
   'SUPER_PLATFORM_ADMIN',
   'PLATFORM_ADMIN',
@@ -672,6 +683,64 @@ const normalizeTimeString = (value: string, fallback = '00:00') => {
   return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 };
 
+const parseTimeToMinutes = (value: string) => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Math.min(23, Math.max(0, Number(match[1])));
+  const minute = Math.min(59, Math.max(0, Number(match[2])));
+  return hour * 60 + minute;
+};
+
+const normalizeTimeWindows = (windows: TimeWindowInput[]) => {
+  return windows
+    .map((window) => {
+      const start = parseTimeToMinutes(window.start);
+      const end = parseTimeToMinutes(window.end);
+      if (start == null || end == null) return null;
+      if (end <= start) return null;
+      return { start, end };
+    })
+    .filter((window): window is TimeWindowMinutes => Boolean(window))
+    .sort((a, b) => a.start - b.start);
+};
+
+const subtractClosedWindows = (openWindows: TimeWindowMinutes[], closedWindows: TimeWindowMinutes[]) => {
+  return closedWindows.reduce<TimeWindowMinutes[]>((current, closed) => {
+    const next: TimeWindowMinutes[] = [];
+    current.forEach((open) => {
+      if (closed.end <= open.start || closed.start >= open.end) {
+        next.push(open);
+        return;
+      }
+      if (closed.start > open.start) {
+        next.push({ start: open.start, end: Math.min(closed.start, open.end) });
+      }
+      if (closed.end < open.end) {
+        next.push({ start: Math.max(closed.end, open.start), end: open.end });
+      }
+    });
+    return next;
+  }, openWindows);
+};
+
+const getScheduleOpenWindows = (
+  schedule: ScheduleFormState,
+  dayName: DayName,
+  date: string,
+  slotMinutes: number,
+) => {
+  if (!schedule.workingDays.includes(dayName)) return [];
+  const businessWindows = normalizeTimeWindows(schedule.businessHours[dayName] ?? []);
+  if (businessWindows.length === 0) return [];
+  const breakWindows = normalizeTimeWindows(schedule.breaks[dayName] ?? []);
+  const holiday = schedule.holidays.find((entry) => entry.date === date);
+  if (holiday?.allDay) return [];
+  const holidayWindows = normalizeTimeWindows(holiday?.closedWindows ?? []);
+  const closedWindows = [...breakWindows, ...holidayWindows].sort((a, b) => a.start - b.start);
+  const openWindows = subtractClosedWindows(businessWindows, closedWindows);
+  return openWindows.filter((window) => window.end - window.start >= slotMinutes);
+};
+
 const splitDateTime = (raw: string) => {
   if (!raw) return { date: '', time: '00:00' };
   const match = /^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/.exec(raw.trim());
@@ -691,6 +760,11 @@ const buildDateTimeValue = (date: string, time: string) => {
   if (!safeDate) return '';
   const safeTime = normalizeTimeString(time, '00:00');
   return `${safeDate}T${safeTime}:00`;
+};
+
+const getDayNameFromDate = (date: Date): DayName => {
+  const index = date.getDay();
+  return DAY_INDEX_TO_NAME[index] ?? 'MONDAY';
 };
 
 const DEFAULT_USER_EXPIRY_DAYS = 90;
@@ -5243,23 +5317,24 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return appointments.filter((appt) => appt.customerId === customerForm.id);
   }, [appointments, customerForm.id, interactionAppointments]);
 
-  const agendaSlots = useMemo(() => {
-    const slots: { index: number; minutes: number; label: string }[] = [];
-    const startMinutes = AGENDA_START_HOUR * 60;
-    const endMinutes = AGENDA_END_HOUR * 60;
-    for (let minutes = startMinutes; minutes < endMinutes; minutes += AGENDA_SLOT_MINUTES) {
-      const hour = Math.floor(minutes / 60)
-        .toString()
-        .padStart(2, '0');
-      const minute = (minutes % 60).toString().padStart(2, '0');
-      slots.push({
-        index: (minutes - startMinutes) / AGENDA_SLOT_MINUTES,
-        minutes,
-        label: `${hour}:${minute}`,
-      });
-    }
-    return slots;
-  }, []);
+  const appointmentTypeMap = useMemo(() => {
+    const map = new Map<string, AppointmentTypeDto>();
+    appointmentTypes.forEach((type) => {
+      const id = (type.id ?? '').trim();
+      if (!id) return;
+      map.set(id, type);
+    });
+    return map;
+  }, [appointmentTypes]);
+
+  const orgScheduleMap = useMemo(() => {
+    const map = new Map<string, ScheduleConfigDto | undefined>();
+    orgs.forEach((org) => {
+      if (!org.id) return;
+      map.set(org.id, org.scheduleConfig);
+    });
+    return map;
+  }, [orgs]);
 
   const agendaAppointments = useMemo(() => {
     return appointments.filter((appt) => {
@@ -5289,6 +5364,94 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     ];
   }, [agendaAppointments, resources]);
 
+  const agendaDateBase = useMemo(() => {
+    const [year, month, day] = agendaDate.split('-').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0);
+  }, [agendaDate]);
+
+  const agendaDayName = useMemo(() => getDayNameFromDate(agendaDateBase), [agendaDateBase]);
+
+  const agendaSlotMinutes = useMemo(() => {
+    const candidateDurations: number[] = [];
+    agendaResources.forEach((resource) => {
+      if ((resource.id ?? '') === 'unassigned') return;
+      const ids = resource.allowedAppointmentTypeIds ?? [];
+      const typeIds = ids.length > 0
+        ? ids
+        : appointmentTypes
+            .filter((type) => !resource.orgId || !type.orgId || type.orgId === resource.orgId)
+            .map((type) => type.id)
+            .filter((id): id is string => Boolean(id));
+      typeIds.forEach((typeId) => {
+        const type = appointmentTypeMap.get(typeId);
+        if (!type) return;
+        const allowed = (type.allowedDurations ?? []).filter((value) => Number.isFinite(value));
+        if (allowed.length > 0) {
+          candidateDurations.push(...allowed);
+          return;
+        }
+        if (type.defaultDurationMinutes != null && Number.isFinite(type.defaultDurationMinutes)) {
+          candidateDurations.push(type.defaultDurationMinutes);
+        }
+      });
+    });
+    if (candidateDurations.length === 0) return AGENDA_SLOT_MINUTES;
+    const minDuration = Math.min(...candidateDurations);
+    return minDuration > 0 ? minDuration : AGENDA_SLOT_MINUTES;
+  }, [agendaResources, appointmentTypeMap, appointmentTypes]);
+
+  const agendaScheduleWindowsByResource = useMemo(() => {
+    const map = new Map<string, TimeWindowMinutes[]>();
+    agendaResources.forEach((resource) => {
+      const resourceId = resource.id || 'unassigned';
+      const scheduleConfig =
+        resourceId === 'unassigned'
+          ? undefined
+          : resource.scheduleOverride ?? orgScheduleMap.get(resource.orgId ?? '');
+      const scheduleState = normalizeScheduleForm(scheduleConfig ?? undefined);
+      const windows = getScheduleOpenWindows(scheduleState, agendaDayName, agendaDate, agendaSlotMinutes);
+      map.set(resourceId, windows);
+    });
+    return map;
+  }, [agendaResources, agendaDayName, agendaDate, agendaSlotMinutes, orgScheduleMap]);
+
+  const agendaScheduleRange = useMemo(() => {
+    let minStart = Number.POSITIVE_INFINITY;
+    let maxEnd = 0;
+    agendaScheduleWindowsByResource.forEach((windows) => {
+      windows.forEach((window) => {
+        minStart = Math.min(minStart, window.start);
+        maxEnd = Math.max(maxEnd, window.end);
+      });
+    });
+    if (!Number.isFinite(minStart)) {
+      minStart = AGENDA_START_HOUR * 60;
+      maxEnd = AGENDA_END_HOUR * 60;
+    }
+    if (maxEnd <= minStart) {
+      maxEnd = minStart + agendaSlotMinutes;
+    }
+    return { start: minStart, end: maxEnd };
+  }, [agendaScheduleWindowsByResource, agendaSlotMinutes]);
+
+  const agendaSlots = useMemo(() => {
+    const slots: { index: number; minutes: number; label: string }[] = [];
+    const startMinutes = agendaScheduleRange.start;
+    const endMinutes = agendaScheduleRange.end;
+    for (let minutes = startMinutes; minutes < endMinutes; minutes += agendaSlotMinutes) {
+      const hour = Math.floor(minutes / 60)
+        .toString()
+        .padStart(2, '0');
+      const minute = (minutes % 60).toString().padStart(2, '0');
+      slots.push({
+        index: (minutes - startMinutes) / agendaSlotMinutes,
+        minutes,
+        label: `${hour}:${minute}`,
+      });
+    }
+    return slots;
+  }, [agendaScheduleRange.end, agendaScheduleRange.start, agendaSlotMinutes]);
+
   const agendaAppointmentsByResource = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     agendaResources.forEach((resource) => {
@@ -5310,10 +5473,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaAppointments, agendaResources]);
 
   const agendaFillRate = useMemo(() => {
-    const slotCount = agendaSlots.length;
-    const resourceCount = agendaResources.length;
-    if (slotCount === 0 || resourceCount === 0) return 0;
-    const totalSlots = slotCount * resourceCount;
+    const totalSlots = agendaResources.reduce((sum, resource) => {
+      const resourceId = resource.id || 'unassigned';
+      const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
+      const openSlots = windows.reduce((acc, window) => {
+        return acc + Math.floor((window.end - window.start) / agendaSlotMinutes);
+      }, 0);
+      return sum + openSlots;
+    }, 0);
+    if (totalSlots === 0) return 0;
     const bookedSlots = agendaAppointments.reduce((sum, appt) => {
       const start = appt.startTime ? new Date(appt.startTime) : null;
       const end = appt.endTime ? new Date(appt.endTime) : null;
@@ -5321,18 +5489,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         return sum;
       }
       const durationMinutes = Math.max(
-        AGENDA_SLOT_MINUTES,
+        agendaSlotMinutes,
         Math.round((end.getTime() - start.getTime()) / 60000),
       );
-      return sum + Math.max(1, Math.ceil(durationMinutes / AGENDA_SLOT_MINUTES));
+      return sum + Math.max(1, Math.ceil(durationMinutes / agendaSlotMinutes));
     }, 0);
     return Math.min(100, Math.round((bookedSlots / totalSlots) * 100));
-  }, [agendaAppointments, agendaResources.length, agendaSlots.length]);
-
-  const agendaDateBase = useMemo(() => {
-    const [year, month, day] = agendaDate.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0);
-  }, [agendaDate]);
+  }, [agendaAppointments, agendaResources, agendaScheduleWindowsByResource, agendaSlotMinutes]);
 
   const agendaSelectedAppointment = useMemo(() => {
     if (!agendaSelectedAppointmentId) return null;
@@ -5352,8 +5515,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (typePage > totalTypePages) setTypePage(totalTypePages);
   }, [typePage, totalTypePages]);
 
-  const agendaStartMinutes = AGENDA_START_HOUR * 60;
-  const agendaEndMinutes = AGENDA_END_HOUR * 60;
+  const agendaStartMinutes = agendaScheduleRange.start;
+  const agendaEndMinutes = agendaScheduleRange.end;
 
   const getAgendaSlotIndex = useCallback(
     (date: Date) => {
@@ -5361,21 +5524,24 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       if (minutes < agendaStartMinutes || minutes >= agendaEndMinutes) {
         return null;
       }
-      return Math.floor((minutes - agendaStartMinutes) / AGENDA_SLOT_MINUTES);
+      return Math.floor((minutes - agendaStartMinutes) / agendaSlotMinutes);
     },
-    [agendaEndMinutes, agendaStartMinutes],
+    [agendaEndMinutes, agendaSlotMinutes, agendaStartMinutes],
   );
 
-  const getAgendaSlotSpan = useCallback((start: Date, end: Date) => {
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      return 1;
-    }
-    const durationMinutes = Math.max(
-      AGENDA_SLOT_MINUTES,
-      Math.round((end.getTime() - start.getTime()) / 60000),
-    );
-    return Math.max(1, Math.ceil(durationMinutes / AGENDA_SLOT_MINUTES));
-  }, []);
+  const getAgendaSlotSpan = useCallback(
+    (start: Date, end: Date) => {
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return 1;
+      }
+      const durationMinutes = Math.max(
+        agendaSlotMinutes,
+        Math.round((end.getTime() - start.getTime()) / 60000),
+      );
+      return Math.max(1, Math.ceil(durationMinutes / agendaSlotMinutes));
+    },
+    [agendaSlotMinutes],
+  );
 
   const buildAgendaDateTime = useCallback(
     (minutes: number) => {
@@ -5404,7 +5570,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const getResourceFillRate = useCallback(
     (resourceId: string) => {
       const appointmentsForResource = agendaAppointmentsByResource.get(resourceId) ?? [];
-      const totalSlots = agendaSlots.length;
+      const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
+      const totalSlots = windows.reduce((sum, window) => {
+        return sum + Math.floor((window.end - window.start) / agendaSlotMinutes);
+      }, 0);
       if (totalSlots === 0) return 0;
       const bookedSlots = appointmentsForResource.reduce((sum, appt) => {
         const start = appt.startTime ? new Date(appt.startTime) : null;
@@ -5416,7 +5585,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       }, 0);
       return Math.min(100, Math.round((bookedSlots / totalSlots) * 100));
     },
-    [agendaAppointmentsByResource, agendaSlots.length, getAgendaSlotSpan],
+    [agendaAppointmentsByResource, agendaScheduleWindowsByResource, agendaSlotMinutes, getAgendaSlotSpan],
   );
 
   const clearAgendaSelection = useCallback(() => {
@@ -5432,12 +5601,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaMoveError(null);
   }, []);
 
+  const isAgendaSlotOpen = useCallback(
+    (resourceId: string, minutes: number) => {
+      const windows = agendaScheduleWindowsByResource.get(resourceId) ?? [];
+      return windows.some(
+        (window) => minutes >= window.start && minutes + agendaSlotMinutes <= window.end,
+      );
+    },
+    [agendaScheduleWindowsByResource, agendaSlotMinutes],
+  );
+
   const handleAgendaSlotPress = useCallback(
     async (resourceId: string, minutes: number) => {
       if (!agendaSelectedAppointment) {
         return;
       }
       if (!agendaSelectedAppointment.id) {
+        return;
+      }
+      if (!isAgendaSlotOpen(resourceId, minutes)) {
         return;
       }
       const start = buildAgendaDateTime(minutes);
@@ -5449,8 +5631,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         : null;
       const durationMinutes =
         currentStart && end && !Number.isNaN(end.getTime()) && !Number.isNaN(currentStart.getTime())
-          ? Math.max(AGENDA_SLOT_MINUTES, Math.round((end.getTime() - currentStart.getTime()) / 60000))
-          : AGENDA_SLOT_MINUTES;
+          ? Math.max(agendaSlotMinutes, Math.round((end.getTime() - currentStart.getTime()) / 60000))
+          : agendaSlotMinutes;
       const newEnd = new Date(start.getTime() + durationMinutes * 60000);
       const nextResourceId = resourceId === 'unassigned' ? null : resourceId;
       const payload: Appointment = {
@@ -5484,7 +5666,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         setAgendaMoving(false);
       }
     },
-    [agendaSelectedAppointment, authFetch, buildAgendaDateTime, loadAppointments],
+    [
+      agendaSelectedAppointment,
+      agendaSlotMinutes,
+      authFetch,
+      buildAgendaDateTime,
+      isAgendaSlotOpen,
+      loadAppointments,
+    ],
   );
 
   const toggleWorkingDay = (day: DayName) => {
@@ -6533,16 +6722,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                 style={{ height: agendaSlots.length * AGENDA_SLOT_HEIGHT }}
                               >
                                 {agendaSlots.map((slot) => {
-                                  const slotClassName = agendaSelectedAppointment
-                                    ? 'border-b border-slate-100 bg-amber-50/40'
-                                    : 'border-b border-slate-100';
+                                  const isOpen = isAgendaSlotOpen(resourceId, slot.minutes);
+                                  const slotClassName = isOpen
+                                    ? agendaSelectedAppointment
+                                      ? 'border-b border-slate-100 bg-amber-50/40'
+                                      : 'border-b border-slate-100'
+                                    : 'border-b border-slate-200 bg-slate-100/60';
                                   return (
                                     <Pressable
                                       key={`${resourceId}-${slot.index}`}
                                       className={slotClassName}
                                       style={{ height: AGENDA_SLOT_HEIGHT }}
                                       onPress={() => handleAgendaSlotPress(resourceId, slot.minutes)}
-                                      disabled={agendaMoving || !agendaSelectedAppointment}
+                                      disabled={agendaMoving || !agendaSelectedAppointment || !isOpen}
                                     />
                                   );
                                 })}
@@ -6551,7 +6743,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                   const start = new Date(appt.startTime);
                                   if (Number.isNaN(start.getTime())) return null;
                                   const fallbackEnd = new Date(
-                                    start.getTime() + AGENDA_SLOT_MINUTES * 60000,
+                                    start.getTime() + agendaSlotMinutes * 60000,
                                   );
                                   const end = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
                                   const slotIndex = getAgendaSlotIndex(start);
