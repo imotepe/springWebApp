@@ -7445,10 +7445,21 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       <Text style={styles.orgType}>{appt.status || 'SCHEDULED'}</Text>
                     </View>
                     <Text style={styles.orgMeta}>
-                      Customer: {appt.customerId || 'N/A'} - Resource: {appt.resourceId || 'N/A'}
+                      Customer:{' '}
+                      {appt.customerId
+                        ? customerLabelMap.get(appt.customerId) ?? appt.customerId
+                        : 'N/A'}{' '}
+                      - Resource:{' '}
+                      {appt.resourceId
+                        ? resourceLabelMap.get(appt.resourceId) ?? appt.resourceId
+                        : 'N/A'}
                     </Text>
                     <Text style={styles.orgMeta}>
-                      Type: {appt.appointmentTypeId || 'N/A'} -{' '}
+                      Type:{' '}
+                      {appt.appointmentTypeId
+                        ? appointmentTypeLabelMap.get(appt.appointmentTypeId) ?? appt.appointmentTypeId
+                        : 'N/A'}{' '}
+                      -{' '}
                       {appt.startTime ?? (appt as any).start ?? '--'} to {appt.endTime ?? (appt as any).end ?? '--'}
                     </Text>
                     {appt.notes ? <Text style={styles.orgMeta}>Notes: {appt.notes}</Text> : null}
