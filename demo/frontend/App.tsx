@@ -676,7 +676,7 @@ const parseTimeToParts = (value: string) => {
 };
 
 const normalizeTimeString = (value: string, fallback = '00:00') => {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
   if (!match) return fallback;
   const hour = Math.min(23, Math.max(0, Number(match[1])));
   const minute = Math.min(59, Math.max(0, Number(match[2])));
@@ -684,7 +684,7 @@ const normalizeTimeString = (value: string, fallback = '00:00') => {
 };
 
 const parseTimeToMinutes = (value: string) => {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
   if (!match) return null;
   const hour = Math.min(23, Math.max(0, Number(match[1])));
   const minute = Math.min(59, Math.max(0, Number(match[2])));
@@ -5307,6 +5307,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return map;
   }, [users]);
 
+  const resourcePractitionerLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    resources.forEach((resource) => {
+      const resourceId = (resource.id ?? '').trim();
+      const practitionerId = (resource.practitionerUserId ?? '').trim();
+      if (!resourceId || !practitionerId) return;
+      map.set(resourceId, userLabelMap.get(practitionerId) ?? practitionerId);
+    });
+    return map;
+  }, [resources, userLabelMap]);
+
   const sortedTypes = useMemo(() => {
     return [...filteredTypes].sort((a, b) => (b.createdAt != null ? Date.parse(b.createdAt) : 0) - (a.createdAt != null ? Date.parse(a.createdAt) : 0));
   }, [filteredTypes]);
@@ -6634,11 +6645,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     variant="agenda"
                   />
                 </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <View style={styles.statusPill}>
-                    <Text style={styles.statusText}>Daily fill rate: {agendaFillRate}%</Text>
-                  </View>
-                </View>
               </View>
               <Text style={styles.helperText}>
                 Select an appointment to view details, then click a time slot to move it.
@@ -6765,8 +6771,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     ? appointmentTypeLabelMap.get(appt.appointmentTypeId) ??
                                       appt.appointmentTypeId
                                     : 'Type';
+                                  const practitionerLabel = appt.resourceId
+                                    ? resourcePractitionerLabelMap.get(appt.resourceId)
+                                    : null;
                                   const startLabel = formatAgendaTime(start);
                                   const endLabel = formatAgendaTime(end);
+                                  const isCompact = height < AGENDA_SLOT_HEIGHT * 1.5;
+                                  const baseDetail = `${apptTypeLabel} ${startLabel}-${endLabel}`;
+                                  const compactDetail = practitionerLabel
+                                    ? `${baseDetail} · ${practitionerLabel}`
+                                    : baseDetail;
                                   return (
                                     <Pressable
                                       key={appt.id ?? `${appt.customerId}-${appt.startTime}`}
@@ -6774,12 +6788,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                       style={{ top, height }}
                                       onPress={() => handleAgendaAppointmentPress(appt)}
                                     >
-                                      <Text className="text-[12px] font-semibold text-slate-900" numberOfLines={1}>
+                                      <Text className="text-[12px] font-semibold text-slate-900 leading-tight" numberOfLines={1}>
                                         {customerLabel}
                                       </Text>
-                                      <Text className="text-[11px] text-emerald-700" numberOfLines={1}>
-                                        {apptTypeLabel} {startLabel}-{endLabel}
+                                      <Text className="text-[11px] text-emerald-700 leading-tight" numberOfLines={1}>
+                                        {isCompact ? compactDetail : baseDetail}
                                       </Text>
+                                      {!isCompact && practitionerLabel ? (
+                                        <Text className="text-[10px] text-slate-500 leading-tight" numberOfLines={1}>
+                                          Practitioner: {practitionerLabel}
+                                        </Text>
+                                      ) : null}
                                     </Pressable>
                                   );
                                 })}
