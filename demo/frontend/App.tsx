@@ -3322,6 +3322,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [agendaMoveMessage, setAgendaMoveMessage] = useState<string | null>(null);
   const [agendaMoveError, setAgendaMoveError] = useState<string | null>(null);
   const [agendaMoving, setAgendaMoving] = useState(false);
+  const [agendaNow, setAgendaNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setAgendaNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setAgendaSelectedAppointmentId(null);
@@ -5691,6 +5697,23 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const agendaStartMinutes = agendaScheduleRange.start;
   const agendaEndMinutes = agendaScheduleRange.end;
+  const agendaNowMinutes = agendaNow.getHours() * 60 + agendaNow.getMinutes();
+  const isAgendaToday = agendaDate === formatIsoDate(agendaNow);
+
+  const agendaNowOffset = useMemo(() => {
+    if (!isAgendaToday) return null;
+    if (agendaNowMinutes < agendaStartMinutes || agendaNowMinutes > agendaEndMinutes) {
+      return null;
+    }
+    const minutesFromStart = agendaNowMinutes - agendaStartMinutes;
+    return (minutesFromStart / agendaSlotMinutes) * AGENDA_SLOT_HEIGHT;
+  }, [
+    agendaEndMinutes,
+    agendaNowMinutes,
+    agendaSlotMinutes,
+    agendaStartMinutes,
+    isAgendaToday,
+  ]);
 
   const getAgendaSlotIndex = useCallback(
     (date: Date) => {
@@ -6932,15 +6955,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     >
                       <Text className="text-[11px] uppercase tracking-[1px] text-slate-500">Time</Text>
                     </View>
-                    {agendaSlots.map((slot) => (
-                      <View
-                        key={slot.index}
-                        className="items-center justify-center border-b border-slate-200"
-                        style={{ height: AGENDA_SLOT_HEIGHT }}
-                      >
-                        <Text className="text-[11px] text-slate-500">{slot.label}</Text>
-                      </View>
-                    ))}
+                    <View
+                      className="relative"
+                      style={{ height: agendaSlots.length * AGENDA_SLOT_HEIGHT }}
+                    >
+                      {agendaSlots.map((slot) => (
+                        <View
+                          key={slot.index}
+                          className="items-center justify-center border-b border-slate-200"
+                          style={{ height: AGENDA_SLOT_HEIGHT }}
+                        >
+                          <Text className="text-[11px] text-slate-500">{slot.label}</Text>
+                        </View>
+                      ))}
+                      {agendaNowOffset != null ? (
+                        <View
+                          pointerEvents="none"
+                          style={[styles.agendaNowLine, { top: agendaNowOffset }]}
+                        />
+                      ) : null}
+                    </View>
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View>
@@ -6974,7 +7008,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           );
                         })}
                       </View>
-                      <View className="flex-row">
+                      <View
+                        className="relative flex-row"
+                        style={{ height: agendaSlots.length * AGENDA_SLOT_HEIGHT }}
+                      >
                         {agendaResources.map((resource) => {
                           const resourceId = resource.id || 'unassigned';
                           const appointmentsForResource =
@@ -7083,6 +7120,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             </View>
                           );
                         })}
+                        {agendaNowOffset != null ? (
+                          <View
+                            pointerEvents="none"
+                            style={[styles.agendaNowLine, { top: agendaNowOffset }]}
+                          />
+                        ) : null}
                       </View>
                     </View>
                   </ScrollView>
@@ -9252,6 +9295,14 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#E5E7EB',
     marginVertical: 16,
+  },
+  agendaNowLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#EF4444',
+    zIndex: 5,
   },
   sectionActions: {
     flexDirection: 'row',
