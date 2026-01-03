@@ -1034,28 +1034,64 @@
           elements.orgMeta.textContent = "Marketing name: " + (org.marketingName || "--");
         }
 
+        function getAvailableAppointmentTypes(resourceId) {
+          var resource = state.resources.find(function (item) {
+            return item.id === resourceId;
+          });
+          if (
+            !resource ||
+            !Array.isArray(resource.allowedAppointmentTypeIds) ||
+            !resource.allowedAppointmentTypeIds.length
+          ) {
+            return state.appointmentTypes.slice();
+          }
+          var byId = {};
+          state.appointmentTypes.forEach(function (type) {
+            if (type && type.id) {
+              byId[type.id] = type;
+            }
+          });
+          var ordered = [];
+          var seen = {};
+          resource.allowedAppointmentTypeIds.forEach(function (typeId) {
+            if (!typeId || seen[typeId]) return;
+            var match = byId[typeId];
+            if (match) {
+              ordered.push(match);
+              seen[typeId] = true;
+            }
+          });
+          return ordered;
+        }
+
         function renderAppointmentTypes() {
           var select = elements.appointmentTypeSelect;
           if (!select) return;
           select.innerHTML = "";
-          if (!state.appointmentTypes.length) {
+          var availableTypes = getAvailableAppointmentTypes(state.selectedResourceId);
+          if (!availableTypes.length) {
             var option = document.createElement("option");
             option.textContent = "No appointment types";
             option.value = "";
             select.appendChild(option);
             select.disabled = true;
             state.selectedTypeId = "";
+            state.selectedDurationMinutes = null;
+            renderDurationOptions();
             return;
           }
           select.disabled = false;
-          state.appointmentTypes.forEach(function (type) {
+          availableTypes.forEach(function (type) {
             var option = document.createElement("option");
             option.value = type.id || "";
             option.textContent = type.name || type.id || "Appointment type";
             select.appendChild(option);
           });
-          if (!state.selectedTypeId && state.appointmentTypes[0]) {
-            state.selectedTypeId = state.appointmentTypes[0].id || "";
+          var hasSelected = availableTypes.some(function (type) {
+            return type.id === state.selectedTypeId;
+          });
+          if (!hasSelected && availableTypes[0]) {
+            state.selectedTypeId = availableTypes[0].id || "";
           }
           select.value = state.selectedTypeId;
           renderDurationOptions();
@@ -1235,25 +1271,15 @@
           var actions = document.createElement("div");
           actions.className = "doctor-actions";
 
-          var bookButton = document.createElement("button");
-          bookButton.className = "primary-btn";
-          bookButton.textContent = "Book Now";
-          bookButton.addEventListener("click", function () {
-            if (resource.id) {
-              selectResource(resource.id);
-            }
-          });
-
           var detailButton = document.createElement("button");
           detailButton.className = "ghost-btn";
-          detailButton.textContent = "Detail";
+          detailButton.textContent = "Select";
           detailButton.addEventListener("click", function () {
             if (resource.id) {
               selectResource(resource.id);
             }
           });
 
-          actions.appendChild(bookButton);
           actions.appendChild(detailButton);
 
           var agenda = document.createElement("div");
@@ -1393,6 +1419,8 @@
 
         function selectResource(resourceId, slot) {
           state.selectedResourceId = resourceId || "";
+          var prevTypeId = state.selectedTypeId;
+          var prevDuration = state.selectedDurationMinutes;
           if (slot && slot.start) {
             state.selectedSlotStart = slot.start;
             state.selectedSlotEnd = slot.end || "";
@@ -1400,9 +1428,15 @@
             state.selectedSlotStart = "";
             state.selectedSlotEnd = "";
           }
+          renderAppointmentTypes();
+          var selectionChanged =
+            prevTypeId !== state.selectedTypeId || prevDuration !== state.selectedDurationMinutes;
           renderDoctorList();
           renderDoctorDetail();
-          updateAvailability(!slot);
+          updateAvailability(!slot || selectionChanged);
+          if (selectionChanged) {
+            refreshResourceAgendas();
+          }
         }
 
         function fetchAvailability(resourceId, onDone) {

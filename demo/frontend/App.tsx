@@ -696,8 +696,13 @@ const normalizeTimeString = (value: string, fallback = '00:00') => {
 const parseTimeToMinutes = (value: string) => {
   const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
   if (!match) return null;
-  const hour = Math.min(23, Math.max(0, Number(match[1])));
-  const minute = Math.min(59, Math.max(0, Number(match[2])));
+  const rawHour = Number(match[1]);
+  const rawMinute = Number(match[2]);
+  if (rawHour === 24 && rawMinute === 0) {
+    return 24 * 60;
+  }
+  const hour = Math.min(23, Math.max(0, rawHour));
+  const minute = Math.min(59, Math.max(0, rawMinute));
   return hour * 60 + minute;
 };
 
@@ -707,8 +712,11 @@ const normalizeTimeWindows = (windows: TimeWindowInput[]) => {
       const start = parseTimeToMinutes(window.start);
       const end = parseTimeToMinutes(window.end);
       if (start == null || end == null) return null;
-      if (end <= start) return null;
-      return { start, end };
+      // Treat 23:59 as end-of-day so full-duration slots can start at 23:00.
+      const endMinutes =
+        end === 24 * 60 || /^23:59(?::\d{2})?$/.test(window.end.trim()) ? 24 * 60 : end;
+      if (endMinutes <= start) return null;
+      return { start, end: endMinutes };
     })
     .filter((window): window is TimeWindowMinutes => Boolean(window))
     .sort((a, b) => a.start - b.start);
@@ -6123,6 +6131,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     ],
   );
 
+  const handleAgendaRefresh = useCallback(() => {
+    void loadAppointments();
+    void loadResources();
+    void loadAppointmentTypes();
+    void loadOrganizations();
+  }, [loadAppointmentTypes, loadAppointments, loadOrganizations, loadResources]);
+
   const toggleWorkingDay = (day: DayName) => {
     setScheduleForm((prev) => {
       const exists = prev.workingDays.includes(day);
@@ -7068,6 +7083,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   </Pressable>
                   <Pressable onPress={() => shiftAgendaDate(1)} style={styles.secondaryChipCompact}>
                     <Text style={styles.secondaryChipText}>Next</Text>
+                  </Pressable>
+                  <Pressable onPress={handleAgendaRefresh} style={styles.secondaryChipCompact}>
+                    <Text style={styles.secondaryChipText}>Refresh</Text>
                   </Pressable>
                 </View>
               </View>
