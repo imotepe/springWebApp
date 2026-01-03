@@ -109,14 +109,10 @@ public class AvailabilityService {
         int duration = resolveDurationMinutes(type, durationMinutes);
         int maxDuration = resolveMaxDurationMinutes(type);
         int bufferMinutes = Math.max(maxDuration, 1440);
-        ScheduleConfig schedule = resource != null && resource.getScheduleOverride() != null
-                ? resource.getScheduleOverride()
-                : org.getScheduleConfig();
-
-        if (schedule == null) {
-            // default Monday-Friday 9-17 with 12-13 break
-            schedule = defaultSchedule();
-        }
+        ScheduleConfig schedule = resolveEffectiveSchedule(
+                org.getScheduleConfig(),
+                resource != null ? resource.getScheduleOverride() : null
+        );
 
         // Fetch existing appointments in range to check conflicts
         LocalDateTime fetchFrom = from.minusMinutes(bufferMinutes);
@@ -215,6 +211,83 @@ public class AvailabilityService {
         }
         cfg.setBreaks(br);
         return cfg;
+    }
+
+    private ScheduleConfig resolveEffectiveSchedule(ScheduleConfig orgSchedule, ScheduleConfig resourceSchedule) {
+        ScheduleConfig baseOrg = orgSchedule != null ? orgSchedule : defaultSchedule();
+        if (resourceSchedule == null) {
+            return baseOrg;
+        }
+        return intersectSchedules(baseOrg, resourceSchedule);
+    }
+
+    private ScheduleConfig intersectSchedules(ScheduleConfig orgSchedule, ScheduleConfig resourceSchedule) {
+        ScheduleConfig merged = new ScheduleConfig();
+        merged.setWorkingDays(intersectWorkingDays(orgSchedule.getWorkingDays(), resourceSchedule.getWorkingDays()));
+        merged.setBusinessHours(intersectBusinessHours(orgSchedule.getBusinessHours(), resourceSchedule.getBusinessHours()));
+        merged.setBreaks(mergeBreaks(orgSchedule.getBreaks(), resourceSchedule.getBreaks()));
+        merged.setHolidays(mergeHolidays(orgSchedule.getHolidays(), resourceSchedule.getHolidays()));
+        return merged;
+    }
+
+    private Set<DayOfWeek> intersectWorkingDays(Set<DayOfWeek> orgDays, Set<DayOfWeek> resourceDays) {
+        Set<DayOfWeek> base = normalizeWorkingDays(orgDays);
+        Set<DayOfWeek> override = normalizeWorkingDays(resourceDays);
+        base.retainAll(override);
+        return base;
+    }
+
+    private Set<DayOfWeek> normalizeWorkingDays(Set<DayOfWeek> days) {
+        if (days == null) {
+            return EnumSet.allOf(DayOfWeek.class);
+        }
+        if (days.isEmpty()) {
+            return EnumSet.noneOf(DayOfWeek.class);
+        }
+        return EnumSet.copyOf(days);
+    }
+
+    private Map<DayOfWeek, List<TimeWindow>> intersectBusinessHours(
+            Map<DayOfWeek, List<TimeWindow>> orgHours,
+            Map<DayOfWeek, List<TimeWindow>> resourceHours
+    ) {
+        Map<DayOfWeek, List<TimeWindow>> result = new EnumMap<>(DayOfWeek.class);
+        for (DayOfWeek day : DayOfWeek.values()) {
+            List<TimeWindow> base = optionalList(orgHours, day);
+            List<TimeWindow> override = optionalList(resourceHours, day);
+            List<TimeWindow> windows = intersectTimeWindows(base, override);
+            if (!windows.isEmpty()) {
+                result.put(day, windows);
+            }
+        }
+        return result;
+    }
+
+    private Map<DayOfWeek, List<TimeWindow>> mergeBreaks(
+            Map<DayOfWeek, List<TimeWindow>> orgBreaks,
+            Map<DayOfWeek, List<TimeWindow>> resourceBreaks
+    ) {
+        Map<DayOfWeek, List<TimeWindow>> result = new EnumMap<>(DayOfWeek.class);
+        for (DayOfWeek day : DayOfWeek.values()) {
+            List<TimeWindow> merged = new ArrayList<>();
+            merged.addAll(optionalList(orgBreaks, day));
+            merged.addAll(optionalList(resourceBreaks, day));
+            if (!merged.isEmpty()) {
+                result.put(day, sanitizeTimeWindows(merged));
+            }
+        }
+        return result;
+    }
+
+    private List<Holiday> mergeHolidays(List<Holiday> orgHolidays, List<Holiday> resourceHolidays) {
+        List<Holiday> merged = new ArrayList<>();
+        if (orgHolidays != null) {
+            merged.addAll(orgHolidays);
+        }
+        if (resourceHolidays != null) {
+            merged.addAll(resourceHolidays);
+        }
+        return merged;
     }
 
     private List<TimeWindow> optionalList(Map<DayOfWeek, List<TimeWindow>> map, DayOfWeek key) {
