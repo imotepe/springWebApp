@@ -76,6 +76,7 @@ public class AvailabilityService {
         if (from == null || to == null || !from.isBefore(to)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
+        LocalDateTime effectiveTo = normalizeEndOfDay(to);
         if (enforceOrgAccess) {
             organizationAccessManager.currentContext().checkOrgAccess(orgId);
         }
@@ -116,7 +117,7 @@ public class AvailabilityService {
 
         // Fetch existing appointments in range to check conflicts
         LocalDateTime fetchFrom = from.minusMinutes(bufferMinutes);
-        LocalDateTime fetchTo = to.plusMinutes(bufferMinutes);
+        LocalDateTime fetchTo = effectiveTo.plusMinutes(bufferMinutes);
         List<Appointment> existing = resource != null
                 ? appointmentRepository.findByOrgIdAndResourceIdAndStartTimeBetween(orgId, resource.getId(), fetchFrom, fetchTo)
                 : appointmentRepository.findByOrgIdAndStartTimeBetween(orgId, fetchFrom, fetchTo);
@@ -131,7 +132,7 @@ public class AvailabilityService {
 
         List<AvailabilitySlot> slots = new ArrayList<>();
         LocalDate date = from.toLocalDate();
-        LocalDate endDate = to.toLocalDate();
+        LocalDate endDate = effectiveTo.toLocalDate();
         List<Holiday> holidays = Optional.ofNullable(schedule.getHolidays()).orElse(Collections.emptyList());
         Set<DayOfWeek> typeAllowedDays = type.getAllowedDaysOfWeek();
         Map<DayOfWeek, List<TimeWindow>> typeAllowedWindows = type.getAllowedTimeWindows();
@@ -178,12 +179,12 @@ public class AvailabilityService {
 
             for (TimeWindow window : dayWindows) {
                 LocalDateTime windowStart = LocalDateTime.of(date, window.getStart());
-                LocalDateTime windowEnd = LocalDateTime.of(date, window.getEnd());
+                LocalDateTime windowEnd = resolveWindowEnd(date, window.getEnd());
                 if (windowEnd.isBefore(from)) continue;
-                if (windowStart.isAfter(to)) break;
+                if (windowStart.isAfter(effectiveTo)) break;
 
                 LocalDateTime cursor = windowStart.isBefore(from) ? from : windowStart;
-                while (!cursor.plusMinutes(duration).isAfter(windowEnd) && !cursor.plusMinutes(duration).isAfter(to)) {
+                while (!cursor.plusMinutes(duration).isAfter(windowEnd) && !cursor.plusMinutes(duration).isAfter(effectiveTo)) {
                     LocalDateTime candidateEnd = cursor.plusMinutes(duration);
                     if (!overlapsBreak(cursor, candidateEnd, date, dayBreaks) &&
                         hasCapacity(cursor, candidateEnd, existing, capacity)) {
@@ -299,7 +300,7 @@ public class AvailabilityService {
     private boolean overlapsBreak(LocalDateTime start, LocalDateTime end, LocalDate date, List<TimeWindow> breaks) {
         for (TimeWindow b : breaks) {
             LocalDateTime bs = LocalDateTime.of(date, b.getStart());
-            LocalDateTime be = LocalDateTime.of(date, b.getEnd());
+            LocalDateTime be = resolveWindowEnd(date, b.getEnd());
             if (overlap(start, end, bs, be)) return true;
         }
         return false;
@@ -376,5 +377,30 @@ public class AvailabilityService {
             }
         }
         return sanitizeTimeWindows(result);
+    }
+
+    private LocalDateTime resolveWindowEnd(LocalDate date, LocalTime end) {
+        if (end == null) {
+            return LocalDateTime.of(date, LocalTime.MIDNIGHT);
+        }
+        LocalDateTime value = LocalDateTime.of(date, end);
+        if (isEndOfDay(end)) {
+            return value.plusMinutes(1);
+        }
+        return value;
+    }
+
+    private LocalDateTime normalizeEndOfDay(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        if (isEndOfDay(value.toLocalTime())) {
+            return value.plusMinutes(1);
+        }
+        return value;
+    }
+
+    private boolean isEndOfDay(LocalTime time) {
+        return time != null && time.getHour() == 23 && time.getMinute() == 59;
     }
 }
