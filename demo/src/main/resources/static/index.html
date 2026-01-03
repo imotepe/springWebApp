@@ -1441,9 +1441,9 @@
 
         function fetchAvailability(resourceId, onDone) {
           var from = new Date(state.selectedDate);
-          from.setHours(8, 0, 0, 0);
+          from.setHours(0, 0, 0, 0);
           var to = new Date(state.selectedDate);
-          to.setHours(18, 0, 0, 0);
+          to.setHours(23, 59, 0, 0);
 
           var params = new URLSearchParams({
             appointmentTypeId: state.selectedTypeId,
