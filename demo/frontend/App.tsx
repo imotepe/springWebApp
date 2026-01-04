@@ -556,37 +556,87 @@ type DatePickerView = 'day' | 'month' | 'year';
 const HOURS_24 = ['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
 const MINUTES = Array.from({ length: 60 }, (_, idx) => String(idx).padStart(2, '0'));
 
-function decodeRolesFromToken(token: string): UserRole[] {
-  try {
-    const parts = token.split('.');
-    if (parts.length < 2) return [];
-    const base = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base + '='.repeat((4 - (base.length % 4 || 4)) % 4);
-    const decoded = typeof globalThis.atob === 'function' ? globalThis.atob(padded) : '';
-    if (!decoded) return [];
-    const payload = JSON.parse(decoded) as { roles?: unknown };
-    if (!Array.isArray(payload.roles)) return [];
-    return payload.roles.filter(
-      (role): role is UserRole => typeof role === 'string' && USER_ROLE_SET.has(role as UserRole),
-    );
-  } catch {
-    return [];
+const decodeBase64 = (value: string) => {
+  const base = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base + '='.repeat((4 - (base.length % 4 || 4)) % 4);
+  if (typeof globalThis.atob === 'function') {
+    return globalThis.atob(padded);
   }
-}
+  if (typeof globalThis.Buffer === 'function') {
+    return globalThis.Buffer.from(padded, 'base64').toString('utf-8');
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let output = '';
+  let i = 0;
+  while (i < padded.length) {
+    const enc1 = chars.indexOf(padded.charAt(i++));
+    const enc2 = chars.indexOf(padded.charAt(i++));
+    const enc3 = chars.indexOf(padded.charAt(i++));
+    const enc4 = chars.indexOf(padded.charAt(i++));
+    if (enc1 < 0 || enc2 < 0) return '';
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+    output += String.fromCharCode(chr1);
+    if (enc3 !== 64 && enc3 !== -1) output += String.fromCharCode(chr2);
+    if (enc4 !== 64 && enc4 !== -1) output += String.fromCharCode(chr3);
+  }
+  return output;
+};
 
-function decodeUserIdFromToken(token: string): string | null {
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
-    const base = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base + '='.repeat((4 - (base.length % 4 || 4)) % 4);
-    const decoded = typeof globalThis.atob === 'function' ? globalThis.atob(padded) : '';
+    const decoded = decodeBase64(parts[1]);
     if (!decoded) return null;
-    const payload = JSON.parse(decoded) as { sub?: string; userId?: string; id?: string };
-    return payload.sub || payload.userId || payload.id || null;
+    const payload = JSON.parse(decoded);
+    if (!payload || typeof payload !== 'object') return null;
+    return payload as Record<string, unknown>;
   } catch {
     return null;
   }
+};
+
+const normalizeRoleName = (role: string) => {
+  const trimmed = role.trim();
+  if (!trimmed) return '';
+  return trimmed.startsWith('ROLE_') ? trimmed.slice(5) : trimmed;
+};
+
+const extractRoleCandidates = (payload: Record<string, unknown>): string[] => {
+  if (Array.isArray(payload.roles)) {
+    return payload.roles.filter((role): role is string => typeof role === 'string');
+  }
+  if (Array.isArray(payload.authorities)) {
+    return payload.authorities
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object' && 'authority' in entry) {
+          const value = (entry as { authority?: unknown }).authority;
+          return typeof value === 'string' ? value : null;
+        }
+        return null;
+      })
+      .filter((value): value is string => Boolean(value));
+  }
+  return [];
+};
+
+function decodeRolesFromToken(token: string): UserRole[] {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return [];
+  const roles = extractRoleCandidates(payload)
+    .map((role) => normalizeRoleName(role))
+    .filter((role): role is UserRole => USER_ROLE_SET.has(role as UserRole));
+  return Array.from(new Set<UserRole>(roles));
+}
+
+function decodeUserIdFromToken(token: string): string | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+  const sub = payload.sub ?? payload.userId ?? payload.id;
+  return typeof sub === 'string' ? sub : null;
 }
 const APPOINTMENT_TYPE_STATUSES = ['active'];
 
@@ -3105,8 +3155,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const isSuperAdmin = roles.includes('SUPER_PLATFORM_ADMIN');
   const isPlatformAdminOnly = roles.includes('PLATFORM_ADMIN') && !isSuperAdmin;
   const isPlatformUser = roles.some((role) => PLATFORM_ROLES.includes(role));
+  const isOrgAdmin = roles.includes('ORGANIZATION_ADMIN');
   const isAgent = roles.includes('AGENT');
-  const canManageOrganizations = isPlatformUser;
+  const isAgentOnly = isAgent && roles.every((role) => role === 'AGENT');
+  const canManageOrganizations = isPlatformUser || isOrgAdmin;
   const canManageOrgTypes = isPlatformUser;
   const assignableRoles = useMemo<UserRole[]>(() => {
     if (isSuperAdmin) return USER_ROLES;
@@ -3120,13 +3172,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
   const canViewAgenda = isAgent;
-  const canViewSchedule = !isAgent;
-  const canViewUsers = !isAgent;
-  const canViewResources = !isAgent;
-  const canViewAppointmentTypes = !isAgent;
+  const canViewSchedule = !isAgentOnly;
+  const canViewUsers = !isAgentOnly;
+  const canViewResources = !isAgentOnly;
+  const canViewAppointmentTypes = !isAgentOnly;
   const availableTabs = useMemo<TabKey[]>(() => {
     const tabs: TabKey[] = [];
-    if (isAgent) {
+    if (isAgentOnly) {
       if (canViewAgenda) {
         tabs.push('agenda');
       }
@@ -3173,7 +3225,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     canViewResources,
     canViewSchedule,
     canViewUsers,
-    isAgent,
+    isAgentOnly,
   ]);
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
