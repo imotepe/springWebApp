@@ -2595,9 +2595,11 @@ type ScheduleEditorProps = {
   toggleWorkingDay: (day: DayName) => void;
   applyDays: DayName[];
   toggleApplyDay: (day: DayName) => void;
+  toggleApplyAllDays: () => void;
   newBusinessWindow: TimeWindowInput;
   setNewBusinessWindow: Dispatch<SetStateAction<TimeWindowInput>>;
   addBusinessWindow: () => void;
+  setFullDayBusinessHours: () => void;
   removeBusinessWindow: (day: DayName, index: number) => void;
   newBreakWindow: TimeWindowInput;
   setNewBreakWindow: Dispatch<SetStateAction<TimeWindowInput>>;
@@ -2620,9 +2622,11 @@ function ScheduleEditor({
   toggleWorkingDay,
   applyDays,
   toggleApplyDay,
+  toggleApplyAllDays,
   newBusinessWindow,
   setNewBusinessWindow,
   addBusinessWindow,
+  setFullDayBusinessHours,
   removeBusinessWindow,
   newBreakWindow,
   setNewBreakWindow,
@@ -2637,6 +2641,7 @@ function ScheduleEditor({
   removeHoliday,
   footer,
 }: ScheduleEditorProps) {
+  const allApplySelected = DAY_NAMES.every((day) => applyDays.includes(day));
   return (
     <>
       <View style={styles.sectionHeaderRow}>
@@ -2688,6 +2693,12 @@ function ScheduleEditor({
               </Pressable>
             );
           })}
+          <Pressable
+            style={[styles.typeChip, allApplySelected && styles.typeChipSelected]}
+            onPress={toggleApplyAllDays}
+          >
+            <Text style={[styles.typeChipText, allApplySelected && styles.typeChipTextSelected]}>7 days</Text>
+          </Pressable>
         </View>
         <Pressable onPress={clearHoursAndBreaks} style={styles.secondaryChipCompact}>
           <Text style={styles.secondaryChipText}>Clear all hours & breaks</Text>
@@ -2731,9 +2742,14 @@ function ScheduleEditor({
           />
         </View>
       </View>
-      <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
-        <Text style={styles.secondaryChipText}>Add business window</Text>
-      </Pressable>
+      <View style={styles.sectionActions}>
+        <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
+          <Text style={styles.secondaryChipText}>Add business window</Text>
+        </Pressable>
+        <Pressable onPress={setFullDayBusinessHours} style={styles.secondaryChipCompact}>
+          <Text style={styles.secondaryChipText}>Set 24 hours</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.divider} />
 
@@ -6154,6 +6170,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   };
 
+  const toggleScheduleApplyAllDays = () => {
+    setScheduleApplyDays((prev) => {
+      const allSelected = DAY_NAMES.every((day) => prev.includes(day));
+      return allSelected ? [] : [...DAY_NAMES];
+    });
+  };
+
   const addBusinessWindow = () => {
     if (!newBusinessWindow.start.trim() || !newBusinessWindow.end.trim()) {
       setScheduleError('Provide start and end time for business hours.');
@@ -6170,6 +6193,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return { ...prev, businessHours };
     });
     setNewBusinessWindow({ start: '09:00', end: '17:00' });
+    setScheduleError(null);
+  };
+
+  const setBusinessHoursFullDay = () => {
+    const targetDays = scheduleApplyDays.length > 0 ? scheduleApplyDays : [activeDay];
+    setScheduleForm((prev) => {
+      const businessHours = { ...prev.businessHours };
+      targetDays.forEach((day) => {
+        businessHours[day] = [{ start: '00:00', end: '23:59' }];
+      });
+      return { ...prev, businessHours };
+    });
     setScheduleError(null);
   };
 
@@ -6278,6 +6313,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
   };
 
+  const toggleResourceApplyAllDays = () => {
+    setResourceApplyDays((prev) => {
+      const allSelected = DAY_NAMES.every((day) => prev.includes(day));
+      return allSelected ? [] : [...DAY_NAMES];
+    });
+  };
+
   const addResourceBusinessWindow = () => {
     if (!resourceNewBusinessWindow.start.trim() || !resourceNewBusinessWindow.end.trim()) {
       setResourceScheduleError('Provide start and end time for business hours.');
@@ -6294,6 +6336,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return { ...prev, businessHours };
     });
     setResourceNewBusinessWindow({ start: '09:00', end: '17:00' });
+    setResourceScheduleError(null);
+  };
+
+  const setResourceBusinessHoursFullDay = () => {
+    const targetDays = resourceApplyDays.length > 0 ? resourceApplyDays : [resourceActiveDay];
+    setResourceScheduleForm((prev) => {
+      const businessHours = { ...prev.businessHours };
+      targetDays.forEach((day) => {
+        businessHours[day] = [{ start: '00:00', end: '23:59' }];
+      });
+      return { ...prev, businessHours };
+    });
     setResourceScheduleError(null);
   };
 
@@ -7537,9 +7591,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   toggleWorkingDay={toggleWorkingDay}
                   applyDays={scheduleApplyDays}
                   toggleApplyDay={toggleScheduleApplyDay}
+                  toggleApplyAllDays={toggleScheduleApplyAllDays}
                   newBusinessWindow={newBusinessWindow}
                   setNewBusinessWindow={setNewBusinessWindow}
                   addBusinessWindow={addBusinessWindow}
+                  setFullDayBusinessHours={setBusinessHoursFullDay}
                   removeBusinessWindow={removeBusinessWindow}
                   newBreakWindow={newBreakWindow}
                   setNewBreakWindow={setNewBreakWindow}
@@ -7880,9 +7936,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 toggleWorkingDay={toggleResourceWorkingDay}
                 applyDays={resourceApplyDays}
                 toggleApplyDay={toggleResourceApplyDay}
+                toggleApplyAllDays={toggleResourceApplyAllDays}
                 newBusinessWindow={resourceNewBusinessWindow}
                 setNewBusinessWindow={setResourceNewBusinessWindow}
                 addBusinessWindow={addResourceBusinessWindow}
+                setFullDayBusinessHours={setResourceBusinessHoursFullDay}
                 removeBusinessWindow={removeResourceBusinessWindow}
                 newBreakWindow={resourceNewBreakWindow}
                 setNewBreakWindow={setResourceNewBreakWindow}
