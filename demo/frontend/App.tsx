@@ -3449,6 +3449,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [agendaMoveError, setAgendaMoveError] = useState<string | null>(null);
   const [agendaMoving, setAgendaMoving] = useState(false);
   const [agendaNow, setAgendaNow] = useState(() => new Date());
+  const [agendaStatusDraft, setAgendaStatusDraft] = useState<AppointmentStatus>('SCHEDULED');
+  const [agendaNotesDraft, setAgendaNotesDraft] = useState('');
+  const [agendaEventType, setAgendaEventType] = useState<AppointmentEventType>('INTERNAL_NOTE');
+  const [agendaEventComment, setAgendaEventComment] = useState('');
+  const [agendaDetailMessage, setAgendaDetailMessage] = useState<string | null>(null);
+  const [agendaDetailError, setAgendaDetailError] = useState<string | null>(null);
+  const [agendaDetailSaving, setAgendaDetailSaving] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setAgendaNow(new Date()), 60000);
@@ -3460,6 +3467,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaMoveMessage(null);
     setAgendaMoveError(null);
   }, [agendaDate]);
+
+  useEffect(() => {
+    if (!agendaSelectedAppointmentId) {
+      setAgendaStatusDraft('SCHEDULED');
+      setAgendaNotesDraft('');
+      setAgendaEventType('INTERNAL_NOTE');
+      setAgendaEventComment('');
+      setAgendaDetailMessage(null);
+      setAgendaDetailError(null);
+      return;
+    }
+    const selected = appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
+    setAgendaStatusDraft(selected?.status ?? 'SCHEDULED');
+    setAgendaNotesDraft(selected?.notes ?? '');
+    setAgendaEventType('INTERNAL_NOTE');
+    setAgendaEventComment('');
+    setAgendaDetailMessage(null);
+    setAgendaDetailError(null);
+  }, [agendaSelectedAppointmentId, appointments]);
 
   const authHeaders = useMemo(
     () => ({
@@ -5979,6 +6005,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return set;
   }, [agendaSelectedStartsByResource]);
 
+  const agendaEventList = useMemo(() => {
+    if (!agendaSelectedAppointment || !agendaSelectedAppointment.events) return [];
+    return [...agendaSelectedAppointment.events].sort((a, b) => {
+      const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return bTime - aTime;
+    });
+  }, [agendaSelectedAppointment]);
+
   const agendaTimeMarkers = useMemo(() => {
     const baseMinutes =
       agendaAvailableStartTimes.length > 0
@@ -6162,6 +6197,94 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
     setAgendaMoveError(null);
   }, []);
+
+  const buildAgendaUpdatePayload = useCallback((appointment: Appointment, updates: Partial<Appointment>) => {
+    return {
+      ...appointment,
+      ...updates,
+      id: appointment.id,
+      status: updates.status ?? appointment.status ?? 'SCHEDULED',
+      events: updates.events ?? appointment.events ?? [],
+    };
+  }, []);
+
+  const saveAgendaAppointment = useCallback(
+    async (updates: Partial<Appointment>, successMessage: string) => {
+      const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+      if (!selected || !selected.id) {
+        return;
+      }
+      const payload = buildAgendaUpdatePayload(selected, updates);
+      setAgendaDetailSaving(true);
+      setAgendaDetailMessage('Saving appointment...');
+      setAgendaDetailError(null);
+      try {
+        const res = await authFetch(`/api/appointments/${selected.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          setAgendaDetailError(await parseErrorMessage(res));
+          setAgendaDetailMessage(null);
+          return;
+        }
+        await loadAppointments();
+        setAgendaDetailMessage(successMessage);
+      } catch (error) {
+        setAgendaDetailError(error instanceof Error ? error.message : 'Unable to save appointment.');
+        setAgendaDetailMessage(null);
+      } finally {
+        setAgendaDetailSaving(false);
+      }
+    },
+    [agendaSelectedAppointment, authFetch, buildAgendaUpdatePayload, loadAppointments],
+  );
+
+  const handleAgendaStatusUpdate = useCallback(() => {
+    void saveAgendaAppointment({ status: agendaStatusDraft }, 'Status updated.');
+  }, [agendaStatusDraft, saveAgendaAppointment]);
+
+  const handleAgendaNotesSave = useCallback(() => {
+    void saveAgendaAppointment({ notes: agendaNotesDraft.trim() || undefined }, 'Notes saved.');
+  }, [agendaNotesDraft, saveAgendaAppointment]);
+
+  const handleAgendaEventAdd = useCallback(async () => {
+    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    if (!selected || !selected.id) {
+      return;
+    }
+    const comment = agendaEventComment.trim();
+    if (!comment) {
+      setAgendaDetailError('Event comment is required.');
+      setAgendaDetailMessage(null);
+      return;
+    }
+    setAgendaDetailSaving(true);
+    setAgendaDetailMessage('Adding event...');
+    setAgendaDetailError(null);
+    try {
+      const res = await authFetch(`/api/appointments/${selected.id}/events`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: agendaEventType,
+          comment,
+        }),
+      });
+      if (!res.ok) {
+        setAgendaDetailError(await parseErrorMessage(res));
+        setAgendaDetailMessage(null);
+        return;
+      }
+      await loadAppointments();
+      setAgendaEventComment('');
+      setAgendaDetailMessage('Event added.');
+    } catch (error) {
+      setAgendaDetailError(error instanceof Error ? error.message : 'Unable to add event.');
+      setAgendaDetailMessage(null);
+    } finally {
+      setAgendaDetailSaving(false);
+    }
+  }, [agendaEventComment, agendaEventType, agendaSelectedAppointment, authFetch, loadAppointments]);
 
   const isAgendaSlotOpen = useCallback(
     (resourceId: string, minutes: number, durationMinutes = agendaSlotMinutes) => {
@@ -7596,6 +7719,130 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                       {agendaSelectedAppointment.notes ? (
                         <Text style={styles.orgMeta}>Notes: {agendaSelectedAppointment.notes}</Text>
                       ) : null}
+                      {agendaDetailMessage ? (
+                        <View style={styles.statusPill}>
+                          <Text style={styles.statusText}>{agendaDetailMessage}</Text>
+                        </View>
+                      ) : null}
+                      {agendaDetailError ? (
+                        <View style={[styles.statusPill, styles.errorPill]}>
+                          <Text style={styles.errorText}>{agendaDetailError}</Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.inputField}>
+                        <Text style={styles.label}>Update status</Text>
+                        <View style={styles.typeChips}>
+                          {APPOINTMENT_STATUSES.map((status) => {
+                            const selected = agendaStatusDraft === status;
+                            return (
+                              <Pressable
+                                key={status}
+                                onPress={() => setAgendaStatusDraft(status)}
+                                style={[styles.typeChip, selected && styles.typeChipSelected]}
+                              >
+                                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                                  {status}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        <Pressable
+                          onPress={handleAgendaStatusUpdate}
+                          disabled={agendaDetailSaving}
+                          style={[
+                            styles.secondaryChipCompact,
+                            agendaDetailSaving && styles.secondaryChipDisabled,
+                          ]}
+                        >
+                          <Text style={styles.secondaryChipText}>
+                            {agendaDetailSaving ? 'Saving...' : 'Save status'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <InputField
+                        label="Notes"
+                        placeholder="Add notes for this appointment"
+                        value={agendaNotesDraft}
+                        onChangeText={setAgendaNotesDraft}
+                      />
+                      <Pressable
+                        onPress={handleAgendaNotesSave}
+                        disabled={agendaDetailSaving}
+                        style={[
+                          styles.secondaryChipCompact,
+                          agendaDetailSaving && styles.secondaryChipDisabled,
+                        ]}
+                      >
+                        <Text style={styles.secondaryChipText}>
+                          {agendaDetailSaving ? 'Saving...' : 'Save notes'}
+                        </Text>
+                      </Pressable>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionTitle}>Events</Text>
+                      </View>
+                      <View style={styles.orgList}>
+                        {agendaEventList.map((event) => (
+                          <View key={event.id ?? event.createdAt} style={styles.orgCard}>
+                            <View style={styles.orgHeader}>
+                              <Text style={styles.orgName}>{event.type ?? 'Event'}</Text>
+                              <Text style={styles.orgType}>{event.status ?? 'N/A'}</Text>
+                            </View>
+                            <Text style={styles.orgMeta}>{event.comment || 'No comment'}</Text>
+                            <Text style={styles.orgMeta}>
+                              By {event.createdBy || 'unknown'}
+                              {event.createdAt ? ` - ${event.createdAt}` : ''}
+                            </Text>
+                          </View>
+                        ))}
+                        {agendaEventList.length === 0 ? (
+                          <Text style={styles.statusText}>No events yet.</Text>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionTitle}>Add event</Text>
+                      </View>
+                      <View style={styles.inputField}>
+                        <Text style={styles.label}>Type</Text>
+                        <View style={styles.typeChips}>
+                          {APPOINTMENT_EVENT_TYPES.map((type) => {
+                            const selected = agendaEventType === type;
+                            return (
+                              <Pressable
+                                key={type}
+                                onPress={() => setAgendaEventType(type)}
+                                style={[styles.typeChip, selected && styles.typeChipSelected]}
+                              >
+                                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                                  {type}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                      <InputField
+                        label="Comment"
+                        placeholder="Add a note for the agent log"
+                        value={agendaEventComment}
+                        onChangeText={setAgendaEventComment}
+                      />
+                      <Pressable
+                        onPress={handleAgendaEventAdd}
+                        disabled={agendaDetailSaving}
+                        style={[
+                          styles.secondaryChipCompact,
+                          agendaDetailSaving && styles.secondaryChipDisabled,
+                        ]}
+                      >
+                        <Text style={styles.secondaryChipText}>
+                          {agendaDetailSaving ? 'Saving...' : 'Add event'}
+                        </Text>
+                      </Pressable>
                     </>
                   );
                 })()

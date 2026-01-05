@@ -12,12 +12,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
@@ -75,14 +78,51 @@ public class QrCodeService {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g.setColor(Color.WHITE);
         g.fillRoundRect(backgroundX, backgroundY, backgroundSize, backgroundSize, backgroundSize / 3, backgroundSize / 3);
-        BufferedImage iconImage = buildIcon(icon, iconSize);
+        BufferedImage iconImage = loadIcon(icon, iconSize);
+        if (iconImage == null) {
+            iconImage = buildTextIcon(icon, iconSize);
+        }
         int iconX = (size - iconSize) / 2;
         int iconY = (size - iconSize) / 2;
         g.drawImage(iconImage, iconX, iconY, null);
         g.dispose();
     }
 
-    private BufferedImage buildIcon(QrIcon icon, int size) {
+    private BufferedImage loadIcon(QrIcon icon, int size) {
+        String path = icon.resourcePath();
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        for (String candidate : resolveIconCandidates(path)) {
+            BufferedImage source = readIconResource(candidate);
+            if (source != null) {
+                return scaleToSquare(source, size);
+            }
+        }
+        return null;
+    }
+
+    private BufferedImage readIconResource(String path) {
+        try (InputStream in = QrCodeService.class.getResourceAsStream(path)) {
+            if (in == null) {
+                return null;
+            }
+            return ImageIO.read(in);
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    private String[] resolveIconCandidates(String path) {
+        String normalized = path.startsWith("/") ? path : "/" + path;
+        if (normalized.startsWith("/static/")) {
+            String withoutStatic = normalized.substring("/static".length());
+            return new String[] { normalized, withoutStatic };
+        }
+        return new String[] { normalized, "/static" + normalized };
+    }
+
+    private BufferedImage buildTextIcon(QrIcon icon, int size) {
         BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -102,24 +142,42 @@ public class QrCodeService {
         return image;
     }
 
+    private BufferedImage scaleToSquare(BufferedImage source, int size) {
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int square = Math.min(width, height);
+        int sx = (width - square) / 2;
+        int sy = (height - square) / 2;
+        BufferedImage scaled = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(source, 0, 0, size, size, sx, sy, sx + square, sy + square, null);
+        g.dispose();
+        return scaled;
+    }
+
     public enum QrIcon {
-        MAPS("maps", "MAP", new Color(0x1F7A5F), Color.WHITE),
-        FACEBOOK("facebook", "FB", new Color(0x1877F2), Color.WHITE),
-        FACEBOOK_GROUP("facebook-group", "FG", new Color(0x1461C0), Color.WHITE),
-        INSTAGRAM("instagram", "IG", new Color(0xE1306C), Color.WHITE),
-        WHATSAPP_MESSAGE("whatsapp-message", "WA", new Color(0x25D366), Color.WHITE),
-        CALL("call", "CALL", new Color(0x0EA5E9), Color.WHITE);
+        MAPS("maps", "MAP", new Color(0x1F7A5F), Color.WHITE, "/qr-icons/maps.png"),
+        FACEBOOK("facebook", "FB", new Color(0x1877F2), Color.WHITE, "/qr-icons/facebook.png"),
+        FACEBOOK_GROUP("facebook-group", "FG", new Color(0x1461C0), Color.WHITE, "/qr-icons/facebook-group.png"),
+        INSTAGRAM("instagram", "IG", new Color(0xE1306C), Color.WHITE, "/qr-icons/instagram.png"),
+        WHATSAPP_MESSAGE("whatsapp-message", "WA", new Color(0x25D366), Color.WHITE, "/qr-icons/whatsapp.png"),
+        CALL("call", "CALL", new Color(0x0EA5E9), Color.WHITE, "/qr-icons/call.png");
 
         private final String slug;
         private final String label;
         private final Color background;
         private final Color foreground;
+        private final String resourcePath;
 
-        QrIcon(String slug, String label, Color background, Color foreground) {
+        QrIcon(String slug, String label, Color background, Color foreground, String resourcePath) {
             this.slug = slug;
             this.label = label;
             this.background = background;
             this.foreground = foreground;
+            this.resourcePath = resourcePath;
         }
 
         public String slug() {
@@ -136,6 +194,10 @@ public class QrCodeService {
 
         public Color foreground() {
             return foreground;
+        }
+
+        public String resourcePath() {
+            return resourcePath;
         }
     }
 }

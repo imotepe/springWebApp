@@ -66,7 +66,7 @@ public class FileStorageService {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "QR code image is required");
         }
         String safeType = normalizeType(type);
-        String filename = "qr-" + safeType + "-" + UUID.randomUUID() + ".png";
+        String filename = "qr-v4-" + safeType + "-" + UUID.randomUUID() + ".png";
         Path orgDir = uploadRoot.resolve("organizations").resolve(orgId).resolve("qr").normalize();
         if (!orgDir.startsWith(uploadRoot)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid upload path");

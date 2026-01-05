@@ -205,7 +205,8 @@ public class OrganizationService {
             return false;
         }
 
-        if (previousQr == null || previousQr.isBlank() || !Objects.equals(previousContent, newContent)) {
+        boolean needsUpgrade = previousQr != null && !previousQr.isBlank() && !isQrVersion4(previousQr);
+        if (previousQr == null || previousQr.isBlank() || !Objects.equals(previousContent, newContent) || needsUpgrade) {
             String generated = qrCodeService.generateOrganizationQrCode(org.getId(), newContent, icon);
             if (previousQr != null && !previousQr.isBlank() && generated != null && !generated.equals(previousQr)) {
                 fileStorageService.deleteIfExists(previousQr);
@@ -216,6 +217,10 @@ public class OrganizationService {
 
         setter.accept(previousQr);
         return false;
+    }
+
+    private boolean isQrVersion4(String path) {
+        return path.contains("/qr/qr-v4-") || path.contains("\\qr\\qr-v4-");
     }
 
     private String toMapsQrContent(String value) {
@@ -271,7 +276,7 @@ public class OrganizationService {
     }
 
     private String toCallQrContent(String value) {
-        String phone = normalizePhone(value);
+        String phone = normalizeCallMsisdn(value);
         if (phone == null) return null;
         return "tel:" + phone;
     }
@@ -299,6 +304,21 @@ public class OrganizationService {
             digits = "+" + digits.replace("+", "");
         }
         return digits;
+    }
+
+    private String normalizeCallMsisdn(String value) {
+        if (value == null) return null;
+        String cleaned = value.replaceAll("[^0-9+]", "");
+        if (cleaned.isBlank()) {
+            return null;
+        }
+        if (cleaned.startsWith("+")) {
+            String digits = cleaned.substring(1).replace("+", "");
+            if (digits.isBlank()) return null;
+            return "+" + digits;
+        }
+        String digitsOnly = cleaned.replace("+", "");
+        return digitsOnly.isBlank() ? null : digitsOnly;
     }
 
     private String stripHandle(String value) {
