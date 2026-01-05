@@ -7664,7 +7664,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
             <View style={styles.divider} />
 
-            <View className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 gap-2">
+            <Pressable
+              onPress={(event) => {
+                if (event && typeof event.stopPropagation === 'function') {
+                  event.stopPropagation();
+                }
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 gap-2"
+            >
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Appointment details</Text>
                 {agendaSelectedAppointment ? (
@@ -7849,7 +7856,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               ) : (
                 <Text style={styles.statusText}>Select an appointment to see details.</Text>
               )}
-            </View>
+            </Pressable>
           </Pressable>
         ) : activeTab === 'schedule' && canViewSchedule ? (
           <>
