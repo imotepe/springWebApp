@@ -53,6 +53,7 @@ type InputFieldProps = {
   onChangeText: (value: string) => void;
   error?: string;
   secureTextEntry?: boolean;
+  disabled?: boolean;
   keyboardType?: 'default' | 'email-address';
   autoComplete?: 'email' | 'password' | 'off' | 'name' | 'tel' | 'url';
 };
@@ -1044,25 +1045,28 @@ function InputField({
   onChangeText,
   error,
   secureTextEntry,
+  disabled,
   keyboardType = 'default',
   autoComplete,
 }: InputFieldProps) {
   return (
     <View style={styles.inputField}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputShell, error && styles.inputShellError]}>
+      <View style={[styles.inputShell, error && styles.inputShellError, disabled && styles.inputShellDisabled]}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="rgba(107,114,128,0.55)"
-          style={styles.input}
+          style={[styles.input, disabled && styles.inputDisabled]}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete={autoComplete}
           textContentType={autoComplete === 'password' ? 'password' : 'emailAddress'}
+          editable={!disabled}
+          selectTextOnFocus={!disabled}
         />
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -3158,6 +3162,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const isOrgAdmin = roles.includes('ORGANIZATION_ADMIN');
   const isAgent = roles.includes('AGENT');
   const isAgentOnly = isAgent && roles.every((role) => role === 'AGENT');
+  const isOrgAdminRestricted = isOrgAdmin && !isPlatformUser;
+  const canEditOrgIdentity = !isOrgAdminRestricted;
   const canManageOrganizations = isPlatformUser || isOrgAdmin;
   const canManageOrgTypes = isPlatformUser;
   const assignableRoles = useMemo<UserRole[]>(() => {
@@ -6703,9 +6709,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Organizations ({visibleOrgs.length}/{orgs.length})</Text>
                 <View style={styles.sectionActions}>
-                  <Pressable onPress={resetForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
-                  </Pressable>
+                  {!isOrgAdminRestricted ? (
+                    <Pressable onPress={resetForm} style={styles.secondaryChip}>
+                      <Text style={styles.secondaryChipText}>New</Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable onPress={loadOrganizations} style={styles.secondaryChip}>
                     <Text style={styles.secondaryChipText}>Refresh</Text>
                   </Pressable>
@@ -6837,30 +6845,35 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               placeholder="Legal name"
               value={form.name}
               onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
+              disabled={!canEditOrgIdentity}
             />
             <InputField
               label="Marketing name"
               placeholder="Public-facing name"
               value={form.marketingName}
               onChangeText={(marketingName) => setForm((prev) => ({ ...prev, marketingName }))}
+              disabled={!canEditOrgIdentity}
             />
             <InputField
               label="Industry"
               placeholder="Industry"
               value={form.industry}
               onChangeText={(industry) => setForm((prev) => ({ ...prev, industry }))}
+              disabled={!canEditOrgIdentity}
             />
             <View style={styles.inputField}>
               <Text style={styles.label}>Organization type</Text>
               <Pressable
-                style={styles.dropdownTrigger}
-                onPress={() =>
+                style={[styles.dropdownTrigger, !canEditOrgIdentity && styles.dropdownTriggerDisabled]}
+                disabled={!canEditOrgIdentity}
+                onPress={() => {
+                  if (!canEditOrgIdentity) return;
                   setOrgTypePickerOpen((open) => {
                     const next = !open;
                     if (next) setOrgTypeQuery('');
                     return next;
-                  })
-                }
+                  });
+                }}
               >
                 <Text style={form.type ? styles.dropdownValue : styles.dropdownPlaceholder}>
                   {form.type || 'Select organization type'}
@@ -7018,13 +7031,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
               autoComplete="off"
             />
-            <InputField
-              label="Logo image URL"
-              placeholder="https://cdn.example.com/logos/yourorg.png"
-              value={form.logoImage}
-              onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
-              autoComplete="off"
-            />
+            {isSuperAdmin ? (
+              <InputField
+                label="Logo image URL"
+                placeholder="https://cdn.example.com/logos/yourorg.png"
+                value={form.logoImage}
+                onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
+                autoComplete="off"
+              />
+            ) : null}
             <View style={styles.inputField}>
               <Text style={styles.label}>Logo upload</Text>
               <Pressable
@@ -9245,10 +9260,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   inputShellError: { borderColor: '#DC2626' },
+  inputShellDisabled: {
+    backgroundColor: '#F3F4F6',
+  },
   input: {
     color: '#0F172A',
     fontFamily: 'Manrope_500Medium',
     fontSize: 16,
+  },
+  inputDisabled: {
+    color: '#94A3B8',
   },
   dateInputShell: {
     borderWidth: 1,
@@ -9872,6 +9893,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     marginTop: 6,
+  },
+  dropdownTriggerDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
   },
   dropdownTriggerRow: {
     flexDirection: 'row',
