@@ -83,6 +83,7 @@
         display: grid;
         place-items: center;
         box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.2);
+        overflow: hidden;
       }
 
       .brand-mark span {
@@ -91,6 +92,27 @@
         border-radius: 8px;
         background: var(--accent);
         display: inline-block;
+      }
+
+      .brand-logo {
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        object-fit: cover;
+        display: none;
+      }
+
+      .brand-mark.has-logo {
+        background: #fff;
+        box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.12);
+      }
+
+      .brand-mark.has-logo span {
+        display: none;
+      }
+
+      .brand-mark.has-logo .brand-logo {
+        display: block;
       }
 
       .brand-copy {
@@ -650,7 +672,10 @@
   <body>
     <header class="site-header">
       <div class="brand">
-        <div class="brand-mark"><span></span></div>
+        <div class="brand-mark" id="orgLogoMark">
+          <img class="brand-logo" id="orgLogo" alt="Organization logo" />
+          <span></span>
+        </div>
         <div class="brand-copy">
           <div class="org-title" id="orgTitle">Public Appointments</div>
           <div class="org-tagline" id="orgTagline">Loading organization</div>
@@ -683,65 +708,6 @@
     <main class="site-main">
       <div class="page-status" id="pageStatus">Loading public booking page...</div>
       <div class="layout">
-        <aside class="panel booking">
-          <div>
-            <div class="panel-header">
-              <div>
-                <div class="panel-title">Booking Appointment</div>
-                <div class="panel-subtitle" id="bookingSubtitle">
-                  Select a doctor and a time slot
-                </div>
-              </div>
-              <div class="chip" id="orgCity">City: --</div>
-            </div>
-          </div>
-
-          <div class="booking-select">
-            <label for="appointmentTypeSelect">Appointment type</label>
-            <select id="appointmentTypeSelect"></select>
-          </div>
-
-          <div class="booking-select">
-            <label for="durationSelect">Duration</label>
-            <select id="durationSelect"></select>
-          </div>
-
-          <div class="calendar">
-            <div class="calendar-header">
-              <div class="calendar-title" id="calendarTitle">Month</div>
-              <div class="calendar-nav">
-                <button id="prevMonth" type="button">&#8249;</button>
-                <button id="nextMonth" type="button">&#8250;</button>
-              </div>
-            </div>
-            <div class="calendar-week">
-              <span>Sun</span>
-              <span>Mon</span>
-              <span>Tue</span>
-              <span>Wed</span>
-              <span>Thu</span>
-              <span>Fri</span>
-              <span>Sat</span>
-            </div>
-            <div class="calendar-grid" id="calendarGrid"></div>
-          </div>
-
-          <div class="slots">
-            <div class="panel-subtitle" id="selectedDateLabel">Select a date</div>
-            <div class="panel-subtitle" id="selectedSlotLabel">No slot selected</div>
-            <div class="slot-grid" id="slotGrid"></div>
-          </div>
-
-          <div class="notes">
-            <h4>Patient Concerns</h4>
-            <ul>
-              <li>Describe your symptoms in detail.</li>
-              <li>Share preferred communication channel.</li>
-              <li>Bring previous test results if available.</li>
-            </ul>
-          </div>
-        </aside>
-
         <section class="panel doctors">
           <div class="panel-header">
             <div>
@@ -831,6 +797,65 @@
             </div>
           </div>
         </aside>
+
+        <aside class="panel booking">
+          <div>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Booking Appointment</div>
+                <div class="panel-subtitle" id="bookingSubtitle">
+                  Select a doctor and a time slot
+                </div>
+              </div>
+              <div class="chip" id="orgCity">City: --</div>
+            </div>
+          </div>
+
+          <div class="booking-select">
+            <label for="appointmentTypeSelect">Appointment type</label>
+            <select id="appointmentTypeSelect"></select>
+          </div>
+
+          <div class="booking-select">
+            <label for="durationSelect">Duration</label>
+            <select id="durationSelect"></select>
+          </div>
+
+          <div class="calendar">
+            <div class="calendar-header">
+              <div class="calendar-title" id="calendarTitle">Month</div>
+              <div class="calendar-nav">
+                <button id="prevMonth" type="button">&#8249;</button>
+                <button id="nextMonth" type="button">&#8250;</button>
+              </div>
+            </div>
+            <div class="calendar-week">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+          </div>
+
+          <div class="slots">
+            <div class="panel-subtitle" id="selectedDateLabel">Select a date</div>
+            <div class="panel-subtitle" id="selectedSlotLabel">No slot selected</div>
+            <div class="slot-grid" id="slotGrid"></div>
+          </div>
+
+          <div class="notes">
+            <h4>Patient Concerns</h4>
+            <ul>
+              <li>Describe your symptoms in detail.</li>
+              <li>Share preferred communication channel.</li>
+              <li>Bring previous test results if available.</li>
+            </ul>
+          </div>
+        </aside>
       </div>
     </main>
 
@@ -861,6 +886,8 @@
         var elements = {
           orgTitle: document.getElementById("orgTitle"),
           orgTagline: document.getElementById("orgTagline"),
+          orgLogoMark: document.getElementById("orgLogoMark"),
+          orgLogo: document.getElementById("orgLogo"),
           orgPhone: document.getElementById("orgPhone"),
           orgCity: document.getElementById("orgCity"),
           orgAddress: document.getElementById("orgAddress"),
@@ -892,6 +919,15 @@
           bookingStatus: document.getElementById("bookingStatus"),
           bookButton: document.getElementById("bookButton")
         };
+
+        if (elements.orgLogo) {
+          elements.orgLogo.addEventListener("error", function () {
+            elements.orgLogo.removeAttribute("src");
+            if (elements.orgLogoMark) {
+              elements.orgLogoMark.classList.remove("has-logo");
+            }
+          });
+        }
 
         var defaultSlots = [
           "08:00 AM",
@@ -1007,6 +1043,16 @@
           return window.location.origin;
         }
 
+        function resolveLogoUrl(path) {
+          if (!path) return "";
+          var trimmed = String(path).trim();
+          if (!trimmed) return "";
+          if (/^https?:\/\//i.test(trimmed) || trimmed.indexOf("data:") === 0) {
+            return trimmed;
+          }
+          return apiBase() + (trimmed.charAt(0) === "/" ? "" : "/") + trimmed;
+        }
+
         function fetchJson(url) {
           return fetch(url).then(function (response) {
             if (!response.ok) {
@@ -1032,6 +1078,17 @@
                   .join(", ")
               : "--");
           elements.orgMeta.textContent = "Marketing name: " + (org.marketingName || "--");
+
+          if (elements.orgLogo && elements.orgLogoMark) {
+            var logoPath = org.logoImage || "";
+            if (logoPath && String(logoPath).trim()) {
+              elements.orgLogo.src = resolveLogoUrl(logoPath);
+              elements.orgLogoMark.classList.add("has-logo");
+            } else {
+              elements.orgLogo.removeAttribute("src");
+              elements.orgLogoMark.classList.remove("has-logo");
+            }
+          }
         }
 
         function getAvailableAppointmentTypes(resourceId) {
