@@ -10,6 +10,12 @@ export type Organization = {
   facebookGroup?: string;
   instagram?: string;
   whatsappContact?: string;
+  mapsQrCode?: string;
+  facebookPageQrCode?: string;
+  facebookGroupQrCode?: string;
+  instagramQrCode?: string;
+  whatsappMessageQrCode?: string;
+  whatsappCallQrCode?: string;
   logoImage?: string;
 };
 

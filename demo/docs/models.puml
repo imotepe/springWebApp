@@ -24,6 +24,12 @@ package "Organizations" {
     +facebookGroup: String
     +instagram: String
     +whatsappContact: String
+    +mapsQrCode: String
+    +facebookPageQrCode: String
+    +facebookGroupQrCode: String
+    +instagramQrCode: String
+    +whatsappMessageQrCode: String
+    +whatsappCallQrCode: String
     +logoImage: String
   }
 

@@ -25,6 +25,12 @@ public class Organization {
     private String facebookGroup;
     private String instagram;
     private String whatsappContact;
+    private String mapsQrCode;
+    private String facebookPageQrCode;
+    private String facebookGroupQrCode;
+    private String instagramQrCode;
+    private String whatsappMessageQrCode;
+    private String whatsappCallQrCode;
     private String logoImage;
 
     public Organization() {}
@@ -96,6 +102,24 @@ public class Organization {
     public String getWhatsappContact() { return whatsappContact; }
     public void setWhatsappContact(String whatsappContact) { this.whatsappContact = whatsappContact; }
 
+    public String getMapsQrCode() { return mapsQrCode; }
+    public void setMapsQrCode(String mapsQrCode) { this.mapsQrCode = mapsQrCode; }
+
+    public String getFacebookPageQrCode() { return facebookPageQrCode; }
+    public void setFacebookPageQrCode(String facebookPageQrCode) { this.facebookPageQrCode = facebookPageQrCode; }
+
+    public String getFacebookGroupQrCode() { return facebookGroupQrCode; }
+    public void setFacebookGroupQrCode(String facebookGroupQrCode) { this.facebookGroupQrCode = facebookGroupQrCode; }
+
+    public String getInstagramQrCode() { return instagramQrCode; }
+    public void setInstagramQrCode(String instagramQrCode) { this.instagramQrCode = instagramQrCode; }
+
+    public String getWhatsappMessageQrCode() { return whatsappMessageQrCode; }
+    public void setWhatsappMessageQrCode(String whatsappMessageQrCode) { this.whatsappMessageQrCode = whatsappMessageQrCode; }
+
+    public String getWhatsappCallQrCode() { return whatsappCallQrCode; }
+    public void setWhatsappCallQrCode(String whatsappCallQrCode) { this.whatsappCallQrCode = whatsappCallQrCode; }
+
     public String getLogoImage() { return logoImage; }
     public void setLogoImage(String logoImage) { this.logoImage = logoImage; }
 
@@ -127,6 +151,12 @@ public class Organization {
                 ", facebookGroup='" + facebookGroup + '\'' +
                 ", instagram='" + instagram + '\'' +
                 ", whatsappContact='" + whatsappContact + '\'' +
+                ", mapsQrCode='" + mapsQrCode + '\'' +
+                ", facebookPageQrCode='" + facebookPageQrCode + '\'' +
+                ", facebookGroupQrCode='" + facebookGroupQrCode + '\'' +
+                ", instagramQrCode='" + instagramQrCode + '\'' +
+                ", whatsappMessageQrCode='" + whatsappMessageQrCode + '\'' +
+                ", whatsappCallQrCode='" + whatsappCallQrCode + '\'' +
                 ", logoImage='" + logoImage + '\'' +
                 '}';
     }

@@ -58,6 +58,11 @@ type InputFieldProps = {
   autoComplete?: 'email' | 'password' | 'off' | 'name' | 'tel' | 'url';
 };
 
+type QrCodePreviewProps = {
+  label: string;
+  uri: string;
+};
+
 type DatePickerFieldProps = {
   label: string;
   placeholder?: string;
@@ -121,6 +126,12 @@ type Organization = {
   facebookGroup?: string;
   instagram?: string;
   whatsappContact?: string;
+  mapsQrCode?: string;
+  facebookPageQrCode?: string;
+  facebookGroupQrCode?: string;
+  instagramQrCode?: string;
+  whatsappMessageQrCode?: string;
+  whatsappCallQrCode?: string;
   logoImage?: string;
   address?: {
     street?: string;
@@ -1070,6 +1081,15 @@ function InputField({
         />
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function QrCodePreview({ label, uri }: QrCodePreviewProps) {
+  return (
+    <View style={styles.qrTile}>
+      <Image source={{ uri }} style={styles.qrImage} resizeMode="contain" />
+      <Text style={styles.qrLabel}>{label}</Text>
     </View>
   );
 }
@@ -3272,6 +3292,22 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     whatsappContact: '',
     logoImage: '',
   });
+
+  const selectedOrg = useMemo(
+    () => orgs.find((org) => org.id === form.id),
+    [orgs, form.id],
+  );
+  const selectedOrgQrCodes = useMemo(() => {
+    if (!selectedOrg) return [];
+    return [
+      { label: 'Maps', uri: resolveLogoUri(selectedOrg.mapsQrCode ?? '') },
+      { label: 'Facebook page', uri: resolveLogoUri(selectedOrg.facebookPageQrCode ?? '') },
+      { label: 'Facebook group', uri: resolveLogoUri(selectedOrg.facebookGroupQrCode ?? '') },
+      { label: 'Instagram', uri: resolveLogoUri(selectedOrg.instagramQrCode ?? '') },
+      { label: 'WhatsApp message', uri: resolveLogoUri(selectedOrg.whatsappMessageQrCode ?? '') },
+      { label: 'WhatsApp call', uri: resolveLogoUri(selectedOrg.whatsappCallQrCode ?? '') },
+    ].filter((item) => item.uri);
+  }, [selectedOrg]);
 
   const [typeForm, setTypeForm] = useState<OrganizationType>({
     id: '',
@@ -7031,6 +7067,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
               autoComplete="off"
             />
+            {selectedOrgQrCodes.length > 0 ? (
+              <View style={styles.qrSection}>
+                <Text style={styles.label}>QR codes</Text>
+                <View style={styles.qrRow}>
+                  {selectedOrgQrCodes.map((qr) => (
+                    <QrCodePreview key={qr.label} label={qr.label} uri={qr.uri} />
+                  ))}
+                </View>
+                <Text style={styles.helperText}>Generated automatically when links are saved.</Text>
+              </View>
+            ) : null}
             {isSuperAdmin ? (
               <InputField
                 label="Logo image URL"
@@ -9861,6 +9908,33 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#F3F4F6',
     flexShrink: 0,
+  },
+  qrSection: {
+    gap: 8,
+    marginTop: 6,
+  },
+  qrRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  qrTile: {
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  qrImage: {
+    width: 84,
+    height: 84,
+  },
+  qrLabel: {
+    color: '#0F172A',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 12,
   },
   typeChips: {
     flexDirection: 'row',
