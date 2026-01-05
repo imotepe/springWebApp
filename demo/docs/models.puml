@@ -29,7 +29,7 @@ package "Organizations" {
     +facebookGroupQrCode: String
     +instagramQrCode: String
     +whatsappMessageQrCode: String
-    +whatsappCallQrCode: String
+    +callQrCode: String
     +logoImage: String
   }
 

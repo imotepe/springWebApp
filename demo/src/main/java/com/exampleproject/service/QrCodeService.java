@@ -108,7 +108,7 @@ public class QrCodeService {
         FACEBOOK_GROUP("facebook-group", "FG", new Color(0x1461C0), Color.WHITE),
         INSTAGRAM("instagram", "IG", new Color(0xE1306C), Color.WHITE),
         WHATSAPP_MESSAGE("whatsapp-message", "WA", new Color(0x25D366), Color.WHITE),
-        WHATSAPP_CALL("whatsapp-call", "TEL", new Color(0x16A34A), Color.WHITE);
+        CALL("call", "CALL", new Color(0x0EA5E9), Color.WHITE);
 
         private final String slug;
         private final String label;

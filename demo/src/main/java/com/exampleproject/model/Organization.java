@@ -30,7 +30,7 @@ public class Organization {
     private String facebookGroupQrCode;
     private String instagramQrCode;
     private String whatsappMessageQrCode;
-    private String whatsappCallQrCode;
+    private String callQrCode;
     private String logoImage;
 
     public Organization() {}
@@ -117,8 +117,8 @@ public class Organization {
     public String getWhatsappMessageQrCode() { return whatsappMessageQrCode; }
     public void setWhatsappMessageQrCode(String whatsappMessageQrCode) { this.whatsappMessageQrCode = whatsappMessageQrCode; }
 
-    public String getWhatsappCallQrCode() { return whatsappCallQrCode; }
-    public void setWhatsappCallQrCode(String whatsappCallQrCode) { this.whatsappCallQrCode = whatsappCallQrCode; }
+    public String getCallQrCode() { return callQrCode; }
+    public void setCallQrCode(String callQrCode) { this.callQrCode = callQrCode; }
 
     public String getLogoImage() { return logoImage; }
     public void setLogoImage(String logoImage) { this.logoImage = logoImage; }
@@ -156,7 +156,7 @@ public class Organization {
                 ", facebookGroupQrCode='" + facebookGroupQrCode + '\'' +
                 ", instagramQrCode='" + instagramQrCode + '\'' +
                 ", whatsappMessageQrCode='" + whatsappMessageQrCode + '\'' +
-                ", whatsappCallQrCode='" + whatsappCallQrCode + '\'' +
+                ", callQrCode='" + callQrCode + '\'' +
                 ", logoImage='" + logoImage + '\'' +
                 '}';
     }

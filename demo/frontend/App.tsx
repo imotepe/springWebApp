@@ -131,7 +131,7 @@ type Organization = {
   facebookGroupQrCode?: string;
   instagramQrCode?: string;
   whatsappMessageQrCode?: string;
-  whatsappCallQrCode?: string;
+  callQrCode?: string;
   logoImage?: string;
   address?: {
     street?: string;
@@ -3305,7 +3305,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       { label: 'Facebook group', uri: resolveLogoUri(selectedOrg.facebookGroupQrCode ?? '') },
       { label: 'Instagram', uri: resolveLogoUri(selectedOrg.instagramQrCode ?? '') },
       { label: 'WhatsApp message', uri: resolveLogoUri(selectedOrg.whatsappMessageQrCode ?? '') },
-      { label: 'WhatsApp call', uri: resolveLogoUri(selectedOrg.whatsappCallQrCode ?? '') },
+      { label: 'Call', uri: resolveLogoUri(selectedOrg.callQrCode ?? '') },
     ].filter((item) => item.uri);
   }, [selectedOrg]);
 

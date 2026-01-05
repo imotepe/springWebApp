@@ -15,7 +15,7 @@ export type Organization = {
   facebookGroupQrCode?: string;
   instagramQrCode?: string;
   whatsappMessageQrCode?: string;
-  whatsappCallQrCode?: string;
+  callQrCode?: string;
   logoImage?: string;
 };
 

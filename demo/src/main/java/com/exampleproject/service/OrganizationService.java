@@ -91,7 +91,7 @@ public class OrganizationService {
         org.setFacebookGroupQrCode(existing.getFacebookGroupQrCode());
         org.setInstagramQrCode(existing.getInstagramQrCode());
         org.setWhatsappMessageQrCode(existing.getWhatsappMessageQrCode());
-        org.setWhatsappCallQrCode(existing.getWhatsappCallQrCode());
+        org.setCallQrCode(existing.getCallQrCode());
         Organization saved = repository.save(org);
         return refreshQrCodes(saved, existing);
     }
@@ -170,12 +170,12 @@ public class OrganizationService {
         );
         updated |= applyQrCode(
                 org,
-                org.getWhatsappContact(),
-                previous == null ? null : previous.getWhatsappContact(),
-                previous == null ? null : previous.getWhatsappCallQrCode(),
-                org::setWhatsappCallQrCode,
-                QrCodeService.QrIcon.WHATSAPP_CALL,
-                this::toWhatsappCallQrContent
+                org.getPhone(),
+                previous == null ? null : previous.getPhone(),
+                previous == null ? null : previous.getCallQrCode(),
+                org::setCallQrCode,
+                QrCodeService.QrIcon.CALL,
+                this::toCallQrContent
         );
         if (updated) {
             return repository.save(org);
@@ -270,7 +270,7 @@ public class OrganizationService {
         return "https://wa.me/" + digits;
     }
 
-    private String toWhatsappCallQrContent(String value) {
+    private String toCallQrContent(String value) {
         String phone = normalizePhone(value);
         if (phone == null) return null;
         return "tel:" + phone;
