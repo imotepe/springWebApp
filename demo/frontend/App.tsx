@@ -428,6 +428,11 @@ type Appointment = {
   events?: AppointmentEvent[];
 };
 
+type AvailabilitySlot = {
+  start: string;
+  end: string;
+};
+
 type AppointmentFormState = {
   id?: string | null;
   orgId: string;
@@ -3456,6 +3461,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [agendaDetailMessage, setAgendaDetailMessage] = useState<string | null>(null);
   const [agendaDetailError, setAgendaDetailError] = useState<string | null>(null);
   const [agendaDetailSaving, setAgendaDetailSaving] = useState(false);
+  const [agendaRescheduleDate, setAgendaRescheduleDate] = useState('');
+  const [agendaRescheduleSlots, setAgendaRescheduleSlots] = useState<AvailabilitySlot[]>([]);
+  const [agendaRescheduleSlot, setAgendaRescheduleSlot] = useState<AvailabilitySlot | null>(null);
+  const [agendaRescheduleLoading, setAgendaRescheduleLoading] = useState(false);
+  const [agendaRescheduleSaving, setAgendaRescheduleSaving] = useState(false);
+  const [agendaRescheduleMessage, setAgendaRescheduleMessage] = useState<string | null>(null);
+  const [agendaRescheduleError, setAgendaRescheduleError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setAgendaNow(new Date()), 60000);
@@ -3476,15 +3488,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setAgendaEventComment('');
       setAgendaDetailMessage(null);
       setAgendaDetailError(null);
+      setAgendaRescheduleDate('');
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleLoading(false);
+      setAgendaRescheduleSaving(false);
       return;
     }
     const selected = appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
+    const startParts = selected?.startTime ? splitDateTime(selected.startTime) : { date: '' };
     setAgendaStatusDraft(selected?.status ?? 'SCHEDULED');
     setAgendaNotesDraft(selected?.notes ?? '');
     setAgendaEventType('INTERNAL_NOTE');
     setAgendaEventComment('');
     setAgendaDetailMessage(null);
     setAgendaDetailError(null);
+    setAgendaRescheduleDate(startParts.date);
+    setAgendaRescheduleSlots([]);
+    setAgendaRescheduleSlot(null);
+    setAgendaRescheduleLoading(false);
+    setAgendaRescheduleSaving(false);
   }, [agendaSelectedAppointmentId, appointments]);
 
   const authHeaders = useMemo(
@@ -6005,6 +6028,54 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return set;
   }, [agendaSelectedStartsByResource]);
 
+  const agendaRescheduleDurationMinutes = useMemo(() => {
+    if (agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0) {
+      return agendaSelectedDurationMinutes;
+    }
+    return agendaSlotMinutes;
+  }, [agendaSelectedDurationMinutes, agendaSlotMinutes]);
+
+  const agendaRescheduleAvailableStarts = useMemo(() => {
+    const set = new Set<string>();
+    agendaRescheduleSlots.forEach((slot) => {
+      const parts = splitDateTime(slot.start);
+      if (!parts.date) return;
+      const normalized = buildDateTimeValue(parts.date, parts.time);
+      if (normalized) {
+        set.add(normalized);
+      }
+    });
+    return set;
+  }, [agendaRescheduleSlots]);
+
+  const agendaRescheduleDateValid = useMemo(() => {
+    const trimmed = agendaRescheduleDate.trim();
+    return Boolean(trimmed && parseDateValue(trimmed));
+  }, [agendaRescheduleDate]);
+
+  const agendaRescheduleCandidateSlots = useMemo(() => {
+    const dateValue = agendaRescheduleDate.trim();
+    if (!dateValue) return [];
+    if (!parseDateValue(dateValue)) return [];
+    if (!agendaRescheduleDurationMinutes || agendaRescheduleDurationMinutes <= 0) return [];
+    const slots: AvailabilitySlot[] = [];
+    const totalMinutes = 24 * 60;
+    for (
+      let minutes = 0;
+      minutes + agendaRescheduleDurationMinutes <= totalMinutes;
+      minutes += agendaRescheduleDurationMinutes
+    ) {
+      const startTime = formatMinutesToTime(minutes);
+      const startValue = buildDateTimeValue(dateValue, startTime);
+      const endParts = addMinutesToDateTime(dateValue, startTime, agendaRescheduleDurationMinutes);
+      if (!startValue || !endParts) continue;
+      const endValue = buildDateTimeValue(endParts.date, endParts.time);
+      if (!endValue) continue;
+      slots.push({ start: startValue, end: endValue });
+    }
+    return slots;
+  }, [agendaRescheduleDate, agendaRescheduleDurationMinutes]);
+
   const agendaEventList = useMemo(() => {
     if (!agendaSelectedAppointment || !agendaSelectedAppointment.events) return [];
     return [...agendaSelectedAppointment.events].sort((a, b) => {
@@ -6164,6 +6235,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaSelectedAppointmentId(null);
     setAgendaMoveMessage(null);
     setAgendaMoveError(null);
+    setAgendaRescheduleMessage(null);
+    setAgendaRescheduleError(null);
     agendaSelectedAppointmentRef.current = null;
   }, []);
 
@@ -6196,6 +6269,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaSelectedAppointmentId(appointment.id);
     setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
     setAgendaMoveError(null);
+    setAgendaRescheduleMessage(null);
+    setAgendaRescheduleError(null);
   }, []);
 
   const buildAgendaUpdatePayload = useCallback((appointment: Appointment, updates: Partial<Appointment>) => {
@@ -6285,6 +6360,173 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setAgendaDetailSaving(false);
     }
   }, [agendaEventComment, agendaEventType, agendaSelectedAppointment, authFetch, loadAppointments]);
+
+  const loadAgendaRescheduleSlots = useCallback(async () => {
+    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    if (!selected) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError(null);
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const dateValue = agendaRescheduleDate.trim();
+    if (!dateValue) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError(null);
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const parsedDate = parseDateValue(dateValue);
+    if (!parsedDate) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError('Select a valid date.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const orgId = (selected.orgId ?? '').trim();
+    const typeId = (selected.appointmentTypeId ?? '').trim();
+    if (!orgId || !typeId) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError('Appointment org and type are required to check availability.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const type = appointmentTypeMap.get(typeId);
+    const requiresResource = type?.requiresResource ?? false;
+    const resourceId = (selected.resourceId ?? '').trim();
+    if (requiresResource && !resourceId) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError('Assign a resource to check availability.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const day = formatIsoDate(parsedDate);
+    const fromValue = buildDateTimeValue(day, '00:00');
+    const toValue = buildDateTimeValue(day, '23:59');
+    if (!fromValue || !toValue) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      setAgendaRescheduleError('Select a valid date.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const durationMinutes = getAppointmentDurationMinutes(selected);
+    const params = [
+      `orgId=${encodeURIComponent(orgId)}`,
+      `appointmentTypeId=${encodeURIComponent(typeId)}`,
+      `from=${encodeURIComponent(fromValue)}`,
+      `to=${encodeURIComponent(toValue)}`,
+    ];
+    if (resourceId) {
+      params.push(`resourceId=${encodeURIComponent(resourceId)}`);
+    }
+    if (durationMinutes > 0) {
+      params.push(`durationMinutes=${encodeURIComponent(String(durationMinutes))}`);
+    }
+    const query = params.join('&');
+    setAgendaRescheduleLoading(true);
+    setAgendaRescheduleError(null);
+    setAgendaRescheduleMessage(null);
+    setAgendaRescheduleSlot(null);
+    setAgendaRescheduleSlots([]);
+    try {
+      const res = await authFetch(`/api/availability?${query}`);
+      if (!res.ok) {
+        setAgendaRescheduleError(await parseErrorMessage(res));
+        setAgendaRescheduleSlots([]);
+        return;
+      }
+      const data = (await res.json()) as AvailabilitySlot[];
+      setAgendaRescheduleSlots(data);
+    } catch (error) {
+      setAgendaRescheduleError(
+        error instanceof Error ? error.message : 'Unable to load availability.',
+      );
+      setAgendaRescheduleSlots([]);
+    } finally {
+      setAgendaRescheduleLoading(false);
+    }
+  }, [
+    agendaRescheduleDate,
+    agendaSelectedAppointment,
+    appointmentTypeMap,
+    authFetch,
+    getAppointmentDurationMinutes,
+  ]);
+
+  const handleAgendaReschedule = useCallback(async () => {
+    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    if (!selected || !selected.id) {
+      return;
+    }
+    if (!agendaRescheduleSlot) {
+      setAgendaRescheduleError('Select a free slot before rescheduling.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const startParts = splitDateTime(agendaRescheduleSlot.start);
+    const endParts = splitDateTime(agendaRescheduleSlot.end);
+    if (!startParts.date || !startParts.time || !endParts.time) {
+      setAgendaRescheduleError('Selected slot is invalid.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const startValue = buildDateTimeValue(startParts.date, startParts.time);
+    const endValue = buildDateTimeValue(endParts.date, endParts.time);
+    if (!startValue || !endValue) {
+      setAgendaRescheduleError('Selected slot is invalid.');
+      setAgendaRescheduleMessage(null);
+      return;
+    }
+    const payload = buildAgendaUpdatePayload(selected, {
+      startTime: startValue,
+      endTime: endValue,
+    });
+    setAgendaRescheduleSaving(true);
+    setAgendaRescheduleMessage('Rescheduling appointment...');
+    setAgendaRescheduleError(null);
+    try {
+      const res = await authFetch(`/api/appointments/${selected.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        setAgendaRescheduleError(await parseErrorMessage(res));
+        setAgendaRescheduleMessage(null);
+        return;
+      }
+      await loadAppointments();
+      setAgendaRescheduleMessage('Appointment rescheduled.');
+      setAgendaRescheduleSlot(null);
+    } catch (error) {
+      setAgendaRescheduleError(
+        error instanceof Error ? error.message : 'Unable to reschedule appointment.',
+      );
+      setAgendaRescheduleMessage(null);
+    } finally {
+      setAgendaRescheduleSaving(false);
+    }
+  }, [
+    agendaRescheduleSlot,
+    agendaSelectedAppointment,
+    authFetch,
+    buildAgendaUpdatePayload,
+    loadAppointments,
+  ]);
+
+  useEffect(() => {
+    if (!agendaSelectedAppointmentId || !agendaRescheduleDate) {
+      setAgendaRescheduleSlots([]);
+      setAgendaRescheduleSlot(null);
+      return;
+    }
+    void loadAgendaRescheduleSlots();
+  }, [agendaSelectedAppointmentId, agendaRescheduleDate, loadAgendaRescheduleSlots]);
 
   const isAgendaSlotOpen = useCallback(
     (resourceId: string, minutes: number, durationMinutes = agendaSlotMinutes) => {
@@ -7689,6 +7931,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   const timeLabel = endParts?.time
                     ? `${startParts.time}-${endParts.time}`
                     : startParts.time || 'N/A';
+                  const rescheduleType = agendaSelectedAppointment.appointmentTypeId
+                    ? appointmentTypeMap.get(agendaSelectedAppointment.appointmentTypeId)
+                    : null;
+                  const rescheduleRequiresResource = rescheduleType?.requiresResource ?? false;
+                  const rescheduleResourceId = agendaSelectedAppointment.resourceId ?? '';
+                  const rescheduleResourceLabel = rescheduleResourceId
+                    ? resourceLabelMap.get(rescheduleResourceId) ?? rescheduleResourceId
+                    : 'Unassigned';
+                  const rescheduleBlocked = rescheduleRequiresResource && !rescheduleResourceId;
+                  const selectedSlotStart = agendaRescheduleSlot
+                    ? splitDateTime(agendaRescheduleSlot.start)
+                    : null;
+                  const selectedSlotEnd = agendaRescheduleSlot
+                    ? splitDateTime(agendaRescheduleSlot.end)
+                    : null;
+                  const selectedSlotTime = selectedSlotStart?.time
+                    ? `${selectedSlotStart.time}${selectedSlotEnd?.time ? `-${selectedSlotEnd.time}` : ''}`
+                    : '';
+                  const selectedSlotLabel = selectedSlotStart?.date
+                    ? `${selectedSlotStart.date} ${selectedSlotTime}`.trim()
+                    : selectedSlotTime;
                   return (
                     <>
                       <Text style={styles.orgMeta}>ID: {agendaSelectedAppointment.id || 'N/A'}</Text>
@@ -7785,6 +8048,145 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           {agendaDetailSaving ? 'Saving...' : 'Save notes'}
                         </Text>
                       </Pressable>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionTitle}>Reschedule</Text>
+                        <Pressable
+                          onPress={loadAgendaRescheduleSlots}
+                          disabled={agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked}
+                          style={[
+                            styles.secondaryChipCompact,
+                            (agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked) &&
+                              styles.secondaryChipDisabled,
+                          ]}
+                        >
+                          <Text style={styles.secondaryChipText}>
+                            {agendaRescheduleLoading ? 'Loading...' : 'Refresh'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Text style={styles.helperText}>
+                        Pick a new day and choose a free slot for this appointment.
+                      </Text>
+                      <View style={styles.orgMetaRow}>
+                        <Text style={styles.orgMeta}>Resource: {rescheduleResourceLabel}</Text>
+                        <Text style={styles.orgMeta}>
+                          Duration: {agendaRescheduleDurationMinutes} min
+                        </Text>
+                      </View>
+                      <DatePickerField
+                        label="New day"
+                        placeholder="YYYY-MM-DD"
+                        value={agendaRescheduleDate}
+                        onChangeText={(value) => {
+                          setAgendaRescheduleDate(value);
+                          setAgendaRescheduleSlot(null);
+                          setAgendaRescheduleSlots([]);
+                          setAgendaRescheduleMessage(null);
+                          setAgendaRescheduleError(null);
+                        }}
+                        variant="agenda"
+                      />
+                      {rescheduleBlocked ? (
+                        <View style={[styles.statusPill, styles.errorPill]}>
+                          <Text style={styles.errorText}>
+                            Assign a resource to check availability.
+                          </Text>
+                        </View>
+                      ) : null}
+                      {agendaRescheduleLoading ? (
+                        <View style={styles.loadingInline}>
+                          <ActivityIndicator color="#1D4ED8" />
+                          <Text style={styles.statusText}>Loading free slots...</Text>
+                        </View>
+                      ) : null}
+                      {agendaRescheduleError ? (
+                        <View style={[styles.statusPill, styles.errorPill]}>
+                          <Text style={styles.errorText}>{agendaRescheduleError}</Text>
+                        </View>
+                      ) : null}
+                      {!rescheduleBlocked && agendaRescheduleDateValid ? (
+                        agendaRescheduleCandidateSlots.length > 0 ? (
+                          <>
+                            {!agendaRescheduleLoading &&
+                            agendaRescheduleAvailableStarts.size === 0 &&
+                            !agendaRescheduleError ? (
+                              <Text style={styles.statusText}>No free slots for this day.</Text>
+                            ) : null}
+                            <ScrollView
+                              style={styles.rescheduleSlotScroll}
+                              contentContainerStyle={styles.rescheduleSlotGrid}
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator
+                            >
+                              {agendaRescheduleCandidateSlots.map((slot) => {
+                                const slotStart = splitDateTime(slot.start);
+                                const slotEnd = splitDateTime(slot.end);
+                                const slotLabel = slotEnd.time
+                                  ? `${slotStart.time}-${slotEnd.time}`
+                                  : slotStart.time || 'Slot';
+                                const isSelected =
+                                  agendaRescheduleSlot?.start === slot.start &&
+                                  agendaRescheduleSlot?.end === slot.end;
+                                const isAvailable = agendaRescheduleAvailableStarts.has(slot.start);
+                                const isDisabled = !isAvailable || agendaRescheduleLoading;
+                                return (
+                                  <Pressable
+                                    key={`${slot.start}-${slot.end}`}
+                                    onPress={() => {
+                                      if (isDisabled) return;
+                                      setAgendaRescheduleSlot(slot);
+                                      setAgendaRescheduleMessage(null);
+                                      setAgendaRescheduleError(null);
+                                    }}
+                                    disabled={isDisabled}
+                                    style={[
+                                      styles.typeChip,
+                                      isSelected && styles.typeChipSelected,
+                                      isDisabled && styles.rescheduleSlotDisabled,
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.typeChipText,
+                                        isSelected && styles.typeChipTextSelected,
+                                        isDisabled && styles.rescheduleSlotTextDisabled,
+                                      ]}
+                                    >
+                                      {slotLabel}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </ScrollView>
+                          </>
+                        ) : (
+                          <Text style={styles.statusText}>No slots available for this day.</Text>
+                        )
+                      ) : null}
+                      {selectedSlotLabel ? (
+                        <Text style={styles.orgMeta}>Selected: {selectedSlotLabel}</Text>
+                      ) : null}
+                      <Pressable
+                        onPress={handleAgendaReschedule}
+                        disabled={agendaRescheduleSaving || !agendaRescheduleSlot || rescheduleBlocked}
+                        style={[
+                          styles.secondaryChipCompact,
+                          (agendaRescheduleSaving || !agendaRescheduleSlot || rescheduleBlocked) &&
+                            styles.secondaryChipDisabled,
+                        ]}
+                      >
+                        <Text style={styles.secondaryChipText}>
+                          {agendaRescheduleSaving ? 'Rescheduling...' : 'Reschedule appointment'}
+                        </Text>
+                      </Pressable>
+                      {agendaRescheduleMessage ? (
+                        <View style={styles.statusPill}>
+                          <Text style={styles.statusText}>{agendaRescheduleMessage}</Text>
+                        </View>
+                      ) : null}
 
                       <View style={styles.divider} />
 
@@ -10213,6 +10615,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   typeChipTextSelected: { color: '#0F172A' },
+  rescheduleSlotScroll: {
+    width: '100%',
+    maxHeight: 240,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  rescheduleSlotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rescheduleSlotDisabled: {
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+  },
+  rescheduleSlotTextDisabled: {
+    color: '#9CA3AF',
+  },
   dropdownTrigger: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
