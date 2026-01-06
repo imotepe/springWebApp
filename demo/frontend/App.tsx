@@ -3450,6 +3450,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   });
   const [agendaDate, setAgendaDate] = useState(() => formatIsoDate(new Date()));
   const [agendaSelectedAppointmentId, setAgendaSelectedAppointmentId] = useState<string | null>(null);
+  const [agendaDetailAppointmentId, setAgendaDetailAppointmentId] = useState<string | null>(null);
   const [agendaMoveMessage, setAgendaMoveMessage] = useState<string | null>(null);
   const [agendaMoveError, setAgendaMoveError] = useState<string | null>(null);
   const [agendaMoving, setAgendaMoving] = useState(false);
@@ -3476,12 +3477,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   useEffect(() => {
     setAgendaSelectedAppointmentId(null);
+    setAgendaDetailAppointmentId(null);
     setAgendaMoveMessage(null);
     setAgendaMoveError(null);
   }, [agendaDate]);
 
   useEffect(() => {
-    if (!agendaSelectedAppointmentId) {
+    if (!agendaDetailAppointmentId) {
       setAgendaStatusDraft('SCHEDULED');
       setAgendaNotesDraft('');
       setAgendaEventType('INTERNAL_NOTE');
@@ -3495,7 +3497,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setAgendaRescheduleSaving(false);
       return;
     }
-    const selected = appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
+    const selected = appointments.find((appt) => appt.id === agendaDetailAppointmentId) ?? null;
     const startParts = selected?.startTime ? splitDateTime(selected.startTime) : { date: '' };
     setAgendaStatusDraft(selected?.status ?? 'SCHEDULED');
     setAgendaNotesDraft(selected?.notes ?? '');
@@ -3508,7 +3510,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setAgendaRescheduleSlot(null);
     setAgendaRescheduleLoading(false);
     setAgendaRescheduleSaving(false);
-  }, [agendaSelectedAppointmentId, appointments]);
+  }, [agendaDetailAppointmentId, appointments]);
 
   const authHeaders = useMemo(
     () => ({
@@ -5893,6 +5895,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
   }, [agendaSelectedAppointmentId, appointments]);
   const agendaSelectedAppointmentRef = useRef<Appointment | null>(null);
+  const agendaDetailAppointment = useMemo(() => {
+    if (!agendaDetailAppointmentId) return null;
+    return appointments.find((appt) => appt.id === agendaDetailAppointmentId) ?? null;
+  }, [agendaDetailAppointmentId, appointments]);
+  const agendaDetailAppointmentRef = useRef<Appointment | null>(null);
   const agendaSelectedResourceId = useMemo(() => {
     if (!agendaSelectedAppointment) return null;
     return agendaSelectedAppointment.resourceId ?? 'unassigned';
@@ -5906,6 +5913,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     agendaSelectedAppointmentRef.current =
       appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
   }, [agendaSelectedAppointmentId, appointments]);
+
+  useEffect(() => {
+    if (!agendaDetailAppointmentId) {
+      agendaDetailAppointmentRef.current = null;
+      return;
+    }
+    agendaDetailAppointmentRef.current =
+      appointments.find((appt) => appt.id === agendaDetailAppointmentId) ?? null;
+  }, [agendaDetailAppointmentId, appointments]);
 
   const totalTypePages = useMemo(
     () => Math.max(1, Math.ceil(sortedTypes.length / PAGE_SIZE)),
@@ -5980,6 +5996,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     return getAppointmentDurationMinutes(agendaSelectedAppointment);
   }, [agendaSelectedAppointment, getAppointmentDurationMinutes]);
 
+  const agendaDetailDurationMinutes = useMemo(() => {
+    if (!agendaDetailAppointment) return null;
+    return getAppointmentDurationMinutes(agendaDetailAppointment);
+  }, [agendaDetailAppointment, getAppointmentDurationMinutes]);
+
   const agendaSelectedStartsByResource = useMemo(() => {
     const map = new Map<string, number[]>();
     if (!agendaSelectedAppointment) return map;
@@ -6029,11 +6050,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaSelectedStartsByResource]);
 
   const agendaRescheduleDurationMinutes = useMemo(() => {
-    if (agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0) {
-      return agendaSelectedDurationMinutes;
+    if (agendaDetailDurationMinutes && agendaDetailDurationMinutes > 0) {
+      return agendaDetailDurationMinutes;
     }
     return agendaSlotMinutes;
-  }, [agendaSelectedDurationMinutes, agendaSlotMinutes]);
+  }, [agendaDetailDurationMinutes, agendaSlotMinutes]);
 
   const agendaRescheduleAvailableStarts = useMemo(() => {
     const set = new Set<string>();
@@ -6077,13 +6098,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaRescheduleDate, agendaRescheduleDurationMinutes]);
 
   const agendaEventList = useMemo(() => {
-    if (!agendaSelectedAppointment || !agendaSelectedAppointment.events) return [];
-    return [...agendaSelectedAppointment.events].sort((a, b) => {
+    if (!agendaDetailAppointment || !agendaDetailAppointment.events) return [];
+    return [...agendaDetailAppointment.events].sort((a, b) => {
       const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
       const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
       return bTime - aTime;
     });
-  }, [agendaSelectedAppointment]);
+  }, [agendaDetailAppointment]);
 
   const agendaTimeMarkers = useMemo(() => {
     const baseMinutes =
@@ -6231,21 +6252,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [agendaAppointmentsByResource, agendaScheduleWindowsByResource, agendaSlotMinutes, getAgendaSlotSpan],
   );
 
-  const clearAgendaSelection = useCallback(() => {
+  const clearAgendaMoveSelection = useCallback(() => {
     setAgendaSelectedAppointmentId(null);
     setAgendaMoveMessage(null);
     setAgendaMoveError(null);
-    setAgendaRescheduleMessage(null);
-    setAgendaRescheduleError(null);
     agendaSelectedAppointmentRef.current = null;
   }, []);
 
+  const clearAgendaSelection = useCallback(() => {
+    clearAgendaMoveSelection();
+    setAgendaDetailAppointmentId(null);
+    setAgendaRescheduleMessage(null);
+    setAgendaRescheduleError(null);
+  }, [clearAgendaMoveSelection]);
+
   const handleAgendaOutsidePress = useCallback(() => {
-    if (!agendaSelectedAppointmentId) {
+    if (!agendaDetailAppointmentId) {
       return;
     }
     clearAgendaSelection();
-  }, [agendaSelectedAppointmentId, clearAgendaSelection]);
+  }, [agendaDetailAppointmentId, clearAgendaSelection]);
 
   const handleAgendaResourcePress = useCallback(
     (resourceId: string, event?: GestureResponderEvent) => {
@@ -6266,7 +6292,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const handleAgendaAppointmentPress = useCallback((appointment: Appointment) => {
     if (!appointment.id) return;
     agendaSelectedAppointmentRef.current = appointment;
+    agendaDetailAppointmentRef.current = appointment;
     setAgendaSelectedAppointmentId(appointment.id);
+    setAgendaDetailAppointmentId(appointment.id);
     setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
     setAgendaMoveError(null);
     setAgendaRescheduleMessage(null);
@@ -6285,7 +6313,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const saveAgendaAppointment = useCallback(
     async (updates: Partial<Appointment>, successMessage: string) => {
-      const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+      const selected = agendaDetailAppointmentRef.current ?? agendaDetailAppointment;
       if (!selected || !selected.id) {
         return;
       }
@@ -6312,7 +6340,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         setAgendaDetailSaving(false);
       }
     },
-    [agendaSelectedAppointment, authFetch, buildAgendaUpdatePayload, loadAppointments],
+    [agendaDetailAppointment, authFetch, buildAgendaUpdatePayload, loadAppointments],
   );
 
   const handleAgendaStatusUpdate = useCallback(() => {
@@ -6324,7 +6352,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [agendaNotesDraft, saveAgendaAppointment]);
 
   const handleAgendaEventAdd = useCallback(async () => {
-    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    const selected = agendaDetailAppointmentRef.current ?? agendaDetailAppointment;
     if (!selected || !selected.id) {
       return;
     }
@@ -6359,10 +6387,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     } finally {
       setAgendaDetailSaving(false);
     }
-  }, [agendaEventComment, agendaEventType, agendaSelectedAppointment, authFetch, loadAppointments]);
+  }, [agendaEventComment, agendaEventType, agendaDetailAppointment, authFetch, loadAppointments]);
 
   const loadAgendaRescheduleSlots = useCallback(async () => {
-    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    const selected = agendaDetailAppointmentRef.current ?? agendaDetailAppointment;
     if (!selected) {
       setAgendaRescheduleSlots([]);
       setAgendaRescheduleSlot(null);
@@ -6453,14 +6481,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
   }, [
     agendaRescheduleDate,
-    agendaSelectedAppointment,
+    agendaDetailAppointment,
     appointmentTypeMap,
     authFetch,
     getAppointmentDurationMinutes,
   ]);
 
   const handleAgendaReschedule = useCallback(async () => {
-    const selected = agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
+    const selected = agendaDetailAppointmentRef.current ?? agendaDetailAppointment;
     if (!selected || !selected.id) {
       return;
     }
@@ -6503,6 +6531,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       await loadAppointments();
       setAgendaRescheduleMessage('Appointment rescheduled.');
       setAgendaRescheduleSlot(null);
+      clearAgendaMoveSelection();
     } catch (error) {
       setAgendaRescheduleError(
         error instanceof Error ? error.message : 'Unable to reschedule appointment.',
@@ -6513,20 +6542,21 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
   }, [
     agendaRescheduleSlot,
-    agendaSelectedAppointment,
+    agendaDetailAppointment,
     authFetch,
     buildAgendaUpdatePayload,
+    clearAgendaMoveSelection,
     loadAppointments,
   ]);
 
   useEffect(() => {
-    if (!agendaSelectedAppointmentId || !agendaRescheduleDate) {
+    if (!agendaDetailAppointmentId || !agendaRescheduleDate) {
       setAgendaRescheduleSlots([]);
       setAgendaRescheduleSlot(null);
       return;
     }
     void loadAgendaRescheduleSlots();
-  }, [agendaSelectedAppointmentId, agendaRescheduleDate, loadAgendaRescheduleSlots]);
+  }, [agendaDetailAppointmentId, agendaRescheduleDate, loadAgendaRescheduleSlots]);
 
   const isAgendaSlotOpen = useCallback(
     (resourceId: string, minutes: number, durationMinutes = agendaSlotMinutes) => {
@@ -7916,26 +7946,26 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             >
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Appointment details</Text>
-                {agendaSelectedAppointment ? (
+                {agendaDetailAppointment ? (
                   <Pressable onPress={clearAgendaSelection} style={styles.secondaryChipCompact}>
                     <Text style={styles.secondaryChipText}>Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
-              {agendaSelectedAppointment ? (
+              {agendaDetailAppointment ? (
                 (() => {
-                  const startParts = splitDateTime(agendaSelectedAppointment.startTime ?? '');
-                  const endParts = agendaSelectedAppointment.endTime
-                    ? splitDateTime(agendaSelectedAppointment.endTime)
+                  const startParts = splitDateTime(agendaDetailAppointment.startTime ?? '');
+                  const endParts = agendaDetailAppointment.endTime
+                    ? splitDateTime(agendaDetailAppointment.endTime)
                     : null;
                   const timeLabel = endParts?.time
                     ? `${startParts.time}-${endParts.time}`
                     : startParts.time || 'N/A';
-                  const rescheduleType = agendaSelectedAppointment.appointmentTypeId
-                    ? appointmentTypeMap.get(agendaSelectedAppointment.appointmentTypeId)
+                  const rescheduleType = agendaDetailAppointment.appointmentTypeId
+                    ? appointmentTypeMap.get(agendaDetailAppointment.appointmentTypeId)
                     : null;
                   const rescheduleRequiresResource = rescheduleType?.requiresResource ?? false;
-                  const rescheduleResourceId = agendaSelectedAppointment.resourceId ?? '';
+                  const rescheduleResourceId = agendaDetailAppointment.resourceId ?? '';
                   const rescheduleResourceLabel = rescheduleResourceId
                     ? resourceLabelMap.get(rescheduleResourceId) ?? rescheduleResourceId
                     : 'Unassigned';
@@ -7954,40 +7984,40 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     : selectedSlotTime;
                   return (
                     <>
-                      <Text style={styles.orgMeta}>ID: {agendaSelectedAppointment.id || 'N/A'}</Text>
+                      <Text style={styles.orgMeta}>ID: {agendaDetailAppointment.id || 'N/A'}</Text>
                       <Text style={styles.orgMeta}>
                         Customer:{' '}
-                        {agendaSelectedAppointment.customerId
-                          ? customerLabelMap.get(agendaSelectedAppointment.customerId) ??
-                            agendaSelectedAppointment.customerId
+                        {agendaDetailAppointment.customerId
+                          ? customerLabelMap.get(agendaDetailAppointment.customerId) ??
+                            agendaDetailAppointment.customerId
                           : 'N/A'}
                       </Text>
                       <Text style={styles.orgMeta}>
                         Resource:{' '}
-                        {agendaSelectedAppointment.resourceId
-                          ? resourceLabelMap.get(agendaSelectedAppointment.resourceId) ??
-                            agendaSelectedAppointment.resourceId
+                        {agendaDetailAppointment.resourceId
+                          ? resourceLabelMap.get(agendaDetailAppointment.resourceId) ??
+                            agendaDetailAppointment.resourceId
                           : 'Unassigned'}
                       </Text>
                       <Text style={styles.orgMeta}>
                         Type:{' '}
-                        {agendaSelectedAppointment.appointmentTypeId
-                          ? appointmentTypeLabelMap.get(agendaSelectedAppointment.appointmentTypeId) ??
-                            agendaSelectedAppointment.appointmentTypeId
+                        {agendaDetailAppointment.appointmentTypeId
+                          ? appointmentTypeLabelMap.get(agendaDetailAppointment.appointmentTypeId) ??
+                            agendaDetailAppointment.appointmentTypeId
                           : 'N/A'}
                       </Text>
-                      {agendaSelectedAppointment.orgId ? (
+                      {agendaDetailAppointment.orgId ? (
                         <Text style={styles.orgMeta}>
-                          Organization: {getOrganizationLabel(homeOrgBase, agendaSelectedAppointment.orgId)}
+                          Organization: {getOrganizationLabel(homeOrgBase, agendaDetailAppointment.orgId)}
                         </Text>
                       ) : null}
                       <Text style={styles.orgMeta}>Date: {startParts.date || agendaDate || 'N/A'}</Text>
                       <Text style={styles.orgMeta}>Time: {timeLabel}</Text>
                       <Text style={styles.orgMeta}>
-                        Status: {agendaSelectedAppointment.status || 'SCHEDULED'}
+                        Status: {agendaDetailAppointment.status || 'SCHEDULED'}
                       </Text>
-                      {agendaSelectedAppointment.notes ? (
-                        <Text style={styles.orgMeta}>Notes: {agendaSelectedAppointment.notes}</Text>
+                      {agendaDetailAppointment.notes ? (
+                        <Text style={styles.orgMeta}>Notes: {agendaDetailAppointment.notes}</Text>
                       ) : null}
                       {agendaDetailMessage ? (
                         <View style={styles.statusPill}>
