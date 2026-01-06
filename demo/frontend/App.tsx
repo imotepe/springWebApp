@@ -7862,9 +7862,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                     <Pressable
                                       key={appt.id ?? `${appt.customerId}-${appt.startTime}`}
                                       className={appointmentClassName}
-                                      style={{ top, height, left, width: columnWidth }}
-                                      onPress={() => handleAgendaAppointmentPress(appt)}
-                                      pointerEvents={agendaSelectedAppointment ? 'none' : 'auto'}
+                                      style={{ top, height, left, width: columnWidth, zIndex: 4 }}
+                                      onPress={(event) => {
+                                        if (event && typeof event.stopPropagation === 'function') {
+                                          event.stopPropagation();
+                                        }
+                                        handleAgendaAppointmentPress(appt);
+                                      }}
                                     >
                                       <Text className="text-[12px] font-semibold text-slate-900 leading-tight" numberOfLines={1}>
                                         {customerLabel}
@@ -10432,7 +10436,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDBA74',
     backgroundColor: 'rgba(249, 115, 22, 0.14)',
-    zIndex: 4,
+    zIndex: 2,
   },
   sectionActions: {
     flexDirection: 'row',
