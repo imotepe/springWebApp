@@ -10436,7 +10436,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FDBA74',
     backgroundColor: 'rgba(249, 115, 22, 0.14)',
-    zIndex: 2,
+    zIndex: 5,
   },
   sectionActions: {
     flexDirection: 'row',
