@@ -902,6 +902,7 @@ const AGENDA_HEADER_HEIGHT = 72;
 const AGENDA_RESOURCE_COLUMN_WIDTH = 224;
 const AGENDA_APPOINTMENT_PADDING = 8;
 const AGENDA_APPOINTMENT_GAP = 6;
+const AGENDA_DOUBLE_PRESS_MS = 350;
 
 const resolveAppointmentTypeDurations = (type?: AppointmentTypeDto | null) => {
   const allowed = (type?.allowedDurations ?? [])
@@ -5924,6 +5925,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (!agendaSelectedAppointmentId) return null;
     return appointments.find((appt) => appt.id === agendaSelectedAppointmentId) ?? null;
   }, [agendaSelectedAppointmentId, appointments]);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const agendaDetailsOffsetRef = useRef<number | null>(null);
+  const agendaLastPressRef = useRef<{ id: string; time: number } | null>(null);
   const agendaSelectedAppointmentRef = useRef<Appointment | null>(null);
   const agendaDetailAppointment = useMemo(() => {
     if (!agendaDetailAppointmentId) return null;
@@ -6319,17 +6323,39 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [agendaSelectedAppointmentId, agendaSelectedResourceId, clearAgendaSelection],
   );
 
-  const handleAgendaAppointmentPress = useCallback((appointment: Appointment) => {
-    if (!appointment.id) return;
-    agendaSelectedAppointmentRef.current = appointment;
-    agendaDetailAppointmentRef.current = appointment;
-    setAgendaSelectedAppointmentId(appointment.id);
-    setAgendaDetailAppointmentId(appointment.id);
-    setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
-    setAgendaMoveError(null);
-    setAgendaRescheduleMessage(null);
-    setAgendaRescheduleError(null);
+  const scrollToAgendaDetails = useCallback(() => {
+    const offset = agendaDetailsOffsetRef.current;
+    if (offset == null || !scrollViewRef.current) {
+      return;
+    }
+    scrollViewRef.current.scrollTo({ y: Math.max(0, offset - 12), animated: true });
   }, []);
+
+  const handleAgendaAppointmentPress = useCallback(
+    (appointment: Appointment) => {
+      if (!appointment.id) return;
+      const now = Date.now();
+      const lastPress = agendaLastPressRef.current;
+      const isDoublePress = Boolean(
+        lastPress &&
+          lastPress.id === appointment.id &&
+          now - lastPress.time <= AGENDA_DOUBLE_PRESS_MS,
+      );
+      agendaLastPressRef.current = { id: appointment.id, time: now };
+      agendaSelectedAppointmentRef.current = appointment;
+      agendaDetailAppointmentRef.current = appointment;
+      setAgendaSelectedAppointmentId(appointment.id);
+      setAgendaDetailAppointmentId(appointment.id);
+      setAgendaMoveMessage('Click a highlighted slot to move this appointment.');
+      setAgendaMoveError(null);
+      setAgendaRescheduleMessage(null);
+      setAgendaRescheduleError(null);
+      if (isDoublePress) {
+        scrollToAgendaDetails();
+      }
+    },
+    [scrollToAgendaDetails],
+  );
 
   const buildAgendaUpdatePayload = useCallback((appointment: Appointment, updates: Partial<Appointment>) => {
     return {
@@ -6599,7 +6625,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   );
 
   const handleAgendaSlotPress = useCallback(
-    async (resourceId: string, minutes: number) => {
+    async (resourceId: string, minutes: number, event?: GestureResponderEvent) => {
+      if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
       const selectedAppointment =
         agendaSelectedAppointmentRef.current ?? agendaSelectedAppointment;
       if (!selectedAppointment) {
@@ -6612,8 +6641,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       if (!allowedStarts || !allowedStarts.includes(minutes)) {
         return;
       }
-      const start = buildAgendaDateTime(minutes);
       const durationMinutes = getAppointmentDurationMinutes(selectedAppointment);
+      const start = buildAgendaDateTime(minutes);
       if (!isAgendaSlotOpen(resourceId, minutes, durationMinutes)) {
         return;
       }
@@ -7045,6 +7074,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
       bounces={false}
@@ -7809,6 +7839,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           const appointmentsForResource =
                             agendaAppointmentsByResource.get(resourceId) ?? [];
                           const appointmentLayout = buildAgendaAppointmentLayout(appointmentsForResource);
+                          let selectedOverlay: ReactNode | null = null;
                           return (
                             <Pressable
                               key={resourceId}
@@ -7897,6 +7928,20 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                   const compactDetail = practitionerLabel
                                     ? `${baseDetail} · ${practitionerLabel}`
                                     : baseDetail;
+                                  if (isSelected) {
+                                    selectedOverlay = (
+                                      <Pressable
+                                        key={`selected-overlay-${layoutKey}`}
+                                        style={{ position: 'absolute', top, height, left, width: columnWidth, zIndex: 6 }}
+                                        onPress={(event) => {
+                                          if (event && typeof event.stopPropagation === 'function') {
+                                            event.stopPropagation();
+                                          }
+                                          handleAgendaAppointmentPress(appt);
+                                        }}
+                                      />
+                                    );
+                                  }
                                   return (
                                     <Pressable
                                       key={appt.id ?? `${appt.customerId}-${appt.startTime}`}
@@ -7953,13 +7998,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                                 right: AGENDA_APPOINTMENT_PADDING,
                                               },
                                             ]}
-                                            onPress={() => handleAgendaSlotPress(resourceId, minutes)}
+                                            onPress={(event) => handleAgendaSlotPress(resourceId, minutes, event)}
                                             disabled={agendaMoving}
                                           />
                                         );
                                       },
                                     )
                                   : null}
+                                {selectedOverlay}
                               </View>
                             </Pressable>
                           );
@@ -7984,6 +8030,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 if (event && typeof event.stopPropagation === 'function') {
                   event.stopPropagation();
                 }
+              }}
+              onLayout={(event) => {
+                agendaDetailsOffsetRef.current = event.nativeEvent.layout.y;
               }}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 gap-2"
             >
