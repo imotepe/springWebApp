@@ -3186,11 +3186,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const isPlatformUser = roles.some((role) => PLATFORM_ROLES.includes(role));
   const isOrgAdmin = roles.includes('ORGANIZATION_ADMIN');
   const isAgent = roles.includes('AGENT');
+  const isPractitioner = roles.includes('PRACTITIONER');
   const isAgentOnly = isAgent && roles.every((role) => role === 'AGENT');
   const isOrgAdminRestricted = isOrgAdmin && !isPlatformUser;
   const canEditOrgIdentity = !isOrgAdminRestricted;
-  const canManageOrganizations = isPlatformUser || isOrgAdmin;
-  const canManageOrgTypes = isPlatformUser;
+  const canManageOrganizations = (isPlatformUser || isOrgAdmin) && !isPractitioner;
+  const canManageOrgTypes = isPlatformUser && !isPractitioner;
   const assignableRoles = useMemo<UserRole[]>(() => {
     if (isSuperAdmin) return USER_ROLES;
     if (isPlatformAdminOnly) {
@@ -3202,13 +3203,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   }, [isPlatformAdminOnly, isSuperAdmin]);
   const canViewCustomers = !isPlatformAdminOnly;
   const canViewAppointments = !isPlatformAdminOnly;
-  const canViewAgenda = isAgent;
-  const canViewSchedule = !isAgentOnly;
-  const canViewUsers = !isAgentOnly;
-  const canViewResources = !isAgentOnly;
-  const canViewAppointmentTypes = !isAgentOnly;
+  const canViewAgenda = isAgent || isPractitioner;
+  const canViewSchedule = !isAgentOnly && !isPractitioner;
+  const canViewUsers = !isAgentOnly && !isPractitioner;
+  const canViewResources = !isAgentOnly && !isPractitioner;
+  const canViewAppointmentTypes = !isAgentOnly && !isPractitioner;
   const availableTabs = useMemo<TabKey[]>(() => {
     const tabs: TabKey[] = [];
+    if (isPractitioner) {
+      if (canViewAgenda) {
+        tabs.push('agenda');
+      }
+      if (canViewCustomers) {
+        tabs.push('customers');
+      }
+      if (canViewAppointments) {
+        tabs.push('appointments');
+      }
+      return tabs;
+    }
     if (isAgentOnly) {
       if (canViewAgenda) {
         tabs.push('agenda');
@@ -3257,12 +3270,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     canViewSchedule,
     canViewUsers,
     isAgentOnly,
+    isPractitioner,
   ]);
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
       setActiveTab(availableTabs[0] ?? 'orgs');
     }
   }, [activeTab, availableTabs]);
+  const showAgenda = canViewAgenda && activeTab === 'agenda';
   const [scheduleOrgId, setScheduleOrgId] = useState<string | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>(defaultScheduleForm());
   const [activeDay, setActiveDay] = useState<DayName>('MONDAY');
@@ -3790,11 +3805,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setLoading(true);
       await Promise.all([loadOrgTypes(), loadOrganizations()]);
       setLoading(false);
-      const loaders = [loadUsers(), loadResources(), loadAppointmentTypes()];
-      if (canViewCustomers) {
+      const loaders = [loadResources(), loadAppointmentTypes()];
+      if (!isPractitioner) {
+        loaders.push(loadUsers());
+      }
+      const shouldLoadCustomers = canViewCustomers || isPractitioner;
+      const shouldLoadAppointments = canViewAppointments || isPractitioner;
+      if (shouldLoadCustomers) {
         loaders.push(loadCustomers());
       }
-      if (canViewAppointments) {
+      if (shouldLoadAppointments) {
         loaders.push(loadAppointments());
       }
       await Promise.all(loaders);
@@ -3809,6 +3829,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     loadAppointmentTypes,
     canViewCustomers,
     canViewAppointments,
+    isPractitioner,
   ]);
 
   useEffect(() => {
@@ -5694,12 +5715,21 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
 
   const agendaResources = useMemo(() => {
     const activeResources = resources.filter((resource) => resource.active !== false);
+    let scopedResources = activeResources;
+    if (isPractitioner) {
+      const practitionerId = (currentUserId ?? '').trim();
+      if (practitionerId) {
+        scopedResources = activeResources.filter(
+          (resource) => (resource.practitionerUserId ?? '').trim() === practitionerId,
+        );
+      }
+    }
     const hasUnassigned = agendaAppointments.some((appt) => !appt.resourceId);
     if (!hasUnassigned) {
-      return activeResources;
+      return scopedResources;
     }
     return [
-      ...activeResources,
+      ...scopedResources,
       {
         id: 'unassigned',
         name: 'Unassigned',
@@ -5709,7 +5739,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         kind: 'ASSET',
       } as Resource,
     ];
-  }, [agendaAppointments, resources]);
+  }, [agendaAppointments, currentUserId, isPractitioner, resources]);
 
   const agendaDateBase = useMemo(() => {
     const [year, month, day] = agendaDate.split('-').map(Number);
@@ -7629,7 +7659,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               disabled={typeSaving}
             />
           </>
-        ) : activeTab === 'agenda' && canViewAgenda ? (
+        ) : showAgenda ? (
           <Pressable onPress={handleAgendaOutsidePress}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderRow}>
@@ -7678,9 +7708,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                 <Text style={styles.errorText}>{agendaMoveError}</Text>
               </View>
             ) : null}
+            {resourceError ? (
+              <View style={[styles.statusPill, styles.errorPill]}>
+                <Text style={styles.errorText}>{resourceError}</Text>
+              </View>
+            ) : null}
 
             {agendaResources.length === 0 ? (
-              <Text style={styles.statusText}>No resources available for agenda view.</Text>
+              <Text style={styles.statusText}>
+                {isPractitioner
+                  ? 'No resource linked to your practitioner account.'
+                  : 'No resources available for agenda view.'}
+              </Text>
             ) : (
               <View className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <View className="flex-row">

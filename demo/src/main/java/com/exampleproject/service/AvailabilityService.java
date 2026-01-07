@@ -78,7 +78,21 @@ public class AvailabilityService {
         }
         LocalDateTime effectiveTo = normalizeEndOfDay(to);
         if (enforceOrgAccess) {
-            organizationAccessManager.currentContext().checkOrgAccess(orgId);
+            OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+            context.checkOrgAccess(orgId);
+            if (isPractitioner(context)) {
+                List<Resource> practitionerResources = requirePractitionerResources(context);
+                Set<String> practitionerResourceIds = practitionerResources.stream()
+                        .map(Resource::getId)
+                        .filter(id -> id != null && !id.isBlank())
+                        .collect(Collectors.toSet());
+                if (resourceId == null || resourceId.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resourceId is required for practitioner availability");
+                }
+                if (!practitionerResourceIds.contains(resourceId)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Resource not assigned to practitioner");
+                }
+            }
         }
 
         Organization org = organizationRepository.findById(orgId)
@@ -402,5 +416,21 @@ public class AvailabilityService {
 
     private boolean isEndOfDay(LocalTime time) {
         return time != null && time.getHour() == 23 && time.getMinute() == 59;
+    }
+
+    private boolean isPractitioner(OrganizationAccessManager.OrganizationAccessContext context) {
+        return context.user().getRoles() != null && context.user().getRoles().contains(UserRole.PRACTITIONER);
+    }
+
+    private List<Resource> requirePractitionerResources(OrganizationAccessManager.OrganizationAccessContext context) {
+        String userId = context.user().getId();
+        if (userId == null || userId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No resource linked to practitioner user");
+        }
+        List<Resource> resources = resourceRepository.findByPractitionerUserId(userId);
+        if (resources.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No resource linked to practitioner user");
+        }
+        return resources;
     }
 }

@@ -60,6 +60,15 @@ public class AppointmentService {
     public List<Appointment> findAll() {
         UserAccessContext context = resolveContext();
         forbidPlatformAdmin(context);
+        if (context.isPractitioner()) {
+            List<String> resourceIds = new ArrayList<>(context.practitionerResourceIds());
+            if (resourceIds.isEmpty()) {
+                return List.of();
+            }
+            List<Appointment> appointments = appointmentRepository.findByResourceIdIn(resourceIds);
+            appointments.forEach(appt -> sanitizeAppointmentForPractitioner(appt, context));
+            return appointments;
+        }
         if (context.isSuperAdmin()) {
             return appointmentRepository.findAll();
         }
@@ -76,12 +85,38 @@ public class AppointmentService {
     public List<Appointment> findByCustomerId(String customerId) {
         UserAccessContext context = resolveContext();
         forbidPlatformAdmin(context);
+        if (context.isPractitioner()) {
+            List<String> resourceIds = new ArrayList<>(context.practitionerResourceIds());
+            if (resourceIds.isEmpty()) {
+                return List.of();
+            }
+            List<Appointment> appointments = appointmentRepository.findByResourceIdIn(resourceIds).stream()
+                    .filter(appt -> customerId != null && customerId.equals(appt.getCustomerId()))
+                    .collect(Collectors.toList());
+            appointments.forEach(appt -> sanitizeAppointmentForPractitioner(appt, context));
+            return appointments;
+        }
         return filterByOrgScope(appointmentRepository.findByCustomerId(customerId), context);
     }
 
     public List<Appointment> findByStartRange(LocalDateTime start, LocalDateTime end) {
         UserAccessContext context = resolveContext();
         forbidPlatformAdmin(context);
+        if (context.isPractitioner()) {
+            List<String> resourceIds = new ArrayList<>(context.practitionerResourceIds());
+            if (resourceIds.isEmpty()) {
+                return List.of();
+            }
+            List<Appointment> appointments;
+            if (start == null || end == null) {
+                appointments = appointmentRepository.findByResourceIdIn(resourceIds);
+            } else {
+                validateTimeRange(start, end);
+                appointments = appointmentRepository.findByResourceIdInAndStartTimeBetween(resourceIds, start, end);
+            }
+            appointments.forEach(appt -> sanitizeAppointmentForPractitioner(appt, context));
+            return appointments;
+        }
         if (start == null || end == null) {
             return findAll();
         }
@@ -127,6 +162,7 @@ public class AppointmentService {
         forbidPlatformAdmin(context);
         appointment.setId(null);
         ensureOrgForWrite(appointment, context, null);
+        applyPractitionerResource(appointment, context);
         validateAppointment(appointment);
         AppointmentType type = resolveAppointmentType(appointment);
         Resource resource = resolveAppointmentResource(appointment, type);
@@ -144,6 +180,10 @@ public class AppointmentService {
         forbidPlatformAdmin(context);
         Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
         ensureOrgForWrite(appointment, context, existing);
+        if (context.isPractitioner()) {
+            enforcePractitionerOwnership(existing, context);
+        }
+        applyPractitionerResource(appointment, context);
         validateAppointment(appointment);
         AppointmentType type = resolveAppointmentType(appointment);
         Resource resource = resolveAppointmentResource(appointment, type);
@@ -161,6 +201,9 @@ public class AppointmentService {
         UserAccessContext context = resolveContext();
         forbidPlatformAdmin(context);
         Appointment existing = loadAccessibleAppointment(id, context, OrganizationAccessManager.AccessIntent.WRITE);
+        if (context.isPractitioner()) {
+            enforcePractitionerOwnership(existing, context);
+        }
         appointmentRepository.deleteById(existing.getId());
     }
 
@@ -176,7 +219,7 @@ public class AppointmentService {
 
         boolean practitioner = context.isPractitioner();
         if (practitioner) {
-            enforcePractitionerOwnership(appointment, context.practitionerResource());
+            enforcePractitionerOwnership(appointment, context);
         }
 
         AppointmentEventType type = event.getType();
@@ -225,20 +268,22 @@ public class AppointmentService {
             LocalDateTime from,
             LocalDateTime to
     ) {
-        Resource resource = context.practitionerResource();
+        List<String> resourceIds = new ArrayList<>(context.practitionerResourceIds());
+        if (resourceIds.isEmpty()) {
+            return List.of();
+        }
         List<Appointment> appointments;
         if (from != null && to != null) {
             validateTimeRange(from, to);
-            appointments = appointmentRepository.findByResourceIdAndStartTimeBetween(resource.getId(), from, to);
+            appointments = appointmentRepository.findByResourceIdInAndStartTimeBetween(resourceIds, from, to);
         } else {
-            appointments = appointmentRepository.findByResourceId(resource.getId());
+            appointments = appointmentRepository.findByResourceIdIn(resourceIds);
         }
         if (customerId != null && !customerId.isBlank()) {
             appointments = appointments.stream()
                     .filter(appt -> customerId.equals(appt.getCustomerId()))
                     .collect(Collectors.toList());
         }
-        appointments = filterByOrgScope(appointments, context);
         appointments.forEach(appt -> sanitizeAppointmentForPractitioner(appt, context));
         return appointments;
     }
@@ -291,7 +336,9 @@ public class AppointmentService {
     private Appointment loadAccessibleAppointment(String id, UserAccessContext context, OrganizationAccessManager.AccessIntent intent) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment not found"));
-        context.checkOrgAccess(appointment.getOrgId(), intent);
+        if (!context.isPractitioner()) {
+            context.checkOrgAccess(appointment.getOrgId(), intent);
+        }
         return appointment;
     }
 
@@ -377,7 +424,7 @@ public class AppointmentService {
     }
 
     private void sanitizeAppointmentForPractitioner(Appointment appointment, UserAccessContext context) {
-        enforcePractitionerOwnership(appointment, context.practitionerResource());
+        enforcePractitionerOwnership(appointment, context);
         List<AppointmentEvent> events = appointment.getEvents();
         if (events == null || events.isEmpty()) {
             appointment.setEvents(new ArrayList<>());
@@ -390,13 +437,35 @@ public class AppointmentService {
         appointment.setEvents(filtered);
     }
 
-    private void enforcePractitionerOwnership(Appointment appointment, Resource resource) {
-        if (resource == null || resource.getId() == null) {
+    private void enforcePractitionerOwnership(Appointment appointment, UserAccessContext context) {
+        Set<String> resourceIds = context.practitionerResourceIds();
+        if (resourceIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Practitioner resource missing");
         }
         String appointmentResourceId = appointment.getResourceId();
-        if (appointmentResourceId == null || !appointmentResourceId.equals(resource.getId())) {
+        if (appointmentResourceId == null || !resourceIds.contains(appointmentResourceId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Appointment not assigned to practitioner");
+        }
+    }
+
+    private void applyPractitionerResource(Appointment appointment, UserAccessContext context) {
+        if (!context.isPractitioner()) {
+            return;
+        }
+        Set<String> resourceIds = context.practitionerResourceIds();
+        if (resourceIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No resource linked to practitioner user");
+        }
+        String resourceId = appointment.getResourceId();
+        if (resourceId == null || resourceId.isBlank()) {
+            if (resourceIds.size() == 1) {
+                appointment.setResourceId(resourceIds.iterator().next());
+                return;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "resourceId is required for practitioner appointments");
+        }
+        if (!resourceIds.contains(resourceId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Resource not assigned to practitioner");
         }
     }
 
@@ -408,19 +477,32 @@ public class AppointmentService {
 
     private UserAccessContext resolveContext() {
         User user = currentUserProvider.getCurrentUser();
-        Resource practitionerResource = null;
+        List<Resource> practitionerResources = List.of();
+        Set<String> practitionerResourceIds = Set.of();
         if (user.getRoles().contains(UserRole.PRACTITIONER)) {
-            practitionerResource = resourceRepository.findByPractitionerUserId(user.getId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.FORBIDDEN,
-                            "No resource linked to practitioner user"
-                    ));
+            practitionerResources = resolvePractitionerResources(user.getId());
+            practitionerResourceIds = practitionerResources.stream()
+                    .map(Resource::getId)
+                    .filter(id -> id != null && !id.isBlank())
+                    .collect(Collectors.toSet());
         }
         return new UserAccessContext(
                 user,
-                practitionerResource,
+                practitionerResources,
+                practitionerResourceIds,
                 organizationAccessManager.currentContext()
         );
+    }
+
+    private List<Resource> resolvePractitionerResources(String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No resource linked to practitioner user");
+        }
+        List<Resource> resources = resourceRepository.findByPractitionerUserId(userId);
+        if (resources.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No resource linked to practitioner user");
+        }
+        return resources;
     }
 
     private void validateTimeRange(LocalDateTime start, LocalDateTime end) {
@@ -515,16 +597,19 @@ public class AppointmentService {
 
     private static final class UserAccessContext {
         private final User user;
-        private final Resource practitionerResource;
+        private final List<Resource> practitionerResources;
+        private final Set<String> practitionerResourceIds;
         private final OrganizationAccessManager.OrganizationAccessContext orgContext;
 
         private UserAccessContext(
                 User user,
-                Resource practitionerResource,
+                List<Resource> practitionerResources,
+                Set<String> practitionerResourceIds,
                 OrganizationAccessManager.OrganizationAccessContext orgContext
         ) {
             this.user = user;
-            this.practitionerResource = practitionerResource;
+            this.practitionerResources = practitionerResources;
+            this.practitionerResourceIds = practitionerResourceIds;
             this.orgContext = orgContext;
         }
 
@@ -559,8 +644,12 @@ public class AppointmentService {
             return user.getId();
         }
 
-        Resource practitionerResource() {
-            return practitionerResource;
+        List<Resource> practitionerResources() {
+            return practitionerResources;
+        }
+
+        Set<String> practitionerResourceIds() {
+            return practitionerResourceIds;
         }
 
         Set<String> permittedOrgIds(OrganizationAccessManager.AccessIntent intent) {
