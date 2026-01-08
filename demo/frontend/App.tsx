@@ -6109,7 +6109,13 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     if (durationMinutes <= 0) {
       return map;
     }
-    agendaResources.forEach((resource) => {
+    const selectedResourceId =
+      (agendaSelectedAppointment.resourceId ?? 'unassigned').trim() || 'unassigned';
+    const scopedResources =
+      selectedResourceId !== 'unassigned'
+        ? agendaResources.filter((resource) => (resource.id ?? 'unassigned') === selectedResourceId)
+        : agendaResources.filter((resource) => (resource.id ?? 'unassigned') === 'unassigned');
+    scopedResources.forEach((resource) => {
       const resourceId = resource.id || 'unassigned';
       const allowedTypeIds = resource.allowedAppointmentTypeIds ?? [];
       if (
@@ -6705,13 +6711,19 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       if (!allowedStarts || !allowedStarts.includes(minutes)) {
         return;
       }
+      const selectedResourceId =
+        (selectedAppointment.resourceId ?? 'unassigned').trim() || 'unassigned';
+      if (selectedResourceId !== resourceId) {
+        return;
+      }
       const durationMinutes = getAppointmentDurationMinutes(selectedAppointment);
       const start = buildAgendaDateTime(minutes);
       if (!isAgendaSlotOpen(resourceId, minutes, durationMinutes)) {
         return;
       }
       const newEnd = new Date(start.getTime() + durationMinutes * 60000);
-      const nextResourceId = resourceId === 'unassigned' ? null : resourceId;
+      const normalizedResourceId = (selectedAppointment.resourceId ?? '').trim();
+      const nextResourceId = normalizedResourceId || null;
       const startValue = buildDateTimeValue(formatIsoDate(start), formatAgendaTime(start));
       const endValue = buildDateTimeValue(formatIsoDate(newEnd), formatAgendaTime(newEnd));
       const payload: Appointment = {
@@ -7903,31 +7915,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                           const appointmentsForResource =
                             agendaAppointmentsByResource.get(resourceId) ?? [];
                           const appointmentLayout = buildAgendaAppointmentLayout(appointmentsForResource);
-                          const appointmentSpans = appointmentsForResource
-                            .map((appt) => {
-                              if (!appt.startTime) return null;
-                              const start = new Date(appt.startTime);
-                              if (Number.isNaN(start.getTime())) return null;
-                              const durationMinutes = getAppointmentDurationMinutes(appt);
-                              const fallbackEnd = new Date(start.getTime() + durationMinutes * 60000);
-                              const endCandidate = appt.endTime ? new Date(appt.endTime) : fallbackEnd;
-                              const end =
-                                Number.isNaN(endCandidate.getTime()) || endCandidate <= start
-                                  ? fallbackEnd
-                                  : endCandidate;
-                              const startMinutes = start.getHours() * 60 + start.getMinutes();
-                              const rawDurationMinutes = Math.max(
-                                agendaSlotMinutes,
-                                Math.round((end.getTime() - start.getTime()) / 60000),
-                              );
-                              const endMinutes = startMinutes + rawDurationMinutes;
-                              return { startMinutes, endMinutes };
-                            })
-                            .filter(
-                              (
-                                span,
-                              ): span is { startMinutes: number; endMinutes: number } => Boolean(span),
-                            );
                           let selectedOverlay: ReactNode | null = null;
                           return (
                             <Pressable
@@ -8084,14 +8071,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                                           agendaSelectedDurationMinutes && agendaSelectedDurationMinutes > 0
                                             ? agendaSelectedDurationMinutes
                                             : agendaSlotMinutes;
-                                        const slotEnd = minutes + durationMinutes;
-                                        const isOccupied = appointmentSpans.some(
-                                          (span) =>
-                                            minutes < span.endMinutes && slotEnd > span.startMinutes,
-                                        );
-                                        if (isOccupied) {
-                                          return null;
-                                        }
                                         const top =
                                           ((minutes - agendaStartMinutes) / agendaSlotMinutes) *
                                           AGENDA_SLOT_HEIGHT;
@@ -9102,8 +9081,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               value={appointmentForm.resourceId}
               onSelect={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
               resources={appointmentResourceOptions}
-              disabled={isPlatformAdminOnly && !appointmentForm.orgId.trim()}
-              disabledMessage="Select an organization to load resources"
+              disabled={(isPlatformAdminOnly && !appointmentForm.orgId.trim()) || Boolean(appointmentForm.id)}
+              disabledMessage={
+                appointmentForm.id
+                  ? 'Resource cannot be changed for existing appointments.'
+                  : 'Select an organization to load resources'
+              }
             />
             <AppointmentTypePickerField
               label="Appointment type"

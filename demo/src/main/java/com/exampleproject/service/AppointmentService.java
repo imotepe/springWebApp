@@ -183,6 +183,15 @@ public class AppointmentService {
         if (context.isPractitioner()) {
             enforcePractitionerOwnership(existing, context);
         }
+        String existingResourceId = normalizeId(existing.getResourceId());
+        String incomingResourceId = normalizeId(appointment.getResourceId());
+        if (incomingResourceId.isEmpty()) {
+            appointment.setResourceId(existing.getResourceId());
+            incomingResourceId = existingResourceId;
+        }
+        if (!existingResourceId.equals(incomingResourceId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource cannot be changed for existing appointments");
+        }
         applyPractitionerResource(appointment, context);
         validateAppointment(appointment);
         AppointmentType type = resolveAppointmentType(appointment);
@@ -512,6 +521,13 @@ public class AppointmentService {
                     "Start time must be before end time"
             );
         }
+    }
+
+    private static String normalizeId(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
     }
 
     private void validateAppointment(Appointment appointment) {
