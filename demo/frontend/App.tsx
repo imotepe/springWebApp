@@ -35,6 +35,8 @@ import {
   useState,
 } from 'react';
 
+const scrollTopIcon = require('./assets/up-arrow.png');
+
 type LoginFormState = {
   identifier: string;
   password: string;
@@ -6401,6 +6403,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
     scrollViewRef.current.scrollTo({ y: Math.max(0, offset - 12), animated: true });
   }, []);
+  const scrollToTop = useCallback(() => {
+    if (!scrollViewRef.current) {
+      return;
+    }
+    scrollViewRef.current.scrollTo({ y: 0, animated: true });
+  }, []);
 
   const handleAgendaAppointmentPress = useCallback(
     (appointment: Appointment) => {
@@ -7150,14 +7158,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   };
 
   return (
-    <ScrollView
-      ref={scrollViewRef}
-      contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="handled"
-      bounces={false}
-      nestedScrollEnabled
-      scrollsToTop={false}
-    >
+    <View style={styles.screen}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.mainScroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+        nestedScrollEnabled
+        scrollsToTop={false}
+      >
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.badge}>
@@ -10063,7 +10073,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           </>
         ) : null}
       </View>
-    </ScrollView>
+      </ScrollView>
+      <Pressable
+        style={styles.scrollTopButton}
+        onPress={scrollToTop}
+        accessibilityLabel="Scroll to top"
+      >
+        <Image source={scrollTopIcon} style={styles.scrollTopButtonIcon} resizeMode="contain" />
+      </Pressable>
+    </View>
   );
 }
 
@@ -10107,11 +10125,33 @@ export default function App() {
 const styles = StyleSheet.create({
   background: { flex: 1, backgroundColor: '#F9FAFB' },
   safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
+  screen: { flex: 1 },
+  mainScroll: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 32,
+  },
+  scrollTopButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scrollTopButtonIcon: {
+    width: 18,
+    height: 18,
   },
   centered: {
     width: '100%',
