@@ -6038,6 +6038,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const agendaEndMinutes = agendaScheduleRange.end;
   const agendaNowMinutes = agendaNow.getHours() * 60 + agendaNow.getMinutes();
   const isAgendaToday = agendaDate === formatIsoDate(agendaNow);
+  const agendaNowLabel = formatTimeFromDate(agendaNow);
 
   const agendaNowOffset = useMemo(() => {
     if (!isAgendaToday) return null;
@@ -7866,10 +7867,21 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                         </View>
                       ))}
                       {agendaNowOffset != null ? (
-                        <View
-                          pointerEvents="none"
-                          style={[styles.agendaNowLine, { top: agendaNowOffset }]}
-                        />
+                        <>
+                          <View
+                            pointerEvents="none"
+                            style={[styles.agendaNowLine, { top: agendaNowOffset }]}
+                          />
+                          <View
+                            pointerEvents="none"
+                            style={[styles.agendaNowLabel, { top: agendaNowOffset }]}
+                          >
+                            <View style={styles.agendaNowLabelBubble}>
+                              <Text style={styles.agendaNowLabelText}>{agendaNowLabel}</Text>
+                            </View>
+                            <View style={styles.agendaNowLabelTriangle} />
+                          </View>
+                        </>
                       ) : null}
                     </View>
                   </View>
@@ -10591,6 +10603,37 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#EF4444',
     zIndex: 5,
+  },
+  agendaNowLabel: {
+    position: 'absolute',
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 6,
+    transform: [{ translateY: -8 }],
+  },
+  agendaNowLabelBubble: {
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  agendaNowLabelText: {
+    color: '#FFFFFF',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+  agendaNowLabelTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderLeftWidth: 6,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#EF4444',
+    marginLeft: 2,
   },
   agendaTimeMarker: {
     position: 'absolute',
