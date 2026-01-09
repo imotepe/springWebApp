@@ -8,6 +8,8 @@ import {
   Image,
   KeyboardAvoidingView,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   SafeAreaView,
@@ -5984,6 +5986,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     );
   }, [agendaAppointmentIdMap, agendaAppointmentKeyMap, agendaSelectedAppointmentKey]);
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const [showScrollTopButton, setShowScrollTopButton] = useState(false);
   const agendaDetailsOffsetRef = useRef<number | null>(null);
   const agendaLastPressRef = useRef<{ key: string; time: number } | null>(null);
   const agendaSelectedAppointmentRef = useRef<Appointment | null>(null);
@@ -6408,6 +6411,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       return;
     }
     scrollViewRef.current.scrollTo({ y: 0, animated: true });
+  }, []);
+  const handleMainScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const nextVisible = offsetY > 12;
+    setShowScrollTopButton((prev) => (prev === nextVisible ? prev : nextVisible));
   }, []);
 
   const handleAgendaAppointmentPress = useCallback(
@@ -7167,6 +7175,8 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         bounces={false}
         nestedScrollEnabled
         scrollsToTop={false}
+        scrollEventThrottle={16}
+        onScroll={handleMainScroll}
       >
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
@@ -10074,13 +10084,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         ) : null}
       </View>
       </ScrollView>
-      <Pressable
-        style={styles.scrollTopButton}
-        onPress={scrollToTop}
-        accessibilityLabel="Scroll to top"
-      >
-        <Image source={scrollTopIcon} style={styles.scrollTopButtonIcon} resizeMode="contain" />
-      </Pressable>
+      {showScrollTopButton ? (
+        <Pressable
+          style={styles.scrollTopButton}
+          onPress={scrollToTop}
+          accessibilityLabel="Scroll to top"
+        >
+          <Image source={scrollTopIcon} style={styles.scrollTopButtonIcon} resizeMode="contain" />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
