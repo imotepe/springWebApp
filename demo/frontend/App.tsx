@@ -7876,11 +7876,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             pointerEvents="none"
                             style={[styles.agendaNowLabel, { top: agendaNowOffset }]}
                           >
-                            <View style={styles.agendaNowLabelBubble}>
-                              <Text style={styles.agendaNowLabelText}>{agendaNowLabel}</Text>
-                            </View>
-                            <View style={styles.agendaNowLabelTriangle} />
+                          <View style={styles.agendaNowLabelBubble}>
+                            <Text style={styles.agendaNowLabelText}>{agendaNowLabel}</Text>
                           </View>
+                        </View>
                         </>
                       ) : null}
                     </View>
@@ -10623,17 +10622,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 10,
     letterSpacing: 0.2,
-  },
-  agendaNowLabelTriangle: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#EF4444',
-    marginLeft: 2,
   },
   agendaTimeMarker: {
     position: 'absolute',
