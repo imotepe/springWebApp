@@ -10605,9 +10605,11 @@ const styles = StyleSheet.create({
   },
   agendaNowLabel: {
     position: 'absolute',
+    left: 0,
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 6,
     transform: [{ translateY: -8 }],
   },
