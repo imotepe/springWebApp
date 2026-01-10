@@ -1,6 +1,8 @@
 package com.exampleproject.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -21,9 +23,12 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
     private final Path uploadRoot;
+    private final Path resourcePhotoRoot;
 
-    public FileStorageService(@Value("${app.upload-dir:uploads}") String uploadDir) {
+    public FileStorageService(@Value("${app.upload-dir:uploads}") String uploadDir,
+                              @Value("${app.resource-photo-dir:resource-photos}") String resourcePhotoDir) {
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.resourcePhotoRoot = Paths.get(resourcePhotoDir).toAbsolutePath().normalize();
     }
 
     public String storeOrganizationLogo(String orgId, MultipartFile file) {
@@ -84,6 +89,79 @@ public class FileStorageService {
         return "/uploads/organizations/" + orgId + "/qr/" + filename;
     }
 
+    public String storeResourcePhoto(String resourceId, MultipartFile file) {
+        if (resourceId == null || resourceId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource id is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo file is required");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+        }
+
+        String extension = resolveExtension(file);
+        String filename = "photo-" + UUID.randomUUID() + (extension.isEmpty() ? "" : "." + extension);
+        Path resourceDir = resourcePhotoRoot.resolve("resources").resolve(resourceId).normalize();
+        if (!resourceDir.startsWith(resourcePhotoRoot)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid upload path");
+        }
+
+        try {
+            Files.createDirectories(resourceDir);
+            Path target = resourceDir.resolve(filename).normalize();
+            if (!target.startsWith(resourceDir)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid upload path");
+            }
+            try (InputStream in = file.getInputStream()) {
+                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store resource photo");
+        }
+
+        return "resources/" + resourceId + "/" + filename;
+    }
+
+    public StoredFile loadResourcePhoto(String storedPath) {
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
+        }
+        Path target = resourcePhotoRoot.resolve(storedPath).normalize();
+        if (!target.startsWith(resourcePhotoRoot)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid photo path");
+        }
+        if (!Files.exists(target)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
+        }
+        String contentType = "application/octet-stream";
+        try {
+            String probed = Files.probeContentType(target);
+            if (probed != null && !probed.isBlank()) {
+                contentType = probed;
+            }
+        } catch (IOException ex) {
+            // fall back to application/octet-stream
+        }
+        return new StoredFile(new FileSystemResource(target), contentType);
+    }
+
+    public void deleteResourcePhotoIfExists(String storedPath) {
+        if (storedPath == null || storedPath.isBlank()) {
+            return;
+        }
+        Path target = resourcePhotoRoot.resolve(storedPath).normalize();
+        if (!target.startsWith(resourcePhotoRoot)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ex) {
+            // Best-effort cleanup; ignore failures to avoid breaking the update flow.
+        }
+    }
+
     public void deleteIfExists(String storedPath) {
         if (storedPath == null || storedPath.isBlank()) {
             return;
@@ -140,5 +218,23 @@ public class FileStorageService {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized.isBlank() ? "code" : normalized;
+    }
+
+    public static final class StoredFile {
+        private final Resource resource;
+        private final String contentType;
+
+        public StoredFile(Resource resource, String contentType) {
+            this.resource = resource;
+            this.contentType = contentType;
+        }
+
+        public Resource getResource() {
+            return resource;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
     }
 }

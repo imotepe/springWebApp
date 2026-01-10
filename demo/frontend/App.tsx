@@ -381,6 +381,7 @@ type Resource = {
   orgId?: string;
   name?: string;
   type?: string;
+  photoUrl?: string;
   createdAt?: string;
   allowedAppointmentTypeIds?: string[];
   scheduleOverride?: ScheduleConfigDto | null;
@@ -3389,6 +3390,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [resourceSaving, setResourceSaving] = useState(false);
   const [resourceMessage, setResourceMessage] = useState<string | null>(null);
   const [resourceError, setResourceError] = useState<string | null>(null);
+  const [resourcePhotoUploading, setResourcePhotoUploading] = useState(false);
+  const [resourcePhotoMessage, setResourcePhotoMessage] = useState<string | null>(null);
+  const [resourcePhotoError, setResourcePhotoError] = useState<string | null>(null);
+  const [resourcePhotoPreviewUri, setResourcePhotoPreviewUri] = useState<string | null>(null);
   const [resourceSearch, setResourceSearch] = useState('');
   const [resourceOrgFilter, setResourceOrgFilter] = useState('');
   const [resourceAppointmentTypes, setResourceAppointmentTypes] = useState<AppointmentTypeDto[]>([]);
@@ -4004,6 +4009,21 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourceHolidayWindow({ start: '09:00', end: '12:00' });
   }, []);
 
+  const replaceResourcePhotoPreview = useCallback((next: string | null) => {
+    setResourcePhotoPreviewUri((prev) => {
+      if (
+        prev &&
+        prev.startsWith('blob:') &&
+        Platform.OS === 'web' &&
+        typeof URL !== 'undefined' &&
+        typeof URL.revokeObjectURL === 'function'
+      ) {
+        URL.revokeObjectURL(prev);
+      }
+      return next;
+    });
+  }, []);
+
   const resetResourceForm = useCallback(() => {
     setResourceForm({
       id: null,
@@ -4018,11 +4038,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setResourceError(null);
     setResourceMessage(null);
+    setResourcePhotoUploading(false);
+    setResourcePhotoMessage(null);
+    setResourcePhotoError(null);
+    replaceResourcePhotoPreview(null);
     setResourceAppointmentTypeError(null);
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
     resetResourceSchedule();
-  }, [resetResourceSchedule]);
+  }, [replaceResourcePhotoPreview, resetResourceSchedule]);
 
   const resetAppointmentForm = useCallback(() => {
     setAppointmentForm({
@@ -4073,6 +4097,10 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
     setResourceError(null);
     setResourceMessage(`Editing ${resource.name || resource.id || 'resource'}`);
+    setResourcePhotoUploading(false);
+    setResourcePhotoMessage(null);
+    setResourcePhotoError(null);
+    replaceResourcePhotoPreview(null);
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
   };
@@ -4560,6 +4588,11 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     () => customers.find((c) => c.id === customerForm.id),
     [customers, customerForm.id],
   );
+  const resourceFormSelection = useMemo(
+    () => resources.find((resource) => resource.id === resourceForm.id),
+    [resources, resourceForm.id],
+  );
+  const resourcePhotoUrl = resourceFormSelection?.photoUrl ?? '';
 
   const filteredInteractions = useMemo(() => {
     const term = interactionSearch.trim().toLowerCase();
@@ -5195,6 +5228,75 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     } finally {
       setResourceSaving(false);
     }
+  };
+
+  const handleResourcePhotoUpload = async (file: File) => {
+    if (!resourceForm.id) {
+      setResourcePhotoError('Save the resource before uploading a photo.');
+      return;
+    }
+    setResourcePhotoUploading(true);
+    setResourcePhotoMessage('Uploading photo...');
+    setResourcePhotoError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetchMultipart(`/api/resources/${resourceForm.id}/photo`, formData);
+      if (!res.ok) {
+        setResourcePhotoError(await parseErrorMessage(res));
+        setResourcePhotoMessage(null);
+        return;
+      }
+      const saved = (await res.json()) as Resource;
+      setResources((prev) => prev.map((resource) => (resource.id === saved.id ? saved : resource)));
+      setResourcePhotoMessage('Photo uploaded.');
+      if (
+        Platform.OS === 'web' &&
+        typeof URL !== 'undefined' &&
+        typeof URL.createObjectURL === 'function'
+      ) {
+        replaceResourcePhotoPreview(URL.createObjectURL(file));
+      } else {
+        replaceResourcePhotoPreview(null);
+      }
+    } catch (error) {
+      setResourcePhotoError(error instanceof Error ? error.message : 'Unable to upload resource photo.');
+      setResourcePhotoMessage(null);
+    } finally {
+      setResourcePhotoUploading(false);
+    }
+  };
+
+  const openResourcePhotoPicker = () => {
+    setResourcePhotoError(null);
+    setResourcePhotoMessage(null);
+    if (!resourceForm.id) {
+      setResourcePhotoError('Save the resource before uploading a photo.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Alert.alert('Resource photo', 'Use the web app to upload resource photos.');
+      return;
+    }
+    if (typeof document === 'undefined' || !document.body) {
+      setResourcePhotoError('File picker is unavailable.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) {
+        void handleResourcePhotoUpload(file);
+      }
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+    };
+    document.body.appendChild(input);
+    input.click();
   };
 
   const handleResourceDelete = (resource: Resource) => {
@@ -8893,6 +8995,42 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               />
             ) : null}
 
+            <View style={styles.inputField}>
+              <Text style={styles.label}>Resource photo</Text>
+              <Pressable
+                onPress={openResourcePhotoPicker}
+                disabled={!resourceForm.id || resourcePhotoUploading}
+                style={[
+                  styles.secondaryChip,
+                  (!resourceForm.id || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                ]}
+              >
+                <Text style={styles.secondaryChipText}>
+                  {resourcePhotoUploading ? 'Uploading...' : 'Upload photo'}
+                </Text>
+              </Pressable>
+              <Text style={styles.helperText}>
+                {resourceForm.id
+                  ? 'Upload an image file; only organization members can view it.'
+                  : 'Save the resource before uploading a photo.'}
+              </Text>
+              {resourcePhotoMessage ? (
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusText}>{resourcePhotoMessage}</Text>
+                </View>
+              ) : null}
+              {resourcePhotoError ? (
+                <View style={[styles.statusPill, styles.errorPill]}>
+                  <Text style={styles.errorText}>{resourcePhotoError}</Text>
+                </View>
+              ) : null}
+              {resourcePhotoPreviewUri ? (
+                <Image source={{ uri: resourcePhotoPreviewUri }} style={styles.resourcePhoto} resizeMode="cover" />
+              ) : resourcePhotoUrl ? (
+                <Text style={styles.helperText}>Photo on file.</Text>
+              ) : null}
+            </View>
+
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Schedule override (optional)</Text>
               {resourceScheduleEnabled ? (
@@ -10865,6 +11003,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#F3F4F6',
     flexShrink: 0,
+  },
+  resourcePhoto: {
+    width: 160,
+    height: 100,
+    marginTop: 6,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
   },
   qrSection: {
     gap: 8,

@@ -6,6 +6,7 @@ import com.exampleproject.repository.ResourceRepository;
 import com.exampleproject.security.OrganizationAccessManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -15,10 +16,14 @@ import java.util.stream.Collectors;
 public class ResourceService {
     private final ResourceRepository repository;
     private final OrganizationAccessManager organizationAccessManager;
+    private final FileStorageService fileStorageService;
 
-    public ResourceService(ResourceRepository repository, OrganizationAccessManager organizationAccessManager) {
+    public ResourceService(ResourceRepository repository,
+                           OrganizationAccessManager organizationAccessManager,
+                           FileStorageService fileStorageService) {
         this.repository = repository;
         this.organizationAccessManager = organizationAccessManager;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<Resource> findAll() {
@@ -92,7 +97,35 @@ public class ResourceService {
         context.checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
         resource.setId(id);
         resource.setOrgId(existing.getOrgId());
+        resource.setPhotoPath(existing.getPhotoPath());
         return repository.save(resource);
+    }
+
+    public Resource updatePhoto(String id, MultipartFile file) {
+        Resource existing = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        OrganizationAccessManager.OrganizationAccessContext context = organizationAccessManager.currentContext();
+        if (isPractitioner(context)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Practitioners cannot update resources");
+        }
+        context.checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
+        String previousPhoto = existing.getPhotoPath();
+        String storedPath = fileStorageService.storeResourcePhoto(existing.getId(), file);
+        existing.setPhotoPath(storedPath);
+        Resource saved = repository.save(existing);
+        if (previousPhoto != null && !previousPhoto.isBlank() && !previousPhoto.equals(storedPath)) {
+            fileStorageService.deleteResourcePhotoIfExists(previousPhoto);
+        }
+        return saved;
+    }
+
+    public FileStorageService.StoredFile loadPhoto(String id) {
+        Resource resource = findById(id);
+        String storedPath = resource.getPhotoPath();
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
+        }
+        return fileStorageService.loadResourcePhoto(storedPath);
     }
 
     public void delete(String id) {
@@ -103,7 +136,9 @@ public class ResourceService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Practitioners cannot delete resources");
         }
         context.checkOrgAccess(existing.getOrgId(), OrganizationAccessManager.AccessIntent.WRITE);
+        String photoPath = existing.getPhotoPath();
         repository.deleteById(id);
+        fileStorageService.deleteResourcePhotoIfExists(photoPath);
     }
 
     private boolean isPractitioner(OrganizationAccessManager.OrganizationAccessContext context) {
