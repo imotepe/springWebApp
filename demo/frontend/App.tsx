@@ -381,7 +381,6 @@ type Resource = {
   orgId?: string;
   name?: string;
   type?: string;
-  photoUrl?: string;
   createdAt?: string;
   allowedAppointmentTypeIds?: string[];
   scheduleOverride?: ScheduleConfigDto | null;
@@ -389,6 +388,13 @@ type Resource = {
   active?: boolean;
   kind?: 'HUMAN' | 'ASSET';
   practitionerUserId?: string;
+};
+
+type ResourcePhoto = {
+  id: string;
+  url: string;
+  order: number;
+  isDefault: boolean;
 };
 
 type ResourceFormState = {
@@ -3386,14 +3392,17 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     createdAt: new Date().toISOString(),
   });
   const [resources, setResources] = useState<Resource[]>([]);
+  const [resourcePhotos, setResourcePhotos] = useState<ResourcePhoto[]>([]);
   const [resourceLoading, setResourceLoading] = useState(false);
   const [resourceSaving, setResourceSaving] = useState(false);
   const [resourceMessage, setResourceMessage] = useState<string | null>(null);
   const [resourceError, setResourceError] = useState<string | null>(null);
+  const [resourcePhotoLoading, setResourcePhotoLoading] = useState(false);
   const [resourcePhotoUploading, setResourcePhotoUploading] = useState(false);
   const [resourcePhotoMessage, setResourcePhotoMessage] = useState<string | null>(null);
   const [resourcePhotoError, setResourcePhotoError] = useState<string | null>(null);
-  const [resourcePhotoPreviewUri, setResourcePhotoPreviewUri] = useState<string | null>(null);
+  const [resourcePhotoSelectedIds, setResourcePhotoSelectedIds] = useState<Set<string>>(new Set());
+  const [resourcePhotoPreviews, setResourcePhotoPreviews] = useState<Record<string, string>>({});
   const [resourceSearch, setResourceSearch] = useState('');
   const [resourceOrgFilter, setResourceOrgFilter] = useState('');
   const [resourceAppointmentTypes, setResourceAppointmentTypes] = useState<AppointmentTypeDto[]>([]);
@@ -3735,6 +3744,64 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     [authFetch, resourceOrgFilter],
   );
 
+  const loadResourcePhotoPreviews = useCallback(
+    async (photos: ResourcePhoto[]) => {
+      if (Platform.OS !== 'web') {
+        setResourcePhotoPreviews({});
+        return;
+      }
+      clearResourcePhotoPreviews();
+      if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+        return;
+      }
+      const next: Record<string, string> = {};
+      for (const photo of photos) {
+        try {
+          const res = await authFetch(photo.url);
+          if (!res.ok) {
+            continue;
+          }
+          const blob = await res.blob();
+          next[photo.id] = URL.createObjectURL(blob);
+        } catch {
+          // ignore preview failures
+        }
+      }
+      setResourcePhotoPreviews(next);
+    },
+    [authFetch],
+  );
+
+  const loadResourcePhotos = useCallback(
+    async (resourceId: string) => {
+      const id = resourceId.trim();
+      if (!id) {
+        setResourcePhotos([]);
+        setResourcePhotoSelectedIds(new Set());
+        clearResourcePhotoPreviews();
+        return;
+      }
+      setResourcePhotoLoading(true);
+      setResourcePhotoError(null);
+      try {
+        const res = await authFetch(`/api/resources/${encodeURIComponent(id)}/photos`);
+        if (!res.ok) {
+          setResourcePhotoError(await parseErrorMessage(res));
+          return;
+        }
+        const data = (await res.json()) as ResourcePhoto[];
+        setResourcePhotos(data);
+        setResourcePhotoSelectedIds(new Set());
+        await loadResourcePhotoPreviews(data);
+      } catch (error) {
+        setResourcePhotoError(error instanceof Error ? error.message : 'Unable to load resource photos.');
+      } finally {
+        setResourcePhotoLoading(false);
+      }
+    },
+    [authFetch, loadResourcePhotoPreviews],
+  );
+
   const loadAppointments = useCallback(
     async (orgFilter?: string) => {
       const filter = (orgFilter ?? appointmentOrgFilter).trim();
@@ -4009,18 +4076,20 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourceHolidayWindow({ start: '09:00', end: '12:00' });
   }, []);
 
-  const replaceResourcePhotoPreview = useCallback((next: string | null) => {
-    setResourcePhotoPreviewUri((prev) => {
-      if (
-        prev &&
-        prev.startsWith('blob:') &&
-        Platform.OS === 'web' &&
-        typeof URL !== 'undefined' &&
-        typeof URL.revokeObjectURL === 'function'
-      ) {
-        URL.revokeObjectURL(prev);
+  const clearResourcePhotoPreviews = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      setResourcePhotoPreviews({});
+      return;
+    }
+    setResourcePhotoPreviews((prev) => {
+      if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        Object.values(prev).forEach((uri) => {
+          if (uri.startsWith('blob:')) {
+            URL.revokeObjectURL(uri);
+          }
+        });
       }
-      return next;
+      return {};
     });
   }, []);
 
@@ -4038,15 +4107,18 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     });
     setResourceError(null);
     setResourceMessage(null);
+    setResourcePhotoLoading(false);
     setResourcePhotoUploading(false);
     setResourcePhotoMessage(null);
     setResourcePhotoError(null);
-    replaceResourcePhotoPreview(null);
+    setResourcePhotos([]);
+    setResourcePhotoSelectedIds(new Set());
+    clearResourcePhotoPreviews();
     setResourceAppointmentTypeError(null);
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
     resetResourceSchedule();
-  }, [replaceResourcePhotoPreview, resetResourceSchedule]);
+  }, [clearResourcePhotoPreviews, resetResourceSchedule]);
 
   const resetAppointmentForm = useCallback(() => {
     setAppointmentForm({
@@ -4097,13 +4169,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
     setResourceError(null);
     setResourceMessage(`Editing ${resource.name || resource.id || 'resource'}`);
+    setResourcePhotoLoading(false);
     setResourcePhotoUploading(false);
     setResourcePhotoMessage(null);
     setResourcePhotoError(null);
-    replaceResourcePhotoPreview(null);
+    setResourcePhotos([]);
+    setResourcePhotoSelectedIds(new Set());
+    clearResourcePhotoPreviews();
     setResourceOrgPickerOpen(false);
     setResourceOrgQuery('');
+    if (resource.id) {
+      void loadResourcePhotos(resource.id);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      clearResourcePhotoPreviews();
+    };
+  }, [clearResourcePhotoPreviews]);
 
   const startAppointmentEdit = (appointment: Appointment) => {
     const startParts = splitDateTime(appointment.startTime ?? (appointment as any).start ?? '');
@@ -4588,11 +4672,25 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     () => customers.find((c) => c.id === customerForm.id),
     [customers, customerForm.id],
   );
-  const resourceFormSelection = useMemo(
-    () => resources.find((resource) => resource.id === resourceForm.id),
-    [resources, resourceForm.id],
+  const resourcePhotoSelectedList = useMemo(
+    () => Array.from(resourcePhotoSelectedIds),
+    [resourcePhotoSelectedIds],
   );
-  const resourcePhotoUrl = resourceFormSelection?.photoUrl ?? '';
+  const resourcePhotoSelectedId = resourcePhotoSelectedList.length === 1 ? resourcePhotoSelectedList[0] : null;
+  const resourcePhotoSelectedIndex = useMemo(() => {
+    if (!resourcePhotoSelectedId) return -1;
+    return resourcePhotos.findIndex((photo) => photo.id === resourcePhotoSelectedId);
+  }, [resourcePhotos, resourcePhotoSelectedId]);
+  const resourcePhotoSelected = useMemo(
+    () => (resourcePhotoSelectedId ? resourcePhotos.find((photo) => photo.id === resourcePhotoSelectedId) : undefined),
+    [resourcePhotos, resourcePhotoSelectedId],
+  );
+  const canSetResourcePhotoDefault = !!resourcePhotoSelectedId && !resourcePhotoSelected?.isDefault;
+  const canMoveResourcePhotoLeft = resourcePhotoSelectedIndex > 1;
+  const canMoveResourcePhotoRight =
+    resourcePhotoSelectedIndex >= 1 && resourcePhotoSelectedIndex < resourcePhotos.length - 1;
+  const canDeleteResourcePhotos = resourcePhotoSelectedIds.size > 0;
+  const resourcePhotoLimitReached = resourcePhotos.length >= 10;
 
   const filteredInteractions = useMemo(() => {
     const term = interactionSearch.trim().toLowerCase();
@@ -5230,37 +5328,66 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     }
   };
 
-  const handleResourcePhotoUpload = async (file: File) => {
+  const applyResourcePhotoList = useCallback(
+    async (nextPhotos: ResourcePhoto[]) => {
+      setResourcePhotos(nextPhotos);
+      setResourcePhotoSelectedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Set<string>();
+        nextPhotos.forEach((photo) => {
+          if (prev.has(photo.id)) {
+            next.add(photo.id);
+          }
+        });
+        return next;
+      });
+      await loadResourcePhotoPreviews(nextPhotos);
+    },
+    [loadResourcePhotoPreviews],
+  );
+
+  const toggleResourcePhotoSelection = (photoId: string) => {
+    setResourcePhotoSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  };
+
+  const handleResourcePhotoUpload = async (files: FileList | File[]) => {
     if (!resourceForm.id) {
-      setResourcePhotoError('Save the resource before uploading a photo.');
+      setResourcePhotoError('Save the resource before uploading photos.');
+      return;
+    }
+    const fileList = Array.from(files ?? []);
+    if (fileList.length === 0) return;
+    if (resourcePhotos.length + fileList.length > 10) {
+      setResourcePhotoError('You can upload up to 10 photos per resource.');
       return;
     }
     setResourcePhotoUploading(true);
-    setResourcePhotoMessage('Uploading photo...');
+    setResourcePhotoMessage(`Uploading ${fileList.length} photo${fileList.length > 1 ? 's' : ''}...`);
     setResourcePhotoError(null);
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      const res = await authFetchMultipart(`/api/resources/${resourceForm.id}/photo`, formData);
+      fileList.forEach((file) => {
+        formData.append('files', file);
+      });
+      const res = await authFetchMultipart(`/api/resources/${resourceForm.id}/photos`, formData);
       if (!res.ok) {
         setResourcePhotoError(await parseErrorMessage(res));
         setResourcePhotoMessage(null);
         return;
       }
-      const saved = (await res.json()) as Resource;
-      setResources((prev) => prev.map((resource) => (resource.id === saved.id ? saved : resource)));
-      setResourcePhotoMessage('Photo uploaded.');
-      if (
-        Platform.OS === 'web' &&
-        typeof URL !== 'undefined' &&
-        typeof URL.createObjectURL === 'function'
-      ) {
-        replaceResourcePhotoPreview(URL.createObjectURL(file));
-      } else {
-        replaceResourcePhotoPreview(null);
-      }
+      const updated = (await res.json()) as ResourcePhoto[];
+      await applyResourcePhotoList(updated);
+      setResourcePhotoMessage(fileList.length > 1 ? 'Photos uploaded.' : 'Photo uploaded.');
     } catch (error) {
-      setResourcePhotoError(error instanceof Error ? error.message : 'Unable to upload resource photo.');
+      setResourcePhotoError(error instanceof Error ? error.message : 'Unable to upload resource photos.');
       setResourcePhotoMessage(null);
     } finally {
       setResourcePhotoUploading(false);
@@ -5271,11 +5398,15 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setResourcePhotoError(null);
     setResourcePhotoMessage(null);
     if (!resourceForm.id) {
-      setResourcePhotoError('Save the resource before uploading a photo.');
+      setResourcePhotoError('Save the resource before uploading photos.');
+      return;
+    }
+    if (resourcePhotoLimitReached) {
+      setResourcePhotoError('You already have 10 photos for this resource.');
       return;
     }
     if (Platform.OS !== 'web') {
-      Alert.alert('Resource photo', 'Use the web app to upload resource photos.');
+      Alert.alert('Resource photos', 'Use the web app to upload resource photos.');
       return;
     }
     if (typeof document === 'undefined' || !document.body) {
@@ -5285,11 +5416,12 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.multiple = true;
     input.style.display = 'none';
     input.onchange = () => {
-      const file = input.files?.[0];
-      if (file) {
-        void handleResourcePhotoUpload(file);
+      const files = input.files;
+      if (files && files.length > 0) {
+        void handleResourcePhotoUpload(files);
       }
       if (input.parentNode) {
         input.parentNode.removeChild(input);
@@ -5297,6 +5429,138 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     };
     document.body.appendChild(input);
     input.click();
+  };
+
+  const handleResourcePhotoDelete = () => {
+    if (!resourceForm.id) {
+      setResourcePhotoError('Save the resource before deleting photos.');
+      return;
+    }
+    const ids = Array.from(resourcePhotoSelectedIds);
+    if (ids.length === 0) return;
+
+    const executeDelete = async () => {
+      setResourcePhotoUploading(true);
+      setResourcePhotoMessage('Deleting photos...');
+      setResourcePhotoError(null);
+      try {
+        const res = await authFetch(`/api/resources/${resourceForm.id}/photos/delete`, {
+          method: 'POST',
+          body: JSON.stringify({ ids }),
+        });
+        if (!res.ok) {
+          setResourcePhotoError(await parseErrorMessage(res));
+          setResourcePhotoMessage(null);
+          return;
+        }
+        const updated = (await res.json()) as ResourcePhoto[];
+        await applyResourcePhotoList(updated);
+        setResourcePhotoSelectedIds(new Set());
+        setResourcePhotoMessage('Photos deleted.');
+      } catch (error) {
+        setResourcePhotoError(error instanceof Error ? error.message : 'Unable to delete resource photos.');
+        setResourcePhotoMessage(null);
+      } finally {
+        setResourcePhotoUploading(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Delete ${ids.length === 1 ? 'this photo' : `${ids.length} photos`}?`);
+      if (confirmed) {
+        void executeDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete photos', `Delete ${ids.length === 1 ? 'this photo' : `${ids.length} photos`}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void executeDelete() },
+    ]);
+  };
+
+  const handleResourcePhotoSetDefault = async () => {
+    if (!resourceForm.id) {
+      setResourcePhotoError('Save the resource before setting a default photo.');
+      return;
+    }
+    if (!resourcePhotoSelectedId) {
+      setResourcePhotoError('Select one photo to set as default.');
+      return;
+    }
+    setResourcePhotoUploading(true);
+    setResourcePhotoMessage('Setting default photo...');
+    setResourcePhotoError(null);
+    try {
+      const res = await authFetch(
+        `/api/resources/${resourceForm.id}/photos/${resourcePhotoSelectedId}/default`,
+        { method: 'PUT' },
+      );
+      if (!res.ok) {
+        setResourcePhotoError(await parseErrorMessage(res));
+        setResourcePhotoMessage(null);
+        return;
+      }
+      const updated = (await res.json()) as ResourcePhoto[];
+      await applyResourcePhotoList(updated);
+      setResourcePhotoMessage('Default photo updated.');
+    } catch (error) {
+      setResourcePhotoError(error instanceof Error ? error.message : 'Unable to set default photo.');
+      setResourcePhotoMessage(null);
+    } finally {
+      setResourcePhotoUploading(false);
+    }
+  };
+
+  const saveResourcePhotoOrder = async (orderedIds: string[]) => {
+    if (!resourceForm.id) {
+      setResourcePhotoError('Save the resource before reordering photos.');
+      return;
+    }
+    setResourcePhotoUploading(true);
+    setResourcePhotoMessage('Saving photo order...');
+    setResourcePhotoError(null);
+    try {
+      const res = await authFetch(`/api/resources/${resourceForm.id}/photos/order`, {
+        method: 'PUT',
+        body: JSON.stringify({ ids: orderedIds }),
+      });
+      if (!res.ok) {
+        setResourcePhotoError(await parseErrorMessage(res));
+        setResourcePhotoMessage(null);
+        return;
+      }
+      const updated = (await res.json()) as ResourcePhoto[];
+      await applyResourcePhotoList(updated);
+      setResourcePhotoMessage('Photo order updated.');
+    } catch (error) {
+      setResourcePhotoError(error instanceof Error ? error.message : 'Unable to reorder resource photos.');
+      setResourcePhotoMessage(null);
+    } finally {
+      setResourcePhotoUploading(false);
+    }
+  };
+
+  const handleResourcePhotoMove = async (direction: 'left' | 'right') => {
+    if (!resourcePhotoSelectedId) {
+      setResourcePhotoError('Select one photo to move.');
+      return;
+    }
+    const index = resourcePhotos.findIndex((photo) => photo.id === resourcePhotoSelectedId);
+    if (index < 0) return;
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= resourcePhotos.length) return;
+    if (direction === 'left' && index === 1) {
+      setResourcePhotoError('Default photo must stay first. Use "Set default" instead.');
+      return;
+    }
+    if (direction === 'right' && index === 0) {
+      setResourcePhotoError('Default photo must stay first.');
+      return;
+    }
+    const orderedIds = resourcePhotos.map((photo) => photo.id);
+    [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
+    await saveResourcePhotoOrder(orderedIds);
   };
 
   const handleResourceDelete = (resource: Resource) => {
@@ -8996,23 +9260,27 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             ) : null}
 
             <View style={styles.inputField}>
-              <Text style={styles.label}>Resource photo</Text>
+              <View style={styles.photoHeaderRow}>
+                <Text style={styles.label}>Resource photos</Text>
+                <Text style={styles.photoCountText}>{resourcePhotos.length}/10</Text>
+              </View>
               <Pressable
                 onPress={openResourcePhotoPicker}
-                disabled={!resourceForm.id || resourcePhotoUploading}
+                disabled={!resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached}
                 style={[
                   styles.secondaryChip,
-                  (!resourceForm.id || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                  (!resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached) &&
+                    styles.secondaryChipDisabled,
                 ]}
               >
                 <Text style={styles.secondaryChipText}>
-                  {resourcePhotoUploading ? 'Uploading...' : 'Upload photo'}
+                  {resourcePhotoUploading ? 'Uploading...' : 'Upload photos'}
                 </Text>
               </Pressable>
               <Text style={styles.helperText}>
                 {resourceForm.id
-                  ? 'Upload an image file; only organization members can view it.'
-                  : 'Save the resource before uploading a photo.'}
+                  ? 'Upload up to 10 images; only organization members can view them.'
+                  : 'Save the resource before uploading photos.'}
               </Text>
               {resourcePhotoMessage ? (
                 <View style={styles.statusPill}>
@@ -9024,11 +9292,101 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   <Text style={styles.errorText}>{resourcePhotoError}</Text>
                 </View>
               ) : null}
-              {resourcePhotoPreviewUri ? (
-                <Image source={{ uri: resourcePhotoPreviewUri }} style={styles.resourcePhoto} resizeMode="cover" />
-              ) : resourcePhotoUrl ? (
-                <Text style={styles.helperText}>Photo on file.</Text>
-              ) : null}
+              {resourcePhotoLoading ? (
+                <View style={styles.loadingInline}>
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text style={styles.statusText}>Loading photos...</Text>
+                </View>
+              ) : resourcePhotos.length === 0 ? (
+                <Text style={styles.helperText}>No photos uploaded yet.</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.photoCarousel}
+                >
+                  {resourcePhotos.map((photo) => {
+                    const selected = resourcePhotoSelectedIds.has(photo.id);
+                    const previewUri =
+                      Platform.OS === 'web' ? resourcePhotoPreviews[photo.id] : photo.url;
+                    const imageSource = previewUri
+                      ? Platform.OS === 'web'
+                        ? { uri: previewUri }
+                        : { uri: previewUri, headers: { Authorization: `Bearer ${token}` } }
+                      : undefined;
+                    return (
+                      <Pressable
+                        key={photo.id}
+                        onPress={() => toggleResourcePhotoSelection(photo.id)}
+                        style={[styles.photoThumb, selected && styles.photoThumbSelected]}
+                      >
+                        {imageSource ? (
+                          <Image source={imageSource} style={styles.photoThumbImage} resizeMode="cover" />
+                        ) : (
+                          <View style={styles.photoThumbPlaceholder}>
+                            <Text style={styles.photoThumbPlaceholderText}>Photo</Text>
+                          </View>
+                        )}
+                        {photo.isDefault ? (
+                          <View style={styles.photoBadge}>
+                            <Text style={styles.photoBadgeText}>Default</Text>
+                          </View>
+                        ) : null}
+                        {selected ? (
+                          <View style={styles.photoSelectedBadge}>
+                            <Text style={styles.photoSelectedText}>x</Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+              <View style={styles.photoActionRow}>
+                <Pressable
+                  onPress={handleResourcePhotoDelete}
+                  disabled={!canDeleteResourcePhotos || resourcePhotoUploading}
+                  style={[
+                    styles.secondaryChip,
+                    (!canDeleteResourcePhotos || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryChipText}>Delete selected</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleResourcePhotoSetDefault}
+                  disabled={!canSetResourcePhotoDefault || resourcePhotoUploading}
+                  style={[
+                    styles.secondaryChip,
+                    (!canSetResourcePhotoDefault || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryChipText}>Set default</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleResourcePhotoMove('left')}
+                  disabled={!canMoveResourcePhotoLeft || resourcePhotoUploading}
+                  style={[
+                    styles.secondaryChip,
+                    (!canMoveResourcePhotoLeft || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryChipText}>{'<'} Move</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleResourcePhotoMove('right')}
+                  disabled={!canMoveResourcePhotoRight || resourcePhotoUploading}
+                  style={[
+                    styles.secondaryChip,
+                    (!canMoveResourcePhotoRight || resourcePhotoUploading) && styles.secondaryChipDisabled,
+                  ]}
+                >
+                  <Text style={styles.secondaryChipText}>Move {'>'}</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.helperText}>
+                Tap photos to select. Default stays first; use Set default to change it.
+              </Text>
             </View>
 
             <View style={styles.sectionHeaderRow}>
@@ -11004,12 +11362,82 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     flexShrink: 0,
   },
-  resourcePhoto: {
-    width: 160,
-    height: 100,
-    marginTop: 6,
+  photoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  photoCountText: {
+    color: '#6B7280',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+  },
+  photoCarousel: {
+    gap: 10,
+    paddingVertical: 6,
+  },
+  photoThumb: {
+    width: 120,
+    height: 76,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     backgroundColor: '#F3F4F6',
+    overflow: 'hidden',
+  },
+  photoThumbSelected: {
+    borderColor: '#1D4ED8',
+    borderWidth: 2,
+  },
+  photoThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoThumbPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoThumbPlaceholderText: {
+    color: '#9CA3AF',
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+  },
+  photoBadge: {
+    position: 'absolute',
+    left: 6,
+    top: 6,
+    backgroundColor: '#111827',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  photoBadgeText: {
+    color: '#FFFFFF',
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 10,
+  },
+  photoSelectedBadge: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    backgroundColor: '#1D4ED8',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoSelectedText: {
+    color: '#FFFFFF',
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 11,
+  },
+  photoActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
   },
   qrSection: {
     gap: 8,

@@ -2,10 +2,11 @@ package com.exampleproject.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -18,6 +19,8 @@ public class Resource {
     private String type; // e.g., official, street, sand
     @JsonIgnore
     private String photoPath;
+    @JsonIgnore
+    private List<ResourcePhoto> photos = new ArrayList<>();
     private Set<String> allowedAppointmentTypeIds = new HashSet<>();
     private ScheduleConfig scheduleOverride; // optional per-resource schedule
     private Integer capacity; // optional: number of parallel bookings
@@ -79,15 +82,9 @@ public class Resource {
     public String getPhotoPath() { return photoPath; }
     public void setPhotoPath(String photoPath) { this.photoPath = photoPath; }
 
-    @Transient
-    public String getPhotoUrl() {
-        if (photoPath == null || photoPath.isBlank()) {
-            return null;
-        }
-        if (id == null || id.isBlank()) {
-            return null;
-        }
-        return "/api/resources/" + id + "/photo";
+    public List<ResourcePhoto> getPhotos() { return photos; }
+    public void setPhotos(List<ResourcePhoto> photos) {
+        this.photos = photos == null ? new ArrayList<>() : new ArrayList<>(photos);
     }
 
     public Set<String> getAllowedAppointmentTypeIds() { return allowedAppointmentTypeIds; }

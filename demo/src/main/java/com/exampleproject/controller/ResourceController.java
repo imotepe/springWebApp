@@ -30,7 +30,21 @@ public class ResourceController {
 
     @GetMapping("/{id}/photo")
     public ResponseEntity<org.springframework.core.io.Resource> photo(@PathVariable String id) {
-        StoredFile file = service.loadPhoto(id);
+        StoredFile file = service.loadDefaultPhoto(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.getContentType()))
+                .body(file.getResource());
+    }
+
+    @GetMapping("/{id}/photos")
+    public List<ResourceService.ResourcePhotoView> photos(@PathVariable String id) {
+        return service.listPhotos(id);
+    }
+
+    @GetMapping("/{id}/photos/{photoId}")
+    public ResponseEntity<org.springframework.core.io.Resource> photoById(@PathVariable String id,
+                                                                          @PathVariable String photoId) {
+        StoredFile file = service.loadPhoto(id, photoId);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.getContentType()))
                 .body(file.getResource());
@@ -40,8 +54,36 @@ public class ResourceController {
     public Resource create(@RequestBody Resource resource) { return service.create(resource); }
 
     @PostMapping(path = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Resource uploadPhoto(@PathVariable String id, @RequestParam("file") MultipartFile file) {
-        return service.updatePhoto(id, file);
+    public List<ResourceService.ResourcePhotoView> uploadPhoto(@PathVariable String id,
+                                                               @RequestParam("file") MultipartFile file) {
+        if (file == null) {
+            return service.uploadPhotos(id, List.of());
+        }
+        return service.uploadPhotos(id, List.of(file));
+    }
+
+    @PostMapping(path = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public List<ResourceService.ResourcePhotoView> uploadPhotos(@PathVariable String id,
+                                                                @RequestParam("files") List<MultipartFile> files) {
+        return service.uploadPhotos(id, files);
+    }
+
+    @PostMapping("/{id}/photos/delete")
+    public List<ResourceService.ResourcePhotoView> deletePhotos(@PathVariable String id,
+                                                                @RequestBody PhotoDeleteRequest request) {
+        return service.deletePhotos(id, request.ids());
+    }
+
+    @PutMapping("/{id}/photos/order")
+    public List<ResourceService.ResourcePhotoView> reorderPhotos(@PathVariable String id,
+                                                                 @RequestBody PhotoOrderRequest request) {
+        return service.reorderPhotos(id, request.ids());
+    }
+
+    @PutMapping("/{id}/photos/{photoId}/default")
+    public List<ResourceService.ResourcePhotoView> setDefaultPhoto(@PathVariable String id,
+                                                                   @PathVariable String photoId) {
+        return service.setDefaultPhoto(id, photoId);
     }
 
     @PutMapping("/{id}")
@@ -51,4 +93,7 @@ public class ResourceController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable String id) { service.delete(id); }
+
+    public record PhotoDeleteRequest(List<String> ids) {}
+    public record PhotoOrderRequest(List<String> ids) {}
 }
