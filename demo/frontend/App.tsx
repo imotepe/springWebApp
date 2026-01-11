@@ -9779,353 +9779,482 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             </View>
           </View>
         ) : activeTab === 'appointments' && canViewAppointments ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Appointments ({visibleAppointments.length}/{appointments.length})</Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetAppointmentForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
-                  </Pressable>
-                  <Pressable onPress={() => loadAppointments()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
-                  </Pressable>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Appointments</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleAppointments.length} of {appointments.length} appointments
+                  </Text>
                 </View>
-              </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={appointmentSearch}
-                  onChangeText={setAppointmentSearch}
-                  placeholder="Search by id, org, customer, resource, type, status"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
-                  <OrganizationPickerField
-                    label="Org filter (optional)"
-                    placeholder="All organizations"
-                    value={appointmentOrgFilter}
-                    onSelect={setAppointmentOrgFilter}
-                    organizations={homeOrgBase}
-                    allowEmptyOption
-                  />
-                </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <Pressable onPress={() => loadAppointments()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
-                  </Pressable>
-                </View>
-              </View>
-              {renderPagination(appointmentPage, totalAppointmentPages, setAppointmentPage)}
-            </View>
-
-            {appointmentMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{appointmentMessage}</Text>
-              </View>
-            ) : null}
-            {appointmentError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{appointmentError}</Text>
-              </View>
-            ) : null}
-
-            {appointmentLoading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading appointments...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleAppointments.map((appt) => (
+                <View className="flex-row gap-2">
                   <Pressable
-                    key={appt.id ?? `${appt.customerId}-${appt.startTime ?? (appt as any).start}`}
-                    style={[styles.orgCard, appointmentForm.id === appt.id && styles.orgCardActive]}
-                    onPress={() => startAppointmentEdit(appt)}
+                    onPress={resetAppointmentForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
                   >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{appt.id || 'Appointment'}</Text>
-                      <Text style={styles.orgType}>{appt.status || 'SCHEDULED'}</Text>
-                    </View>
-                    <Text style={styles.orgMeta}>
-                      Customer:{' '}
-                      {appt.customerId
-                        ? customerLabelMap.get(appt.customerId) ?? appt.customerId
-                        : 'N/A'}{' '}
-                      - Resource:{' '}
-                      {appt.resourceId
-                        ? resourceLabelMap.get(appt.resourceId) ?? appt.resourceId
-                        : 'N/A'}
-                    </Text>
-                    <Text style={styles.orgMeta}>
-                      Type:{' '}
-                      {appt.appointmentTypeId
-                        ? appointmentTypeLabelMap.get(appt.appointmentTypeId) ?? appt.appointmentTypeId
-                        : 'N/A'}{' '}
-                      -{' '}
-                      {appt.startTime ?? (appt as any).start ?? '--'} to {appt.endTime ?? (appt as any).end ?? '--'}
-                    </Text>
-                    {appt.notes ? <Text style={styles.orgMeta}>Notes: {appt.notes}</Text> : null}
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startAppointmentEdit(appt)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleAppointmentDelete(appt)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                   </Pressable>
-                ))}
-                {visibleAppointments.length === 0 ? (
-                  <Text style={styles.statusText}>No appointments match the filters.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{appointmentForm.id ? 'Edit appointment' : 'Create appointment'}</Text>
-              {appointmentForm.id ? (
-                <Pressable onPress={resetAppointmentForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            <OrganizationPickerField
-              label="Org id (required for platform admins)"
-              value={appointmentForm.orgId}
-              onSelect={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
-              organizations={homeOrgBase}
-            />
-            <CustomerPickerField
-              label="Customer"
-              value={appointmentForm.customerId}
-              onSelect={(customerId) => setAppointmentForm((prev) => ({ ...prev, customerId }))}
-              customers={appointmentCustomerOptions}
-              disabled={isPlatformAdminOnly && !appointmentForm.orgId.trim()}
-              disabledMessage="Select an organization to load customers"
-            />
-            <ResourcePickerField
-              label="Resource"
-              value={appointmentForm.resourceId}
-              onSelect={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
-              resources={appointmentResourceOptions}
-              disabled={(isPlatformAdminOnly && !appointmentForm.orgId.trim()) || Boolean(appointmentForm.id)}
-              disabledMessage={
-                appointmentForm.id
-                  ? 'Resource cannot be changed for existing appointments.'
-                  : 'Select an organization to load resources'
-              }
-            />
-            <AppointmentTypePickerField
-              label="Appointment type"
-              value={appointmentForm.appointmentTypeId}
-              onSelect={(appointmentTypeId) => setAppointmentForm((prev) => ({ ...prev, appointmentTypeId }))}
-              appointmentTypes={appointmentTypeOptions}
-              disabled={!appointmentForm.resourceId.trim()}
-              disabledMessage="Select a resource to load appointment types"
-            />
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <DatePickerField
-                  label="Start date"
-                  placeholder="YYYY-MM-DD"
-                  value={appointmentStartDate}
-                  onChangeText={setAppointmentStartDate}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <TimeInput
-                  label="Start time"
-                  value={appointmentStartTime}
-                  onChangeText={setAppointmentStartTime}
-                />
-              </View>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <DatePickerField
-                  label="End date"
-                  placeholder="YYYY-MM-DD"
-                  value={appointmentEndDate}
-                  onChangeText={setAppointmentEndDate}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <TimeInput
-                  label="End time"
-                  value={appointmentEndTime}
-                  onChangeText={setAppointmentEndTime}
-                />
-              </View>
-            </View>
-            <InputField
-              label="Notes (optional)"
-              placeholder="Prep call, bring documents, etc."
-              value={appointmentForm.notes}
-              onChangeText={(notes) => setAppointmentForm((prev) => ({ ...prev, notes }))}
-            />
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Status</Text>
-              <View style={styles.typeChips}>
-                {APPOINTMENT_STATUSES.map((status) => {
-                  const selected = appointmentForm.status === status;
-                  return (
-                    <Pressable
-                      key={status}
-                      onPress={() => setAppointmentForm((prev) => ({ ...prev, status }))}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}
-                    >
-                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <PrimaryButton
-              label={appointmentSaving ? 'Saving appointment...' : appointmentForm.id ? 'Update appointment' : 'Create appointment'}
-              onPress={handleAppointmentSave}
-              disabled={appointmentSaving}
-            />
-
-            {appointmentForm.id ? (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Events</Text>
-                  <Pressable onPress={resetAppointmentEventForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New event</Text>
+                  <Pressable
+                    onPress={() => loadAppointments()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
-                <View style={styles.searchBox}>
+              </View>
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
                   <TextInput
-                    value={interactionSearch}
-                    onChangeText={setInteractionSearch}
-                    placeholder="Search events by type, status, comment, createdBy"
+                    value={appointmentSearch}
+                    onChangeText={setAppointmentSearch}
+                    placeholder="Search by id, org, customer, resource, type, status"
                     placeholderTextColor="rgba(107,114,128,0.7)"
-                    style={styles.searchInput}
+                    className="text-sm text-slate-900"
                     autoCapitalize="none"
                   />
                 </View>
-                <View style={styles.orgList}>
-                  {appointmentEventsWorking
-                    .filter((event) => {
-                      const term = interactionSearch.trim().toLowerCase();
-                      if (!term) return true;
-                      return [event.id, event.type, event.status, event.comment, event.createdBy, event.createdAt]
-                        .filter(Boolean)
-                        .some((value) => value!.toString().toLowerCase().includes(term));
-                    })
-                    .map((event) => (
-                      <Pressable
-                        key={event.id ?? event.createdAt}
-                        style={[styles.orgCard, appointmentEventForm.id === event.id && styles.orgCardActive]}
-                        onPress={() => startAppointmentEventEdit(event)}
-                      >
-                        <View style={styles.orgHeader}>
-                          <Text style={styles.orgName}>{event.type ?? 'Event'}</Text>
-                          <Text style={styles.orgType}>{event.status ?? 'N/A'}</Text>
-                        </View>
-                        <Text style={styles.orgMeta}>{event.comment || 'No comment'}</Text>
-                        <Text style={styles.orgMeta}>
-                          By {event.createdBy || 'unknown'}
-                          {event.createdAt ? ` - ${event.createdAt}` : ''}
-                        </Text>
-                        <View style={styles.orgActions}>
-                          <Pressable onPress={() => startAppointmentEventEdit(event)} style={styles.orgAction}>
-                            <Text style={styles.link}>Edit</Text>
-                          </Pressable>
-                          <Pressable onPress={() => handleAppointmentEventDelete(event)} style={styles.orgAction}>
-                            <Text style={styles.deleteText}>Delete</Text>
-                          </Pressable>
-                        </View>
-                      </Pressable>
-                    ))}
-                  {appointmentEventsWorking.length === 0 ? (
-                    <Text style={styles.statusText}>No events yet.</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    {appointmentEventForm.id ? 'Edit event' : 'Add event'}
-                  </Text>
-                  <Pressable onPress={resetAppointmentEventForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Reset</Text>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <OrganizationPickerField
+                      label="Org filter (optional)"
+                      placeholder="All organizations"
+                      value={appointmentOrgFilter}
+                      onSelect={setAppointmentOrgFilter}
+                      organizations={homeOrgBase}
+                      allowEmptyOption
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => loadAppointments()}
+                    className="self-end rounded-full border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Apply filter
+                    </Text>
                   </Pressable>
                 </View>
+              </View>
+              <View className="mt-3">{renderPagination(appointmentPage, totalAppointmentPages, setAppointmentPage)}</View>
+            </View>
 
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Type</Text>
-                  <View style={styles.typeChips}>
-                    {APPOINTMENT_EVENT_TYPES.map((type) => {
-                      const selected = appointmentEventForm.type === type;
-                      return (
-                        <Pressable
-                          key={type}
-                          onPress={() => setAppointmentEventForm((prev) => ({ ...prev, type }))}
-                          style={[styles.typeChip, selected && styles.typeChipSelected]}
-                        >
-                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{type}</Text>
-                        </Pressable>
-                      );
-                    })}
+            {appointmentMessage ? (
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{appointmentMessage}</Text>
+              </View>
+            ) : null}
+            {appointmentError ? (
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{appointmentError}</Text>
+              </View>
+            ) : null}
+
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Appointment list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {appointmentLoading ? 'Loading' : `${visibleAppointments.length} visible`}
+                </Text>
+              </View>
+
+              {appointmentLoading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading appointments...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleAppointments.map((appt) => {
+                        const status = appt.status || 'SCHEDULED';
+                        const statusContainerClass = status === 'CANCELLED' ? 'bg-rose-100' : 'bg-slate-900/10';
+                        const statusTextClass = status === 'CANCELLED' ? 'text-rose-700' : 'text-slate-600';
+                        const customerLabel = appt.customerId
+                          ? customerLabelMap.get(appt.customerId) ?? appt.customerId
+                          : 'N/A';
+                        const resourceLabel = appt.resourceId
+                          ? resourceLabelMap.get(appt.resourceId) ?? appt.resourceId
+                          : 'N/A';
+                        const typeLabel = appt.appointmentTypeId
+                          ? appointmentTypeLabelMap.get(appt.appointmentTypeId) ?? appt.appointmentTypeId
+                          : 'N/A';
+                        const startTime = appt.startTime ?? (appt as any).start ?? '--';
+                        const endTime = appt.endTime ?? (appt as any).end ?? '--';
+                        return (
+                          <Pressable
+                            key={appt.id ?? `${appt.customerId}-${appt.startTime ?? (appt as any).start}`}
+                            onPress={() => startAppointmentEdit(appt)}
+                            className={`rounded-2xl border p-4 ${
+                              appointmentForm.id === appt.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {appt.id || 'Appointment'}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {typeLabel}
+                                </Text>
+                              </View>
+                              <View className={`rounded-full px-2 py-1 ${statusContainerClass}`}>
+                                <Text className={`text-[10px] font-semibold uppercase tracking-[1px] ${statusTextClass}`}>
+                                  {status}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">
+                              Customer: {customerLabel} - Resource: {resourceLabel}
+                            </Text>
+                            <Text className="text-sm text-slate-600">
+                              {startTime} to {endTime}
+                            </Text>
+                            {appt.notes ? <Text className="text-sm text-slate-600">Notes: {appt.notes}</Text> : null}
+                            <View className="mt-3 flex-row gap-3">
+                              <Pressable
+                                onPress={() => startAppointmentEdit(appt)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleAppointmentDelete(appt)}
+                                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                      {visibleAppointments.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No appointments match the filters.</Text>
+                      ) : null}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {appointmentForm.id ? 'Edit appointment' : 'Create appointment'}
+                </Text>
+                {appointmentForm.id ? (
+                  <Pressable
+                    onPress={resetAppointmentForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View className="mt-4 gap-4">
+                <OrganizationPickerField
+                  label="Org id (required for platform admins)"
+                  value={appointmentForm.orgId}
+                  onSelect={(orgId) => setAppointmentForm((prev) => ({ ...prev, orgId }))}
+                  organizations={homeOrgBase}
+                />
+                <CustomerPickerField
+                  label="Customer"
+                  value={appointmentForm.customerId}
+                  onSelect={(customerId) => setAppointmentForm((prev) => ({ ...prev, customerId }))}
+                  customers={appointmentCustomerOptions}
+                  disabled={isPlatformAdminOnly && !appointmentForm.orgId.trim()}
+                  disabledMessage="Select an organization to load customers"
+                />
+                <ResourcePickerField
+                  label="Resource"
+                  value={appointmentForm.resourceId}
+                  onSelect={(resourceId) => setAppointmentForm((prev) => ({ ...prev, resourceId }))}
+                  resources={appointmentResourceOptions}
+                  disabled={(isPlatformAdminOnly && !appointmentForm.orgId.trim()) || Boolean(appointmentForm.id)}
+                  disabledMessage={
+                    appointmentForm.id
+                      ? 'Resource cannot be changed for existing appointments.'
+                      : 'Select an organization to load resources'
+                  }
+                />
+                <AppointmentTypePickerField
+                  label="Appointment type"
+                  value={appointmentForm.appointmentTypeId}
+                  onSelect={(appointmentTypeId) => setAppointmentForm((prev) => ({ ...prev, appointmentTypeId }))}
+                  appointmentTypes={appointmentTypeOptions}
+                  disabled={!appointmentForm.resourceId.trim()}
+                  disabledMessage="Select a resource to load appointment types"
+                />
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <DatePickerField
+                      label="Start date"
+                      placeholder="YYYY-MM-DD"
+                      value={appointmentStartDate}
+                      onChangeText={setAppointmentStartDate}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <TimeInput
+                      label="Start time"
+                      value={appointmentStartTime}
+                      onChangeText={setAppointmentStartTime}
+                    />
                   </View>
                 </View>
-
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Status</Text>
-                  <View style={styles.typeChips}>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <DatePickerField
+                      label="End date"
+                      placeholder="YYYY-MM-DD"
+                      value={appointmentEndDate}
+                      onChangeText={setAppointmentEndDate}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <TimeInput
+                      label="End time"
+                      value={appointmentEndTime}
+                      onChangeText={setAppointmentEndTime}
+                    />
+                  </View>
+                </View>
+                <InputField
+                  label="Notes (optional)"
+                  placeholder="Prep call, bring documents, etc."
+                  value={appointmentForm.notes}
+                  onChangeText={(notes) => setAppointmentForm((prev) => ({ ...prev, notes }))}
+                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">Status</Text>
+                  <View className="flex-row flex-wrap gap-2">
                     {APPOINTMENT_STATUSES.map((status) => {
-                      const selected = appointmentEventForm.status === status;
+                      const selected = appointmentForm.status === status;
                       return (
                         <Pressable
                           key={status}
-                          onPress={() => setAppointmentEventForm((prev) => ({ ...prev, status }))}
-                          style={[styles.typeChip, selected && styles.typeChipSelected]}
+                          onPress={() => setAppointmentForm((prev) => ({ ...prev, status }))}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                          }`}
                         >
-                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
+                          <Text
+                            className={`text-xs font-semibold uppercase tracking-[1px] ${
+                              selected ? 'text-indigo-700' : 'text-slate-600'
+                            }`}
+                          >
+                            {status}
+                          </Text>
                         </Pressable>
                       );
                     })}
                   </View>
                 </View>
+              </View>
 
-                <InputField
-                  label="Comment"
-                  placeholder="Describe the event"
-                  value={appointmentEventForm.comment}
-                  onChangeText={(comment) => setAppointmentEventForm((prev) => ({ ...prev, comment }))}
-                />
-                <InputField
-                  label="Created by"
-                  placeholder="agent@example.com"
-                  value={appointmentEventForm.createdBy}
-                  onChangeText={(createdBy) => setAppointmentEventForm((prev) => ({ ...prev, createdBy }))}
-                />
-                <InputField
-                  label="Created at (ISO-8601)"
-                  placeholder={new Date().toISOString()}
-                  value={appointmentEventForm.createdAt}
-                  onChangeText={(createdAt) => setAppointmentEventForm((prev) => ({ ...prev, createdAt }))}
-                />
-
+              <View className="mt-4">
                 <PrimaryButton
-                  label={appointmentEventForm.id ? 'Update event' : 'Add event'}
-                  onPress={handleAppointmentEventSave}
+                  label={appointmentSaving ? 'Saving appointment...' : appointmentForm.id ? 'Update appointment' : 'Create appointment'}
+                  onPress={handleAppointmentSave}
                   disabled={appointmentSaving}
                 />
+              </View>
+            </View>
+
+            {appointmentForm.id ? (
+              <>
+                <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <View>
+                      <Text className="text-base font-semibold text-slate-900">Events</Text>
+                      <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-400">
+                        {appointmentEventsWorking.length} total
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={resetAppointmentEventForm}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New event</Text>
+                    </Pressable>
+                  </View>
+                  <View className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <TextInput
+                      value={interactionSearch}
+                      onChangeText={setInteractionSearch}
+                      placeholder="Search events by type, status, comment, createdBy"
+                      placeholderTextColor="rgba(107,114,128,0.7)"
+                      className="text-sm text-slate-900"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <View className="mt-4">
+                    <View className="gap-3">
+                      {appointmentEventsWorking
+                        .filter((event) => {
+                          const term = interactionSearch.trim().toLowerCase();
+                          if (!term) return true;
+                          return [event.id, event.type, event.status, event.comment, event.createdBy, event.createdAt]
+                            .filter(Boolean)
+                            .some((value) => value!.toString().toLowerCase().includes(term));
+                        })
+                        .map((event) => (
+                          <Pressable
+                            key={event.id ?? event.createdAt}
+                            onPress={() => startAppointmentEventEdit(event)}
+                            className={`rounded-2xl border p-4 ${
+                              appointmentEventForm.id === event.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {event.type ?? 'Event'}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {event.createdAt || 'No date'}
+                                </Text>
+                              </View>
+                              <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600">
+                                  {event.status ?? 'N/A'}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">{event.comment || 'No comment'}</Text>
+                            <Text className="text-sm text-slate-600">By {event.createdBy || 'unknown'}</Text>
+                            <View className="mt-3 flex-row gap-3">
+                              <Pressable
+                                onPress={() => startAppointmentEventEdit(event)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleAppointmentEventDelete(event)}
+                                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        ))}
+                      {appointmentEventsWorking.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No events yet.</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+
+                <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Text className="text-lg font-semibold text-slate-900">
+                      {appointmentEventForm.id ? 'Edit event' : 'Add event'}
+                    </Text>
+                    <Pressable
+                      onPress={resetAppointmentEventForm}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                    </Pressable>
+                  </View>
+
+                  <View className="mt-4 gap-4">
+                    <View className="gap-2">
+                      <Text className="text-sm font-semibold text-slate-900">Type</Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {APPOINTMENT_EVENT_TYPES.map((type) => {
+                          const selected = appointmentEventForm.type === type;
+                          return (
+                            <Pressable
+                              key={type}
+                              onPress={() => setAppointmentEventForm((prev) => ({ ...prev, type }))}
+                              className={`rounded-full border px-3 py-1.5 ${
+                                selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                  selected ? 'text-indigo-700' : 'text-slate-600'
+                                }`}
+                              >
+                                {type}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View className="gap-2">
+                      <Text className="text-sm font-semibold text-slate-900">Status</Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {APPOINTMENT_STATUSES.map((status) => {
+                          const selected = appointmentEventForm.status === status;
+                          return (
+                            <Pressable
+                              key={status}
+                              onPress={() => setAppointmentEventForm((prev) => ({ ...prev, status }))}
+                              className={`rounded-full border px-3 py-1.5 ${
+                                selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                  selected ? 'text-indigo-700' : 'text-slate-600'
+                                }`}
+                              >
+                                {status}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <InputField
+                      label="Comment"
+                      placeholder="Describe the event"
+                      value={appointmentEventForm.comment}
+                      onChangeText={(comment) => setAppointmentEventForm((prev) => ({ ...prev, comment }))}
+                    />
+                    <InputField
+                      label="Created by"
+                      placeholder="agent@example.com"
+                      value={appointmentEventForm.createdBy}
+                      onChangeText={(createdBy) => setAppointmentEventForm((prev) => ({ ...prev, createdBy }))}
+                    />
+                    <InputField
+                      label="Created at (ISO-8601)"
+                      placeholder={new Date().toISOString()}
+                      value={appointmentEventForm.createdAt}
+                      onChangeText={(createdAt) => setAppointmentEventForm((prev) => ({ ...prev, createdAt }))}
+                    />
+                  </View>
+
+                  <View className="mt-4">
+                    <PrimaryButton
+                      label={appointmentEventForm.id ? 'Update event' : 'Add event'}
+                      onPress={handleAppointmentEventSave}
+                      disabled={appointmentSaving}
+                    />
+                  </View>
+                </View>
               </>
             ) : null}
-          </>
+          </View>
+
         ) : activeTab === 'appointmentTypes' && canViewAppointmentTypes ? (
           <View className="w-full gap-6">
             <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
@@ -10373,286 +10502,414 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             </View>
           </View>
         ) : activeTab === 'customers' && canViewCustomers ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Customers ({visibleCustomers.length}/{customers.length})</Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetCustomerForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
-                  </Pressable>
-                  <Pressable onPress={() => loadCustomers()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
-                  </Pressable>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Customers</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleCustomers.length} of {customers.length} customers
+                  </Text>
                 </View>
-              </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                  placeholder="Search by id, name, email, phone"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
-                  <OrganizationPickerField
-                    label="Org filter (optional)"
-                    placeholder="All organizations"
-                    value={customerOrgFilter}
-                    onSelect={setCustomerOrgFilter}
-                    organizations={homeOrgBase}
-                    allowEmptyOption
-                  />
-                </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <Pressable onPress={() => loadCustomers()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
-                  </Pressable>
-                </View>
-              </View>
-              {renderPagination(customerPage, totalCustomerPages, setCustomerPage)}
-            </View>
-
-            {customerMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{customerMessage}</Text>
-              </View>
-            ) : null}
-            {customerError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{customerError}</Text>
-              </View>
-            ) : null}
-
-            {customerLoading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading customers...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleCustomers.map((customer) => (
+                <View className="flex-row gap-2">
                   <Pressable
-                    key={customer.id ?? customer.email ?? customer.phone}
-                    style={[styles.orgCard, customerForm.id === customer.id && styles.orgCardActive]}
-                    onPress={() => startCustomerEdit(customer)}
+                    onPress={resetCustomerForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
                   >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{customer.name || customer.firstName || 'Unknown'}</Text>
-                      <Text style={styles.orgType}>{customer.orgId || 'Org scoped'}</Text>
-                    </View>
-                    <Text style={styles.orgMeta}>{customer.email || 'No email'} - {customer.phone || 'No phone'}</Text>
-                    <Text style={styles.orgMeta}>{customer.notes || 'No notes'}</Text>
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startCustomerEdit(customer)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleCustomerDelete(customer)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                   </Pressable>
-                ))}
-                {visibleCustomers.length === 0 ? (
-                  <Text style={styles.statusText}>No customers match the filters.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{customerForm.id ? 'Edit customer' : 'Create customer'}</Text>
-              {customerForm.id ? (
-                <Pressable onPress={resetCustomerForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            <InputField
-              label="Full name"
-              placeholder="Jane Doe"
-              value={customerForm.name}
-              onChangeText={(name) => setCustomerForm((prev) => ({ ...prev, name }))}
-            />
-            <InputField
-              label="First name"
-              placeholder="Jane"
-              value={customerForm.firstName}
-              onChangeText={(firstName) => setCustomerForm((prev) => ({ ...prev, firstName }))}
-            />
-            <InputField
-              label="Email"
-              placeholder="jane@example.com"
-              value={customerForm.email}
-              onChangeText={(email) => setCustomerForm((prev) => ({ ...prev, email }))}
-              keyboardType="email-address"
-              autoComplete="email"
-            />
-            <InputField
-              label="Phone"
-              placeholder="+33 1 23 45 67 89"
-              value={customerForm.phone}
-              onChangeText={(phone) => setCustomerForm((prev) => ({ ...prev, phone }))}
-            />
-            <InputField
-              label="Notes"
-              placeholder="Additional context"
-              value={customerForm.notes}
-              onChangeText={(notes) => setCustomerForm((prev) => ({ ...prev, notes }))}
-            />
-            <DatePickerField
-              label="Date of birth (YYYY-MM-DD)"
-              placeholder="1990-01-01"
-              value={customerForm.dateOfBirth}
-              onChangeText={(dateOfBirth) => setCustomerForm((prev) => ({ ...prev, dateOfBirth }))}
-            />
-            <OrganizationPickerField
-              label="Org id (required for platform admins)"
-              value={customerForm.orgId}
-              onSelect={(orgId) => setCustomerForm((prev) => ({ ...prev, orgId }))}
-              organizations={homeOrgBase}
-            />
-
-            <PrimaryButton
-              label={customerSaving ? 'Saving customer...' : customerForm.id ? 'Update customer' : 'Create customer'}
-              onPress={handleCustomerSave}
-              disabled={customerSaving}
-            />
-
-            {customerForm.id ? (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Interactions</Text>
-                  <Pressable onPress={resetInteractionForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New interaction</Text>
+                  <Pressable
+                    onPress={() => loadCustomers()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
-                <View style={styles.searchBox}>
+              </View>
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
                   <TextInput
-                    value={interactionSearch}
-                    onChangeText={setInteractionSearch}
-                    placeholder="Search interactions by type, status, comment, createdBy, appointment"
+                    value={customerSearch}
+                    onChangeText={setCustomerSearch}
+                    placeholder="Search by id, name, email, phone"
                     placeholderTextColor="rgba(107,114,128,0.7)"
-                    style={styles.searchInput}
+                    className="text-sm text-slate-900"
                     autoCapitalize="none"
                   />
                 </View>
-                <View style={styles.orgList}>
-                  {filteredInteractions.map((interaction) => (
-                    <Pressable
-                      key={interaction.id ?? interaction.createdAt}
-                      style={[
-                        styles.orgCard,
-                        interactionForm.id === interaction.id && styles.orgCardActive,
-                      ]}
-                      onPress={() => startInteractionEdit(interaction)}
-                    >
-                      <View style={styles.orgHeader}>
-                        <Text style={styles.orgName}>{interaction.type ?? 'Interaction'}</Text>
-                        <Text style={styles.orgType}>{interaction.status ?? 'N/A'}</Text>
-                      </View>
-                      <Text style={styles.orgMeta}>{interaction.comment || 'No comment'}</Text>
-                      <Text style={styles.orgMeta}>
-                        By {interaction.createdBy || 'unknown'}
-                        {interaction.createdAt ? ` - ${interaction.createdAt}` : ''}
-                      </Text>
-                      {interaction.appointmentId ? (
-                        <Text style={styles.orgMeta}>Appointment: {interaction.appointmentId}</Text>
-                      ) : null}
-                      <View style={styles.orgActions}>
-                        <Pressable onPress={() => startInteractionEdit(interaction)} style={styles.orgAction}>
-                          <Text style={styles.link}>Edit</Text>
-                        </Pressable>
-                        <Pressable onPress={() => handleInteractionDelete(interaction)} style={styles.orgAction}>
-                          <Text style={styles.deleteText}>Delete</Text>
-                        </Pressable>
-                      </View>
-                    </Pressable>
-                  ))}
-                  {filteredInteractions.length === 0 ? (
-                    <Text style={styles.statusText}>No interactions match the filters.</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    {interactionForm.id ? 'Edit interaction' : 'Add interaction'}
-                  </Text>
-                  <Pressable onPress={resetInteractionForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Reset</Text>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <OrganizationPickerField
+                      label="Org filter (optional)"
+                      placeholder="All organizations"
+                      value={customerOrgFilter}
+                      onSelect={setCustomerOrgFilter}
+                      organizations={homeOrgBase}
+                      allowEmptyOption
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => loadCustomers()}
+                    className="self-end rounded-full border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Apply filter
+                    </Text>
                   </Pressable>
                 </View>
+              </View>
+              <View className="mt-3">{renderPagination(customerPage, totalCustomerPages, setCustomerPage)}</View>
+            </View>
 
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Type</Text>
-                  <View style={styles.typeChips}>
-                    {INTERACTION_TYPES.map((type) => {
-                      const selected = interactionForm.type === type;
-                      return (
-                        <Pressable
-                          key={type}
-                          onPress={() => setInteractionForm((prev) => ({ ...prev, type }))}
-                          style={[styles.typeChip, selected && styles.typeChipSelected]}
-                        >
-                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{type}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+            {customerMessage ? (
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{customerMessage}</Text>
+              </View>
+            ) : null}
+            {customerError ? (
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{customerError}</Text>
+              </View>
+            ) : null}
+
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Customer list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {customerLoading ? 'Loading' : `${visibleCustomers.length} visible`}
+                </Text>
+              </View>
+
+              {customerLoading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading customers...</Text>
                 </View>
-
-                <View style={styles.inputField}>
-                  <Text style={styles.label}>Status</Text>
-                  <View style={styles.typeChips}>
-                    {INTERACTION_STATUSES.map((status) => {
-                      const selected = interactionForm.status === status;
-                      return (
-                        <Pressable
-                          key={status}
-                          onPress={() => setInteractionForm((prev) => ({ ...prev, status }))}
-                          style={[styles.typeChip, selected && styles.typeChipSelected]}
-                        >
-                          <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleCustomers.map((customer) => {
+                        const name = customer.name || customer.firstName || 'Unknown';
+                        const orgLabel = customer.orgId || 'Org scoped';
+                        return (
+                          <Pressable
+                            key={customer.id ?? customer.email ?? customer.phone}
+                            onPress={() => startCustomerEdit(customer)}
+                            className={`rounded-2xl border p-4 ${
+                              customerForm.id === customer.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {name}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {customer.email || 'No email'}
+                                </Text>
+                              </View>
+                              <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                                <Text
+                                  className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600"
+                                  numberOfLines={1}
+                                >
+                                  {orgLabel}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">
+                              {customer.email || 'No email'} - {customer.phone || 'No phone'}
+                            </Text>
+                            <Text className="text-sm text-slate-600">{customer.notes || 'No notes'}</Text>
+                            <View className="mt-3 flex-row gap-3">
+                              <Pressable
+                                onPress={() => startCustomerEdit(customer)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleCustomerDelete(customer)}
+                                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                      {visibleCustomers.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No customers match the filters.</Text>
+                      ) : null}
+                    </View>
+                  </ScrollView>
                 </View>
+              )}
+            </View>
 
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {customerForm.id ? 'Edit customer' : 'Create customer'}
+                </Text>
+                {customerForm.id ? (
+                  <Pressable
+                    onPress={resetCustomerForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View className="mt-4 gap-4">
                 <InputField
-                  label="Comment"
-                  placeholder="Describe the interaction"
-                  value={interactionForm.comment}
-                  onChangeText={(comment) => setInteractionForm((prev) => ({ ...prev, comment }))}
+                  label="Full name"
+                  placeholder="Jane Doe"
+                  value={customerForm.name}
+                  onChangeText={(name) => setCustomerForm((prev) => ({ ...prev, name }))}
                 />
-                <AppointmentPickerField
-                  label="Appointment (optional)"
-                  value={interactionForm.appointmentId}
-                  onSelect={(appointmentId) => setInteractionForm((prev) => ({ ...prev, appointmentId }))}
-                  appointments={customerAppointments}
-                  placeholder="Link to an appointment"
-                  allowEmptyOption
-                  emptyLabel="No appointment"
-                  disabled={!customerForm.id}
-                  disabledMessage="Save/select a customer first"
+                <InputField
+                  label="First name"
+                  placeholder="Jane"
+                  value={customerForm.firstName}
+                  onChangeText={(firstName) => setCustomerForm((prev) => ({ ...prev, firstName }))}
                 />
+                <InputField
+                  label="Email"
+                  placeholder="jane@example.com"
+                  value={customerForm.email}
+                  onChangeText={(email) => setCustomerForm((prev) => ({ ...prev, email }))}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                />
+                <InputField
+                  label="Phone"
+                  placeholder="+33 1 23 45 67 89"
+                  value={customerForm.phone}
+                  onChangeText={(phone) => setCustomerForm((prev) => ({ ...prev, phone }))}
+                />
+                <InputField
+                  label="Notes"
+                  placeholder="Additional context"
+                  value={customerForm.notes}
+                  onChangeText={(notes) => setCustomerForm((prev) => ({ ...prev, notes }))}
+                />
+                <DatePickerField
+                  label="Date of birth (YYYY-MM-DD)"
+                  placeholder="1990-01-01"
+                  value={customerForm.dateOfBirth}
+                  onChangeText={(dateOfBirth) => setCustomerForm((prev) => ({ ...prev, dateOfBirth }))}
+                />
+                <OrganizationPickerField
+                  label="Org id (required for platform admins)"
+                  value={customerForm.orgId}
+                  onSelect={(orgId) => setCustomerForm((prev) => ({ ...prev, orgId }))}
+                  organizations={homeOrgBase}
+                />
+              </View>
 
+              <View className="mt-4">
                 <PrimaryButton
-                  label={interactionForm.id ? 'Update interaction' : 'Add interaction'}
-                  onPress={handleInteractionSave}
+                  label={customerSaving ? 'Saving customer...' : customerForm.id ? 'Update customer' : 'Create customer'}
+                  onPress={handleCustomerSave}
                   disabled={customerSaving}
                 />
+              </View>
+            </View>
+
+            {customerForm.id ? (
+              <>
+                <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <View>
+                      <Text className="text-base font-semibold text-slate-900">Interactions</Text>
+                      <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-400">
+                        {filteredInteractions.length} total
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={resetInteractionForm}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                        New interaction
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <TextInput
+                      value={interactionSearch}
+                      onChangeText={setInteractionSearch}
+                      placeholder="Search interactions by type, status, comment, createdBy, appointment"
+                      placeholderTextColor="rgba(107,114,128,0.7)"
+                      className="text-sm text-slate-900"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <View className="mt-4">
+                    <View className="gap-3">
+                      {filteredInteractions.map((interaction) => {
+                        const status = interaction.status ?? 'N/A';
+                        return (
+                          <Pressable
+                            key={interaction.id ?? interaction.createdAt}
+                            onPress={() => startInteractionEdit(interaction)}
+                            className={`rounded-2xl border p-4 ${
+                              interactionForm.id === interaction.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {interaction.type ?? 'Interaction'}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {interaction.createdAt || 'No date'}
+                                </Text>
+                              </View>
+                              <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600">
+                                  {status}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">{interaction.comment || 'No comment'}</Text>
+                            <Text className="text-sm text-slate-600">By {interaction.createdBy || 'unknown'}</Text>
+                            {interaction.appointmentId ? (
+                              <Text className="text-sm text-slate-600">Appointment: {interaction.appointmentId}</Text>
+                            ) : null}
+                            <View className="mt-3 flex-row gap-3">
+                              <Pressable
+                                onPress={() => startInteractionEdit(interaction)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleInteractionDelete(interaction)}
+                                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                      {filteredInteractions.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No interactions match the filters.</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+
+                <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <View className="flex-row items-center justify-between gap-3">
+                    <Text className="text-lg font-semibold text-slate-900">
+                      {interactionForm.id ? 'Edit interaction' : 'Add interaction'}
+                    </Text>
+                    <Pressable
+                      onPress={resetInteractionForm}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                    </Pressable>
+                  </View>
+
+                  <View className="mt-4 gap-4">
+                    <View className="gap-2">
+                      <Text className="text-sm font-semibold text-slate-900">Type</Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {INTERACTION_TYPES.map((type) => {
+                          const selected = interactionForm.type === type;
+                          return (
+                            <Pressable
+                              key={type}
+                              onPress={() => setInteractionForm((prev) => ({ ...prev, type }))}
+                              className={`rounded-full border px-3 py-1.5 ${
+                                selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                  selected ? 'text-indigo-700' : 'text-slate-600'
+                                }`}
+                              >
+                                {type}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View className="gap-2">
+                      <Text className="text-sm font-semibold text-slate-900">Status</Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {INTERACTION_STATUSES.map((status) => {
+                          const selected = interactionForm.status === status;
+                          return (
+                            <Pressable
+                              key={status}
+                              onPress={() => setInteractionForm((prev) => ({ ...prev, status }))}
+                              className={`rounded-full border px-3 py-1.5 ${
+                                selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <Text
+                                className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                  selected ? 'text-indigo-700' : 'text-slate-600'
+                                }`}
+                              >
+                                {status}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <InputField
+                      label="Comment"
+                      placeholder="Describe the interaction"
+                      value={interactionForm.comment}
+                      onChangeText={(comment) => setInteractionForm((prev) => ({ ...prev, comment }))}
+                    />
+                    <AppointmentPickerField
+                      label="Appointment (optional)"
+                      value={interactionForm.appointmentId}
+                      onSelect={(appointmentId) => setInteractionForm((prev) => ({ ...prev, appointmentId }))}
+                      appointments={customerAppointments}
+                      placeholder="Link to an appointment"
+                      allowEmptyOption
+                      emptyLabel="No appointment"
+                      disabled={!customerForm.id}
+                      disabledMessage="Save/select a customer first"
+                    />
+                  </View>
+
+                  <View className="mt-4">
+                    <PrimaryButton
+                      label={interactionForm.id ? 'Update interaction' : 'Add interaction'}
+                      onPress={handleInteractionSave}
+                      disabled={customerSaving}
+                    />
+                  </View>
+                </View>
               </>
             ) : null}
-          </>
+          </View>
+
         ) : activeTab === 'users' && canViewUsers ? (
           <View className="w-full gap-6">
             <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
