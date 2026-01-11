@@ -8302,29 +8302,43 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
           </View>
         ) : showAgenda ? (
           <Pressable onPress={handleAgendaOutsidePress}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Agenda by resource</Text>
-                <View style={styles.sectionActions}>
-                  <Pressable
-                    onPress={() => setAgendaDate(formatIsoDate(new Date()))}
-                    style={styles.secondaryChipCompact}
-                  >
-                    <Text style={styles.secondaryChipText}>Today</Text>
-                  </Pressable>
-                  <Pressable onPress={() => shiftAgendaDate(-1)} style={styles.secondaryChipCompact}>
-                    <Text style={styles.secondaryChipText}>Prev</Text>
-                  </Pressable>
-                  <Pressable onPress={() => shiftAgendaDate(1)} style={styles.secondaryChipCompact}>
-                    <Text style={styles.secondaryChipText}>Next</Text>
-                  </Pressable>
-                  <Pressable onPress={handleAgendaRefresh} style={styles.secondaryChipCompact}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
-                  </Pressable>
+            <View className="w-full gap-6">
+              <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                <View className="flex-row items-start justify-between gap-4">
+                  <View className="flex-1">
+                    <Text className="text-xl font-semibold text-slate-900">Agenda by resource</Text>
+                    <Text className="mt-1 text-sm text-slate-500">
+                      Select an appointment to view details, then click a time slot to move it.
+                    </Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Pressable
+                      onPress={() => setAgendaDate(formatIsoDate(new Date()))}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Today</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => shiftAgendaDate(-1)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Prev</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => shiftAgendaDate(1)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Next</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleAgendaRefresh}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
+                <View className="mt-4 max-w-sm">
                   <DatePickerField
                     label="Day"
                     placeholder="YYYY-MM-DD"
@@ -8334,33 +8348,33 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   />
                 </View>
               </View>
-              <Text style={styles.helperText}>
-                Select an appointment to view details, then click a time slot to move it.
-              </Text>
+
+            <View className="gap-2">
+              {agendaMoveMessage ? (
+                <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                  <Text className="text-sm text-slate-700">{agendaMoveMessage}</Text>
+                </View>
+              ) : null}
+              {agendaMoveError ? (
+                <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                  <Text className="text-sm text-rose-700">{agendaMoveError}</Text>
+                </View>
+              ) : null}
+              {resourceError ? (
+                <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                  <Text className="text-sm text-rose-700">{resourceError}</Text>
+                </View>
+              ) : null}
             </View>
 
-            {agendaMoveMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{agendaMoveMessage}</Text>
-              </View>
-            ) : null}
-            {agendaMoveError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{agendaMoveError}</Text>
-              </View>
-            ) : null}
-            {resourceError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{resourceError}</Text>
-              </View>
-            ) : null}
-
             {agendaResources.length === 0 ? (
-              <Text style={styles.statusText}>
-                {isPractitioner
-                  ? 'No resource linked to your practitioner account.'
-                  : 'No resources available for agenda view.'}
-              </Text>
+              <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                <Text className="text-sm text-slate-500">
+                  {isPractitioner
+                    ? 'No resource linked to your practitioner account.'
+                    : 'No resources available for agenda view.'}
+                </Text>
+              </View>
             ) : (
               <View className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <View className="flex-row">
@@ -8658,8 +8672,6 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               </View>
             )}
 
-            <View style={styles.divider} />
-
             <Pressable
               onPress={(event) => {
                 if (event && typeof event.stopPropagation === 'function') {
@@ -8669,13 +8681,16 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
               onLayout={(event) => {
                 agendaDetailsOffsetRef.current = event.nativeEvent.layout.y;
               }}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 gap-2"
+              className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
             >
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Appointment details</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Appointment details</Text>
                 {agendaDetailAppointment ? (
-                  <Pressable onPress={clearAgendaSelection} style={styles.secondaryChipCompact}>
-                    <Text style={styles.secondaryChipText}>Clear</Text>
+                  <Pressable
+                    onPress={clearAgendaSelection}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Clear</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -8711,63 +8726,71 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                     : selectedSlotTime;
                   return (
                     <>
-                      <Text style={styles.orgMeta}>ID: {agendaDetailAppointment.id || 'N/A'}</Text>
-                      <Text style={styles.orgMeta}>
-                        Customer:{' '}
-                        {agendaDetailAppointment.customerId
-                          ? customerLabelMap.get(agendaDetailAppointment.customerId) ??
-                            agendaDetailAppointment.customerId
-                          : 'N/A'}
-                      </Text>
-                      <Text style={styles.orgMeta}>
-                        Resource:{' '}
-                        {agendaDetailAppointment.resourceId
-                          ? resourceLabelMap.get(agendaDetailAppointment.resourceId) ??
-                            agendaDetailAppointment.resourceId
-                          : 'Unassigned'}
-                      </Text>
-                      <Text style={styles.orgMeta}>
-                        Type:{' '}
-                        {agendaDetailAppointment.appointmentTypeId
-                          ? appointmentTypeLabelMap.get(agendaDetailAppointment.appointmentTypeId) ??
-                            agendaDetailAppointment.appointmentTypeId
-                          : 'N/A'}
-                      </Text>
-                      {agendaDetailAppointment.orgId ? (
-                        <Text style={styles.orgMeta}>
-                          Organization: {getOrganizationLabel(homeOrgBase, agendaDetailAppointment.orgId)}
+                      <View className="mt-3 gap-1">
+                        <Text className="text-sm text-slate-600">ID: {agendaDetailAppointment.id || 'N/A'}</Text>
+                        <Text className="text-sm text-slate-600">
+                          Customer:{' '}
+                          {agendaDetailAppointment.customerId
+                            ? customerLabelMap.get(agendaDetailAppointment.customerId) ??
+                              agendaDetailAppointment.customerId
+                            : 'N/A'}
                         </Text>
-                      ) : null}
-                      <Text style={styles.orgMeta}>Date: {startParts.date || agendaDate || 'N/A'}</Text>
-                      <Text style={styles.orgMeta}>Time: {timeLabel}</Text>
-                      <Text style={styles.orgMeta}>
-                        Status: {agendaDetailAppointment.status || 'SCHEDULED'}
-                      </Text>
-                      {agendaDetailAppointment.notes ? (
-                        <Text style={styles.orgMeta}>Notes: {agendaDetailAppointment.notes}</Text>
-                      ) : null}
+                        <Text className="text-sm text-slate-600">
+                          Resource:{' '}
+                          {agendaDetailAppointment.resourceId
+                            ? resourceLabelMap.get(agendaDetailAppointment.resourceId) ??
+                              agendaDetailAppointment.resourceId
+                            : 'Unassigned'}
+                        </Text>
+                        <Text className="text-sm text-slate-600">
+                          Type:{' '}
+                          {agendaDetailAppointment.appointmentTypeId
+                            ? appointmentTypeLabelMap.get(agendaDetailAppointment.appointmentTypeId) ??
+                              agendaDetailAppointment.appointmentTypeId
+                            : 'N/A'}
+                        </Text>
+                        {agendaDetailAppointment.orgId ? (
+                          <Text className="text-sm text-slate-600">
+                            Organization: {getOrganizationLabel(homeOrgBase, agendaDetailAppointment.orgId)}
+                          </Text>
+                        ) : null}
+                        <Text className="text-sm text-slate-600">Date: {startParts.date || agendaDate || 'N/A'}</Text>
+                        <Text className="text-sm text-slate-600">Time: {timeLabel}</Text>
+                        <Text className="text-sm text-slate-600">
+                          Status: {agendaDetailAppointment.status || 'SCHEDULED'}
+                        </Text>
+                        {agendaDetailAppointment.notes ? (
+                          <Text className="text-sm text-slate-600">Notes: {agendaDetailAppointment.notes}</Text>
+                        ) : null}
+                      </View>
                       {agendaDetailMessage ? (
-                        <View style={styles.statusPill}>
-                          <Text style={styles.statusText}>{agendaDetailMessage}</Text>
+                        <View className="mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                          <Text className="text-sm text-slate-700">{agendaDetailMessage}</Text>
                         </View>
                       ) : null}
                       {agendaDetailError ? (
-                        <View style={[styles.statusPill, styles.errorPill]}>
-                          <Text style={styles.errorText}>{agendaDetailError}</Text>
+                        <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                          <Text className="text-sm text-rose-700">{agendaDetailError}</Text>
                         </View>
                       ) : null}
-                      <View style={styles.inputField}>
-                        <Text style={styles.label}>Update status</Text>
-                        <View style={styles.typeChips}>
+                      <View className="mt-4 gap-2">
+                        <Text className="text-sm font-semibold text-slate-900">Update status</Text>
+                        <View className="flex-row flex-wrap gap-2">
                           {APPOINTMENT_STATUSES.map((status) => {
                             const selected = agendaStatusDraft === status;
                             return (
                               <Pressable
                                 key={status}
                                 onPress={() => setAgendaStatusDraft(status)}
-                                style={[styles.typeChip, selected && styles.typeChipSelected]}
+                                className={`rounded-full border px-3 py-1.5 ${
+                                  selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                                }`}
                               >
-                                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                                <Text
+                                  className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                    selected ? 'text-indigo-700' : 'text-slate-600'
+                                  }`}
+                                >
                                   {status}
                                 </Text>
                               </Pressable>
@@ -8777,91 +8800,94 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                         <Pressable
                           onPress={handleAgendaStatusUpdate}
                           disabled={agendaDetailSaving}
-                          style={[
-                            styles.secondaryChipCompact,
-                            agendaDetailSaving && styles.secondaryChipDisabled,
-                          ]}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            agendaDetailSaving ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-white'
+                          }`}
                         >
-                          <Text style={styles.secondaryChipText}>
+                          <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
                             {agendaDetailSaving ? 'Saving...' : 'Save status'}
                           </Text>
                         </Pressable>
                       </View>
-                      <InputField
-                        label="Notes"
-                        placeholder="Add notes for this appointment"
-                        value={agendaNotesDraft}
-                        onChangeText={setAgendaNotesDraft}
-                      />
-                      <Pressable
-                        onPress={handleAgendaNotesSave}
-                        disabled={agendaDetailSaving}
-                        style={[
-                          styles.secondaryChipCompact,
-                          agendaDetailSaving && styles.secondaryChipDisabled,
-                        ]}
-                      >
-                        <Text style={styles.secondaryChipText}>
-                          {agendaDetailSaving ? 'Saving...' : 'Save notes'}
-                        </Text>
-                      </Pressable>
-
-                      <View style={styles.divider} />
-
-                      <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>Reschedule</Text>
+                      <View className="mt-4 gap-2">
+                        <InputField
+                          label="Notes"
+                          placeholder="Add notes for this appointment"
+                          value={agendaNotesDraft}
+                          onChangeText={setAgendaNotesDraft}
+                        />
                         <Pressable
-                          onPress={loadAgendaRescheduleSlots}
-                          disabled={agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked}
-                          style={[
-                            styles.secondaryChipCompact,
-                            (agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked) &&
-                              styles.secondaryChipDisabled,
-                          ]}
+                          onPress={handleAgendaNotesSave}
+                          disabled={agendaDetailSaving}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            agendaDetailSaving ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-white'
+                          }`}
                         >
-                          <Text style={styles.secondaryChipText}>
-                            {agendaRescheduleLoading ? 'Loading...' : 'Refresh'}
+                          <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                            {agendaDetailSaving ? 'Saving...' : 'Save notes'}
                           </Text>
                         </Pressable>
                       </View>
-                      <Text style={styles.helperText}>
-                        Pick a new day and choose a free slot for this appointment.
-                      </Text>
-                      <View style={styles.orgMetaRow}>
-                        <Text style={styles.orgMeta}>Resource: {rescheduleResourceLabel}</Text>
-                        <Text style={styles.orgMeta}>
-                          Duration: {agendaRescheduleDurationMinutes} min
+
+                      <View className="my-4 h-px w-full bg-slate-200" />
+
+                      <View className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <View className="flex-row items-center justify-between gap-3">
+                          <Text className="text-sm font-semibold text-slate-900">Reschedule</Text>
+                          <Pressable
+                            onPress={loadAgendaRescheduleSlots}
+                            disabled={agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked}
+                            className={`rounded-full border px-3 py-1.5 ${
+                              agendaRescheduleLoading || !agendaRescheduleDate || rescheduleBlocked
+                                ? 'border-slate-200 bg-slate-100 opacity-50'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                              {agendaRescheduleLoading ? 'Loading...' : 'Refresh'}
+                            </Text>
+                          </Pressable>
+                        </View>
+                        <Text className="mt-2 text-xs text-slate-500">
+                          Pick a new day and choose a free slot for this appointment.
                         </Text>
-                      </View>
-                      <DatePickerField
-                        label="New day"
-                        placeholder="YYYY-MM-DD"
-                        value={agendaRescheduleDate}
-                        onChangeText={(value) => {
-                          setAgendaRescheduleDate(value);
-                          setAgendaRescheduleSlot(null);
-                          setAgendaRescheduleSlots([]);
-                          setAgendaRescheduleMessage(null);
-                          setAgendaRescheduleError(null);
-                        }}
-                        variant="agenda"
-                      />
+                        <View className="mt-2 flex-row flex-wrap gap-3">
+                          <Text className="text-xs text-slate-600">Resource: {rescheduleResourceLabel}</Text>
+                          <Text className="text-xs text-slate-600">
+                            Duration: {agendaRescheduleDurationMinutes} min
+                          </Text>
+                        </View>
+                        <View className="mt-3">
+                          <DatePickerField
+                            label="New day"
+                            placeholder="YYYY-MM-DD"
+                            value={agendaRescheduleDate}
+                            onChangeText={(value) => {
+                              setAgendaRescheduleDate(value);
+                              setAgendaRescheduleSlot(null);
+                              setAgendaRescheduleSlots([]);
+                              setAgendaRescheduleMessage(null);
+                              setAgendaRescheduleError(null);
+                            }}
+                            variant="agenda"
+                          />
+                        </View>
                       {rescheduleBlocked ? (
-                        <View style={[styles.statusPill, styles.errorPill]}>
-                          <Text style={styles.errorText}>
+                        <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                          <Text className="text-sm text-rose-700">
                             Assign a resource to check availability.
                           </Text>
                         </View>
                       ) : null}
                       {agendaRescheduleLoading ? (
-                        <View style={styles.loadingInline}>
+                        <View className="mt-2 flex-row items-center gap-2">
                           <ActivityIndicator color="#1D4ED8" />
-                          <Text style={styles.statusText}>Loading free slots...</Text>
+                          <Text className="text-sm text-slate-600">Loading free slots...</Text>
                         </View>
                       ) : null}
                       {agendaRescheduleError ? (
-                        <View style={[styles.statusPill, styles.errorPill]}>
-                          <Text style={styles.errorText}>{agendaRescheduleError}</Text>
+                        <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                          <Text className="text-sm text-rose-700">{agendaRescheduleError}</Text>
                         </View>
                       ) : null}
                       {!rescheduleBlocked && agendaRescheduleDateValid ? (
@@ -8870,152 +8896,168 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                             {!agendaRescheduleLoading &&
                             agendaRescheduleAvailableStarts.size === 0 &&
                             !agendaRescheduleError ? (
-                              <Text style={styles.statusText}>No free slots for this day.</Text>
+                              <Text className="mt-2 text-sm text-slate-500">No free slots for this day.</Text>
                             ) : null}
                             <ScrollView
-                              style={styles.rescheduleSlotScroll}
-                              contentContainerStyle={styles.rescheduleSlotGrid}
+                              className="mt-3 max-h-60 rounded-2xl border border-slate-200 bg-white p-3"
                               nestedScrollEnabled
                               showsVerticalScrollIndicator
                             >
-                              {agendaRescheduleCandidateSlots.map((slot) => {
-                                const slotStart = splitDateTime(slot.start);
-                                const slotEnd = splitDateTime(slot.end);
-                                const slotLabel = slotEnd.time
-                                  ? `${slotStart.time}-${slotEnd.time}`
-                                  : slotStart.time || 'Slot';
-                                const isSelected =
-                                  agendaRescheduleSlot?.start === slot.start &&
-                                  agendaRescheduleSlot?.end === slot.end;
-                                const isAvailable = agendaRescheduleAvailableStarts.has(slot.start);
-                                const isDisabled = !isAvailable || agendaRescheduleLoading;
-                                return (
-                                  <Pressable
-                                    key={`${slot.start}-${slot.end}`}
-                                    onPress={() => {
-                                      if (isDisabled) return;
-                                      setAgendaRescheduleSlot(slot);
-                                      setAgendaRescheduleMessage(null);
-                                      setAgendaRescheduleError(null);
-                                    }}
-                                    disabled={isDisabled}
-                                    style={[
-                                      styles.typeChip,
-                                      isSelected && styles.typeChipSelected,
-                                      isDisabled && styles.rescheduleSlotDisabled,
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.typeChipText,
-                                        isSelected && styles.typeChipTextSelected,
-                                        isDisabled && styles.rescheduleSlotTextDisabled,
-                                      ]}
+                              <View className="flex-row flex-wrap gap-2">
+                                {agendaRescheduleCandidateSlots.map((slot) => {
+                                  const slotStart = splitDateTime(slot.start);
+                                  const slotEnd = splitDateTime(slot.end);
+                                  const slotLabel = slotEnd.time
+                                    ? `${slotStart.time}-${slotEnd.time}`
+                                    : slotStart.time || 'Slot';
+                                  const isSelected =
+                                    agendaRescheduleSlot?.start === slot.start &&
+                                    agendaRescheduleSlot?.end === slot.end;
+                                  const isAvailable = agendaRescheduleAvailableStarts.has(slot.start);
+                                  const isDisabled = !isAvailable || agendaRescheduleLoading;
+                                  return (
+                                    <Pressable
+                                      key={`${slot.start}-${slot.end}`}
+                                      onPress={() => {
+                                        if (isDisabled) return;
+                                        setAgendaRescheduleSlot(slot);
+                                        setAgendaRescheduleMessage(null);
+                                        setAgendaRescheduleError(null);
+                                      }}
+                                      disabled={isDisabled}
+                                      className={`rounded-full border px-3 py-1.5 ${
+                                        isSelected
+                                          ? 'border-indigo-500 bg-indigo-50'
+                                          : isDisabled
+                                            ? 'border-slate-200 bg-slate-100'
+                                            : 'border-slate-200 bg-white'
+                                      }`}
                                     >
-                                      {slotLabel}
-                                    </Text>
-                                  </Pressable>
-                                );
-                              })}
+                                      <Text
+                                        className={`text-xs font-semibold ${
+                                          isSelected
+                                            ? 'text-indigo-700'
+                                            : isDisabled
+                                              ? 'text-slate-400'
+                                              : 'text-slate-600'
+                                        }`}
+                                      >
+                                        {slotLabel}
+                                      </Text>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
                             </ScrollView>
                           </>
                         ) : (
-                          <Text style={styles.statusText}>No slots available for this day.</Text>
+                          <Text className="mt-2 text-sm text-slate-500">No slots available for this day.</Text>
                         )
                       ) : null}
                       {selectedSlotLabel ? (
-                        <Text style={styles.orgMeta}>Selected: {selectedSlotLabel}</Text>
+                        <Text className="mt-2 text-xs text-slate-500">Selected: {selectedSlotLabel}</Text>
                       ) : null}
                       <Pressable
                         onPress={handleAgendaReschedule}
                         disabled={agendaRescheduleSaving || !agendaRescheduleSlot || rescheduleBlocked}
-                        style={[
-                          styles.secondaryChipCompact,
-                          (agendaRescheduleSaving || !agendaRescheduleSlot || rescheduleBlocked) &&
-                            styles.secondaryChipDisabled,
-                        ]}
+                        className={`mt-2 rounded-full border px-3 py-2 ${
+                          agendaRescheduleSaving || !agendaRescheduleSlot || rescheduleBlocked
+                            ? 'border-slate-200 bg-slate-100 opacity-50'
+                            : 'border-slate-200 bg-white'
+                        }`}
                       >
-                        <Text style={styles.secondaryChipText}>
+                        <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
                           {agendaRescheduleSaving ? 'Rescheduling...' : 'Reschedule appointment'}
                         </Text>
                       </Pressable>
                       {agendaRescheduleMessage ? (
-                        <View style={styles.statusPill}>
-                          <Text style={styles.statusText}>{agendaRescheduleMessage}</Text>
+                        <View className="mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                          <Text className="text-sm text-slate-700">{agendaRescheduleMessage}</Text>
                         </View>
                       ) : null}
+                    </View>
 
-                      <View style={styles.divider} />
-
-                      <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>Events</Text>
-                      </View>
-                      <View style={styles.orgList}>
+                    <View className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <Text className="text-sm font-semibold text-slate-900">Events</Text>
+                      <View className="mt-3 gap-2">
                         {agendaEventList.map((event) => (
-                          <View key={event.id ?? event.createdAt} style={styles.orgCard}>
-                            <View style={styles.orgHeader}>
-                              <Text style={styles.orgName}>{event.type ?? 'Event'}</Text>
-                              <Text style={styles.orgType}>{event.status ?? 'N/A'}</Text>
+                          <View
+                            key={event.id ?? event.createdAt}
+                            className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <Text className="text-sm font-semibold text-slate-900">{event.type ?? 'Event'}</Text>
+                              <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600">
+                                  {event.status ?? 'N/A'}
+                                </Text>
+                              </View>
                             </View>
-                            <Text style={styles.orgMeta}>{event.comment || 'No comment'}</Text>
-                            <Text style={styles.orgMeta}>
+                            <Text className="mt-1 text-sm text-slate-600">{event.comment || 'No comment'}</Text>
+                            <Text className="text-xs text-slate-500">
                               By {event.createdBy || 'unknown'}
                               {event.createdAt ? ` - ${event.createdAt}` : ''}
                             </Text>
                           </View>
                         ))}
                         {agendaEventList.length === 0 ? (
-                          <Text style={styles.statusText}>No events yet.</Text>
+                          <Text className="text-sm text-slate-500">No events yet.</Text>
                         ) : null}
                       </View>
 
-                      <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>Add event</Text>
-                      </View>
-                      <View style={styles.inputField}>
-                        <Text style={styles.label}>Type</Text>
-                        <View style={styles.typeChips}>
+                      <View className="mt-4">
+                        <Text className="text-sm font-semibold text-slate-900">Add event</Text>
+                        <View className="mt-2 flex-row flex-wrap gap-2">
                           {APPOINTMENT_EVENT_TYPES.map((type) => {
                             const selected = agendaEventType === type;
                             return (
                               <Pressable
                                 key={type}
                                 onPress={() => setAgendaEventType(type)}
-                                style={[styles.typeChip, selected && styles.typeChipSelected]}
+                                className={`rounded-full border px-3 py-1.5 ${
+                                  selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                                }`}
                               >
-                                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>
+                                <Text
+                                  className={`text-xs font-semibold uppercase tracking-[1px] ${
+                                    selected ? 'text-indigo-700' : 'text-slate-600'
+                                  }`}
+                                >
                                   {type}
                                 </Text>
                               </Pressable>
                             );
                           })}
                         </View>
+                        <View className="mt-3">
+                          <InputField
+                            label="Comment"
+                            placeholder="Add a note for the agent log"
+                            value={agendaEventComment}
+                            onChangeText={setAgendaEventComment}
+                          />
+                        </View>
+                        <Pressable
+                          onPress={handleAgendaEventAdd}
+                          disabled={agendaDetailSaving}
+                          className={`mt-2 rounded-full border px-3 py-2 ${
+                            agendaDetailSaving ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                            {agendaDetailSaving ? 'Saving...' : 'Add event'}
+                          </Text>
+                        </Pressable>
                       </View>
-                      <InputField
-                        label="Comment"
-                        placeholder="Add a note for the agent log"
-                        value={agendaEventComment}
-                        onChangeText={setAgendaEventComment}
-                      />
-                      <Pressable
-                        onPress={handleAgendaEventAdd}
-                        disabled={agendaDetailSaving}
-                        style={[
-                          styles.secondaryChipCompact,
-                          agendaDetailSaving && styles.secondaryChipDisabled,
-                        ]}
-                      >
-                        <Text style={styles.secondaryChipText}>
-                          {agendaDetailSaving ? 'Saving...' : 'Add event'}
-                        </Text>
-                      </Pressable>
+                    </View>
                     </>
                   );
                 })()
               ) : (
-                <Text style={styles.statusText}>Select an appointment to see details.</Text>
+                <Text className="mt-3 text-sm text-slate-500">Select an appointment to see details.</Text>
               )}
             </Pressable>
+            </View>
           </Pressable>
         ) : activeTab === 'schedule' && canViewSchedule ? (
           <View className="w-full gap-6">
