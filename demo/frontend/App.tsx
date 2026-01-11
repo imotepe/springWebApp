@@ -9001,476 +9001,595 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             )}
           </>
         ) : activeTab === 'resources' && canViewResources ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Resources ({visibleResources.length}/{resources.length})</Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetResourceForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Resources</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleResources.length} of {resources.length} resources
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={resetResourceForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                   </Pressable>
-                  <Pressable onPress={() => loadResources()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={() => loadResources()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={resourceSearch}
-                  onChangeText={setResourceSearch}
-                  placeholder="Search by id, name, type, org, kind, practitioner"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
-                  <OrganizationPickerField
-                    label="Org filter (optional)"
-                    placeholder="All organizations"
-                    value={resourceOrgFilter}
-                    onSelect={setResourceOrgFilter}
-                    organizations={homeOrgBase}
-                    allowEmptyOption
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={resourceSearch}
+                    onChangeText={setResourceSearch}
+                    placeholder="Search by id, name, type, org, kind, practitioner"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
                   />
                 </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <Pressable onPress={() => loadResources()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <OrganizationPickerField
+                      label="Org filter (optional)"
+                      placeholder="All organizations"
+                      value={resourceOrgFilter}
+                      onSelect={setResourceOrgFilter}
+                      organizations={homeOrgBase}
+                      allowEmptyOption
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => loadResources()}
+                    className="self-end rounded-full border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Apply filter
+                    </Text>
                   </Pressable>
                 </View>
               </View>
-              {renderPagination(resourcePage, totalResourcePages, setResourcePage)}
+              <View className="mt-3">{renderPagination(resourcePage, totalResourcePages, setResourcePage)}</View>
             </View>
 
             {resourceMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{resourceMessage}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{resourceMessage}</Text>
               </View>
             ) : null}
             {resourceError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{resourceError}</Text>
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{resourceError}</Text>
               </View>
             ) : null}
 
-            {resourceLoading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading resources...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleResources.map((resource) => (
-                  <Pressable
-                    key={resource.id ?? resource.name}
-                    style={[styles.orgCard, resourceForm.id === resource.id && styles.orgCardActive]}
-                    onPress={() => startResourceEdit(resource)}
-                  >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{resource.name || 'Untitled resource'}</Text>
-                      <Text style={styles.orgType}>{resource.type || 'Type N/A'}</Text>
-                    </View>
-                    <Text style={styles.orgMeta}>
-                      Org: {resource.orgId ? getOrganizationLabel(homeOrgBase, resource.orgId) : 'N/A'} - Kind:{' '}
-                      {resource.kind || 'ASSET'} - Active:{' '}
-                      {resource.active ? 'Yes' : 'No'}
-                    </Text>
-                    <Text style={styles.orgMeta}>
-                      Allowed appt types:{' '}
-                      {formatAppointmentTypeLabels(resource.allowedAppointmentTypeIds, appointmentTypeLabelMap)}
-                    </Text>
-                    <Text style={styles.orgMeta}>
-                      Schedule: {resource.scheduleOverride ? 'Custom override' : 'Org default'}
-                    </Text>
-                    {resource.practitionerUserId ? (
-                      <Text style={styles.orgMeta}>
-                        Practitioner user:{' '}
-                        {userLabelMap.get(resource.practitionerUserId) ?? resource.practitionerUserId}
-                      </Text>
-                    ) : null}
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startResourceEdit(resource)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleResourceDelete(resource)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                ))}
-                {visibleResources.length === 0 ? (
-                  <Text style={styles.statusText}>No resources match the filters.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{resourceForm.id ? 'Edit resource' : 'Create resource'}</Text>
-              {resourceForm.id ? (
-                <Pressable onPress={resetResourceForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            <InputField
-              label="Name"
-              placeholder="MRI machine, Room 101, Dr. Smith"
-              value={resourceForm.name}
-              onChangeText={(name) => setResourceForm((prev) => ({ ...prev, name }))}
-            />
-            <InputField
-              label="Type"
-              placeholder="facility, equipment, practitioner"
-              value={resourceForm.type}
-              onChangeText={(type) => setResourceForm((prev) => ({ ...prev, type }))}
-            />
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Organization (required for platform admins)</Text>
-              <Pressable
-                style={[styles.dropdownTrigger, styles.dropdownTriggerRow]}
-                onPress={() =>
-                  setResourceOrgPickerOpen((open) => {
-                    const next = !open;
-                    if (next) setResourceOrgQuery('');
-                    return next;
-                  })
-                }
-              >
-                <Text style={resourceForm.orgId ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {resourceForm.orgId ? getOrganizationLabel(homeOrgBase, resourceForm.orgId) : 'Select organization'}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Resource list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {resourceLoading ? 'Loading' : `${visibleResources.length} visible`}
                 </Text>
-                <Text style={styles.dropdownCaret}>{resourceOrgPickerOpen ? '^' : 'v'}</Text>
-              </Pressable>
-              {resourceOrgPickerOpen ? (
-                <View style={styles.dropdownPanel}>
-                  <TextInput
-                    value={resourceOrgQuery}
-                    onChangeText={setResourceOrgQuery}
-                    placeholder="Search by id, name, marketing name, phone, createdBy"
-                    placeholderTextColor="rgba(107,114,128,0.7)"
-                    style={styles.dropdownSearchInput}
-                    autoCapitalize="none"
-                  />
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                    {filteredResourceOrgs.length === 0 ? (
-                      <Text style={styles.statusText}>No organizations match the search.</Text>
-                    ) : (
-                      filteredResourceOrgs.map((org) => (
+              </View>
+
+              {resourceLoading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading resources...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleResources.map((resource) => (
                         <Pressable
-                          key={org.id ?? org.name}
-                          onPress={() => {
-                            const nextOrgId = org.id || '';
-                            setResourceForm((prev) => ({
-                              ...prev,
-                              orgId: nextOrgId,
-                              allowedAppointmentTypeIds:
-                                prev.orgId !== nextOrgId ? '' : prev.allowedAppointmentTypeIds,
-                            }));
-                            setResourceOrgPickerOpen(false);
-                          }}
-                          style={[
-                            styles.dropdownItem,
-                            resourceForm.orgId === org.id && styles.dropdownItemSelected,
-                          ]}
+                          key={resource.id ?? resource.name}
+                          onPress={() => startResourceEdit(resource)}
+                          className={`rounded-2xl border p-4 ${
+                            resourceForm.id === resource.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-slate-200 bg-white'
+                          }`}
                         >
-                          <Text
-                            style={[
-                              styles.dropdownItemLabel,
-                              resourceForm.orgId === org.id && styles.dropdownItemLabelSelected,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {org.marketingName || org.name || org.id}
+                          <View className="flex-row items-start justify-between gap-3">
+                            <View className="flex-1">
+                              <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                {resource.name || 'Untitled resource'}
+                              </Text>
+                              <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500">
+                                {resource.type || 'Type N/A'}
+                              </Text>
+                            </View>
+                            <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                              <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600">
+                                {resource.kind || 'ASSET'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text className="mt-2 text-sm text-slate-600">
+                            Org: {resource.orgId ? getOrganizationLabel(homeOrgBase, resource.orgId) : 'N/A'} - Active:{' '}
+                            {resource.active ? 'Yes' : 'No'}
                           </Text>
-                          <Text style={styles.dropdownItemDescription} numberOfLines={1}>
-                            {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                          <Text className="text-sm text-slate-600">
+                            Allowed appt types:{' '}
+                            {formatAppointmentTypeLabels(resource.allowedAppointmentTypeIds, appointmentTypeLabelMap)}
                           </Text>
+                          <Text className="text-sm text-slate-600">
+                            Schedule: {resource.scheduleOverride ? 'Custom override' : 'Org default'}
+                          </Text>
+                          {resource.practitionerUserId ? (
+                            <Text className="text-sm text-slate-600">
+                              Practitioner user:{' '}
+                              {userLabelMap.get(resource.practitionerUserId) ?? resource.practitionerUserId}
+                            </Text>
+                          ) : null}
+                          <View className="mt-3 flex-row gap-3">
+                            <Pressable
+                              onPress={() => startResourceEdit(resource)}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleResourceDelete(resource)}
+                              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                            </Pressable>
+                          </View>
                         </Pressable>
-                      ))
-                    )}
+                      ))}
+                      {visibleResources.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No resources match the filters.</Text>
+                      ) : null}
+                    </View>
                   </ScrollView>
                 </View>
-              ) : null}
+              )}
             </View>
-            <AppointmentTypeMultiSelectField
-              label="Allowed appointment type ids"
-              value={resourceForm.allowedAppointmentTypeIds}
-              appointmentTypes={resourceAppointmentTypes}
-              onChangeValue={(allowedAppointmentTypeIds) =>
-                setResourceForm((prev) => ({ ...prev, allowedAppointmentTypeIds }))
-              }
-              placeholder="Any appointment type"
-              disabled={isPlatformUser && !resourceForm.orgId.trim()}
-              disabledMessage="Select an organization to load appointment types"
-              loading={resourceAppointmentTypeLoading}
-              error={resourceAppointmentTypeError}
-            />
-            <InputField
-              label="Capacity (optional)"
-              placeholder="1"
-              value={resourceForm.capacity}
-              onChangeText={(capacity) => setResourceForm((prev) => ({ ...prev, capacity }))}
-            />
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Kind</Text>
-              <View style={styles.typeChips}>
-                {RESOURCE_KINDS.map((kind) => {
-                  const selected = resourceForm.kind === kind;
-                  return (
-                    <Pressable
-                      key={kind}
-                      onPress={() => setResourceForm((prev) => ({ ...prev, kind }))}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}
-                    >
-                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{kind}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <Pressable
-              onPress={() => setResourceForm((prev) => ({ ...prev, active: !prev.active }))}
-              style={styles.rememberRow}
-            >
-              <View style={[styles.checkbox, resourceForm.active && styles.checkboxChecked]}>
-                {resourceForm.active ? <View style={styles.checkboxDot} /> : null}
-              </View>
-              <Text style={styles.rememberText}>Active</Text>
-            </Pressable>
-            {resourceForm.kind === 'HUMAN' ? (
-              <PractitionerPickerField
-                label="Practitioner user (optional, HUMAN only)"
-                placeholder={
-                  resourceForm.orgId
-                    ? 'Search practitioner by id, username, email, name'
-                    : 'Select an organization first'
-                }
-                value={resourceForm.practitionerUserId}
-                onSelect={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
-                practitioners={resourcePractitionerUsers}
-                disabled={!resourceForm.orgId}
-                disabledMessage="Select an organization to see practitioners"
-                loading={userLoading && !!resourceForm.orgId}
-              />
-            ) : null}
 
-            <View style={styles.inputField}>
-              <View style={styles.photoHeaderRow}>
-                <Text style={styles.label}>Resource photos</Text>
-                <Text style={styles.photoCountText}>{resourcePhotos.length}/10</Text>
-              </View>
-              <Pressable
-                onPress={openResourcePhotoPicker}
-                disabled={!resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached}
-                style={[
-                  styles.secondaryChip,
-                  (!resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached) &&
-                    styles.secondaryChipDisabled,
-                ]}
-              >
-                <Text style={styles.secondaryChipText}>
-                  {resourcePhotoUploading ? 'Uploading...' : 'Upload photos'}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {resourceForm.id ? 'Edit resource' : 'Create resource'}
                 </Text>
-              </Pressable>
-              <Text style={styles.helperText}>
-                {resourceForm.id
-                  ? 'Upload up to 10 images; only organization members can view them.'
-                  : 'Save the resource before uploading photos.'}
-              </Text>
-              {resourcePhotoMessage ? (
-                <View style={styles.statusPill}>
-                  <Text style={styles.statusText}>{resourcePhotoMessage}</Text>
-                </View>
-              ) : null}
-              {resourcePhotoError ? (
-                <View style={[styles.statusPill, styles.errorPill]}>
-                  <Text style={styles.errorText}>{resourcePhotoError}</Text>
-                </View>
-              ) : null}
-              {resourcePhotoLoading ? (
-                <View style={styles.loadingInline}>
-                  <ActivityIndicator color="#1D4ED8" />
-                  <Text style={styles.statusText}>Loading photos...</Text>
-                </View>
-              ) : resourcePhotos.length === 0 ? (
-                <Text style={styles.helperText}>No photos uploaded yet.</Text>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.photoCarousel}
-                >
-                  {resourcePhotos.map((photo) => {
-                    const selected = resourcePhotoSelectedIds.has(photo.id);
-                    const previewUri =
-                      Platform.OS === 'web' ? resourcePhotoPreviews[photo.id] : photo.url;
-                    const imageSource = previewUri
-                      ? Platform.OS === 'web'
-                        ? { uri: previewUri }
-                        : { uri: previewUri, headers: { Authorization: `Bearer ${token}` } }
-                      : undefined;
-                    return (
-                      <Pressable
-                        key={photo.id}
-                        onPress={() => toggleResourcePhotoSelection(photo.id)}
-                        style={[styles.photoThumb, selected && styles.photoThumbSelected]}
-                      >
-                        {imageSource ? (
-                          <Image source={imageSource} style={styles.photoThumbImage} resizeMode="cover" />
+                {resourceForm.id ? (
+                  <Pressable
+                    onPress={resetResourceForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View className="mt-4 gap-4">
+                <InputField
+                  label="Name"
+                  placeholder="MRI machine, Room 101, Dr. Smith"
+                  value={resourceForm.name}
+                  onChangeText={(name) => setResourceForm((prev) => ({ ...prev, name }))}
+                />
+                <InputField
+                  label="Type"
+                  placeholder="facility, equipment, practitioner"
+                  value={resourceForm.type}
+                  onChangeText={(type) => setResourceForm((prev) => ({ ...prev, type }))}
+                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">
+                    Organization (required for platform admins)
+                  </Text>
+                  <Pressable
+                    className="flex-row items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                    onPress={() =>
+                      setResourceOrgPickerOpen((open) => {
+                        const next = !open;
+                        if (next) setResourceOrgQuery('');
+                        return next;
+                      })
+                    }
+                  >
+                    <Text
+                      className={
+                        resourceForm.orgId ? 'text-sm font-medium text-slate-900' : 'text-sm text-slate-400'
+                      }
+                    >
+                      {resourceForm.orgId ? getOrganizationLabel(homeOrgBase, resourceForm.orgId) : 'Select organization'}
+                    </Text>
+                    <Text className="text-xs font-semibold text-slate-500">{resourceOrgPickerOpen ? '^' : 'v'}</Text>
+                  </Pressable>
+                  {resourceOrgPickerOpen ? (
+                    <View className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                      <View className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <TextInput
+                          value={resourceOrgQuery}
+                          onChangeText={setResourceOrgQuery}
+                          placeholder="Search by id, name, marketing name, phone, createdBy"
+                          placeholderTextColor="rgba(107,114,128,0.7)"
+                          className="text-sm text-slate-900"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                      <ScrollView className="mt-2 max-h-48" nestedScrollEnabled>
+                        {filteredResourceOrgs.length === 0 ? (
+                          <Text className="text-sm text-slate-500">No organizations match the search.</Text>
                         ) : (
-                          <View style={styles.photoThumbPlaceholder}>
-                            <Text style={styles.photoThumbPlaceholderText}>Photo</Text>
+                          <View className="gap-2">
+                            {filteredResourceOrgs.map((org) => (
+                              <Pressable
+                                key={org.id ?? org.name}
+                                onPress={() => {
+                                  const nextOrgId = org.id || '';
+                                  setResourceForm((prev) => ({
+                                    ...prev,
+                                    orgId: nextOrgId,
+                                    allowedAppointmentTypeIds:
+                                      prev.orgId !== nextOrgId ? '' : prev.allowedAppointmentTypeIds,
+                                  }));
+                                  setResourceOrgPickerOpen(false);
+                                }}
+                                className={`rounded-xl border px-3 py-2 ${
+                                  resourceForm.orgId === org.id
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-slate-200 bg-slate-50'
+                                }`}
+                              >
+                                <Text
+                                  className={`text-sm font-semibold ${
+                                    resourceForm.orgId === org.id ? 'text-indigo-700' : 'text-slate-800'
+                                  }`}
+                                  numberOfLines={1}
+                                >
+                                  {org.marketingName || org.name || org.id}
+                                </Text>
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                                </Text>
+                              </Pressable>
+                            ))}
                           </View>
                         )}
-                        {photo.isDefault ? (
-                          <View style={styles.photoBadge}>
-                            <Text style={styles.photoBadgeText}>Default</Text>
-                          </View>
-                        ) : null}
-                        {selected ? (
-                          <View style={styles.photoSelectedBadge}>
-                            <Text style={styles.photoSelectedText}>x</Text>
-                          </View>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              )}
-              <View style={styles.photoActionRow}>
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
+                <AppointmentTypeMultiSelectField
+                  label="Allowed appointment type ids"
+                  value={resourceForm.allowedAppointmentTypeIds}
+                  appointmentTypes={resourceAppointmentTypes}
+                  onChangeValue={(allowedAppointmentTypeIds) =>
+                    setResourceForm((prev) => ({ ...prev, allowedAppointmentTypeIds }))
+                  }
+                  placeholder="Any appointment type"
+                  disabled={isPlatformUser && !resourceForm.orgId.trim()}
+                  disabledMessage="Select an organization to load appointment types"
+                  loading={resourceAppointmentTypeLoading}
+                  error={resourceAppointmentTypeError}
+                />
+                <InputField
+                  label="Capacity (optional)"
+                  placeholder="1"
+                  value={resourceForm.capacity}
+                  onChangeText={(capacity) => setResourceForm((prev) => ({ ...prev, capacity }))}
+                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">Kind</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {RESOURCE_KINDS.map((kind) => {
+                      const selected = resourceForm.kind === kind;
+                      return (
+                        <Pressable
+                          key={kind}
+                          onPress={() => setResourceForm((prev) => ({ ...prev, kind }))}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-semibold uppercase tracking-[1px] ${
+                              selected ? 'text-indigo-700' : 'text-slate-600'
+                            }`}
+                          >
+                            {kind}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
                 <Pressable
-                  onPress={handleResourcePhotoDelete}
-                  disabled={!canDeleteResourcePhotos || resourcePhotoUploading}
-                  style={[
-                    styles.secondaryChip,
-                    (!canDeleteResourcePhotos || resourcePhotoUploading) && styles.secondaryChipDisabled,
-                  ]}
+                  onPress={() => setResourceForm((prev) => ({ ...prev, active: !prev.active }))}
+                  className="flex-row items-center gap-2"
                 >
-                  <Text style={styles.secondaryChipText}>Delete selected</Text>
+                  <View
+                    className={`h-5 w-5 items-center justify-center rounded-md border ${
+                      resourceForm.active ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {resourceForm.active ? <View className="h-2.5 w-2.5 rounded-full bg-indigo-600" /> : null}
+                  </View>
+                  <Text className="text-sm font-medium text-slate-700">Active</Text>
                 </Pressable>
-                <Pressable
-                  onPress={handleResourcePhotoSetDefault}
-                  disabled={!canSetResourcePhotoDefault || resourcePhotoUploading}
-                  style={[
-                    styles.secondaryChip,
-                    (!canSetResourcePhotoDefault || resourcePhotoUploading) && styles.secondaryChipDisabled,
-                  ]}
-                >
-                  <Text style={styles.secondaryChipText}>Set default</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => void handleResourcePhotoMove('left')}
-                  disabled={!canMoveResourcePhotoLeft || resourcePhotoUploading}
-                  style={[
-                    styles.secondaryChip,
-                    (!canMoveResourcePhotoLeft || resourcePhotoUploading) && styles.secondaryChipDisabled,
-                  ]}
-                >
-                  <Text style={styles.secondaryChipText}>{'<'} Move</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => void handleResourcePhotoMove('right')}
-                  disabled={!canMoveResourcePhotoRight || resourcePhotoUploading}
-                  style={[
-                    styles.secondaryChip,
-                    (!canMoveResourcePhotoRight || resourcePhotoUploading) && styles.secondaryChipDisabled,
-                  ]}
-                >
-                  <Text style={styles.secondaryChipText}>Move {'>'}</Text>
-                </Pressable>
+                {resourceForm.kind === 'HUMAN' ? (
+                  <PractitionerPickerField
+                    label="Practitioner user (optional, HUMAN only)"
+                    placeholder={
+                      resourceForm.orgId
+                        ? 'Search practitioner by id, username, email, name'
+                        : 'Select an organization first'
+                    }
+                    value={resourceForm.practitionerUserId}
+                    onSelect={(practitionerUserId) => setResourceForm((prev) => ({ ...prev, practitionerUserId }))}
+                    practitioners={resourcePractitionerUsers}
+                    disabled={!resourceForm.orgId}
+                    disabledMessage="Select an organization to see practitioners"
+                    loading={userLoading && !!resourceForm.orgId}
+                  />
+                ) : null}
               </View>
-              <Text style={styles.helperText}>
-                Tap photos to select. Default stays first; use Set default to change it.
-              </Text>
-            </View>
 
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Schedule override (optional)</Text>
-              {resourceScheduleEnabled ? (
+              <View className="my-4 h-px w-full bg-slate-200" />
+
+              <View className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm font-semibold text-slate-900">Resource photos</Text>
+                  <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                    <Text className="text-xs font-semibold text-slate-600">{resourcePhotos.length}/10</Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={openResourcePhotoPicker}
+                  disabled={!resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached}
+                  className={`mt-3 rounded-full border px-3 py-2 ${
+                    !resourceForm.id || resourcePhotoUploading || resourcePhotoLimitReached
+                      ? 'border-slate-200 bg-slate-100 opacity-50'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                    {resourcePhotoUploading ? 'Uploading...' : 'Upload photos'}
+                  </Text>
+                </Pressable>
+                <Text className="mt-2 text-xs text-slate-500">
+                  {resourceForm.id
+                    ? 'Upload up to 10 images; only organization members can view them.'
+                    : 'Save the resource before uploading photos.'}
+                </Text>
+                {resourcePhotoMessage ? (
+                  <View className="mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                    <Text className="text-sm text-slate-700">{resourcePhotoMessage}</Text>
+                  </View>
+                ) : null}
+                {resourcePhotoError ? (
+                  <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                    <Text className="text-sm text-rose-700">{resourcePhotoError}</Text>
+                  </View>
+                ) : null}
+                {resourcePhotoLoading ? (
+                  <View className="mt-3 flex-row items-center gap-2">
+                    <ActivityIndicator color="#1D4ED8" />
+                    <Text className="text-sm text-slate-600">Loading photos...</Text>
+                  </View>
+                ) : resourcePhotos.length === 0 ? (
+                  <Text className="mt-3 text-xs text-slate-500">No photos uploaded yet.</Text>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
+                    <View className="flex-row gap-3 pr-2">
+                      {resourcePhotos.map((photo) => {
+                        const selected = resourcePhotoSelectedIds.has(photo.id);
+                        const previewUri =
+                          Platform.OS === 'web' ? resourcePhotoPreviews[photo.id] : photo.url;
+                        const imageSource = previewUri
+                          ? Platform.OS === 'web'
+                            ? { uri: previewUri }
+                            : { uri: previewUri, headers: { Authorization: `Bearer ${token}` } }
+                          : undefined;
+                        return (
+                          <Pressable
+                            key={photo.id}
+                            onPress={() => toggleResourcePhotoSelection(photo.id)}
+                            className={`relative h-24 w-28 overflow-hidden rounded-2xl border ${
+                              selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {imageSource ? (
+                              <Image source={imageSource} className="h-full w-full" resizeMode="cover" />
+                            ) : (
+                              <View className="flex-1 items-center justify-center bg-slate-200">
+                                <Text className="text-xs font-semibold text-slate-600">Photo</Text>
+                              </View>
+                            )}
+                            {photo.isDefault ? (
+                              <View className="absolute left-2 top-2 rounded-full bg-slate-900/80 px-2 py-0.5">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-white">
+                                  Default
+                                </Text>
+                              </View>
+                            ) : null}
+                            {selected ? (
+                              <View className="absolute right-2 top-2 rounded-full bg-indigo-600 px-2 py-0.5">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-white">
+                                  Selected
+                                </Text>
+                              </View>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                )}
+                <View className="mt-3 flex-row flex-wrap gap-2">
+                  <Pressable
+                    onPress={handleResourcePhotoDelete}
+                    disabled={!canDeleteResourcePhotos || resourcePhotoUploading}
+                    className={`rounded-full border px-3 py-2 ${
+                      !canDeleteResourcePhotos || resourcePhotoUploading
+                        ? 'border-slate-200 bg-slate-100 opacity-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Delete selected
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleResourcePhotoSetDefault}
+                    disabled={!canSetResourcePhotoDefault || resourcePhotoUploading}
+                    className={`rounded-full border px-3 py-2 ${
+                      !canSetResourcePhotoDefault || resourcePhotoUploading
+                        ? 'border-slate-200 bg-slate-100 opacity-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Set default
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void handleResourcePhotoMove('left')}
+                    disabled={!canMoveResourcePhotoLeft || resourcePhotoUploading}
+                    className={`rounded-full border px-3 py-2 ${
+                      !canMoveResourcePhotoLeft || resourcePhotoUploading
+                        ? 'border-slate-200 bg-slate-100 opacity-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      {'<'} Move
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void handleResourcePhotoMove('right')}
+                    disabled={!canMoveResourcePhotoRight || resourcePhotoUploading}
+                    className={`rounded-full border px-3 py-2 ${
+                      !canMoveResourcePhotoRight || resourcePhotoUploading
+                        ? 'border-slate-200 bg-slate-100 opacity-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Move {'>'}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Text className="mt-2 text-xs text-slate-500">
+                  Tap photos to select. Default stays first; use Set default to change it.
+                </Text>
+              </View>
+
+              <View className="my-4 h-px w-full bg-slate-200" />
+
+              <View className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-semibold text-slate-900">Schedule override (optional)</Text>
+                  {resourceScheduleEnabled ? (
+                    <Pressable
+                      onPress={() => {
+                        setResourceScheduleEnabled(false);
+                        setResourceScheduleError(null);
+                      }}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                        Disable
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => {
+                        setResourceScheduleEnabled(true);
+                        setResourceScheduleError(null);
+                      }}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                        Enable
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
                 <Pressable
                   onPress={() => {
-                    setResourceScheduleEnabled(false);
+                    setResourceScheduleEnabled((prev) => !prev);
                     setResourceScheduleError(null);
                   }}
-                  style={styles.secondaryChip}
+                  className="mt-3 flex-row items-center gap-2"
                 >
-                  <Text style={styles.secondaryChipText}>Disable</Text>
+                  <View
+                    className={`h-5 w-5 items-center justify-center rounded-md border ${
+                      resourceScheduleEnabled ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {resourceScheduleEnabled ? <View className="h-2.5 w-2.5 rounded-full bg-indigo-600" /> : null}
+                  </View>
+                  <Text className="text-sm font-medium text-slate-700">
+                    {resourceScheduleEnabled ? 'Using custom schedule' : 'Inherit organization schedule'}
+                  </Text>
                 </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() => {
-                    setResourceScheduleEnabled(true);
-                    setResourceScheduleError(null);
-                  }}
-                  style={styles.secondaryChip}
-                >
-                  <Text style={styles.secondaryChipText}>Enable</Text>
-                </Pressable>
-              )}
-            </View>
-            <Pressable
-              onPress={() => {
-                setResourceScheduleEnabled((prev) => !prev);
-                setResourceScheduleError(null);
-              }}
-              style={styles.rememberRow}
-            >
-              <View style={[styles.checkbox, resourceScheduleEnabled && styles.checkboxChecked]}>
-                {resourceScheduleEnabled ? <View style={styles.checkboxDot} /> : null}
+                {resourceScheduleEnabled ? (
+                  <Text className="mt-2 text-sm text-slate-600">
+                    {resourceScheduleForm.workingDays.length} working days / {resourceScheduleForm.holidays.length} holidays
+                  </Text>
+                ) : null}
+                {resourceScheduleError ? (
+                  <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                    <Text className="text-sm text-rose-700">{resourceScheduleError}</Text>
+                  </View>
+                ) : null}
+                {resourceScheduleEnabled ? (
+                  <View className="mt-3">
+                    <ScheduleEditor
+                      form={resourceScheduleForm}
+                      activeDay={resourceActiveDay}
+                      setActiveDay={setResourceActiveDay}
+                      toggleWorkingDay={toggleResourceWorkingDay}
+                      applyDays={resourceApplyDays}
+                      toggleApplyDay={toggleResourceApplyDay}
+                      toggleApplyAllDays={toggleResourceApplyAllDays}
+                      newBusinessWindow={resourceNewBusinessWindow}
+                      setNewBusinessWindow={setResourceNewBusinessWindow}
+                      addBusinessWindow={addResourceBusinessWindow}
+                      setFullDayBusinessHours={setResourceBusinessHoursFullDay}
+                      removeBusinessWindow={removeResourceBusinessWindow}
+                      newBreakWindow={resourceNewBreakWindow}
+                      setNewBreakWindow={setResourceNewBreakWindow}
+                      addBreakWindow={addResourceBreakWindow}
+                      removeBreakWindow={removeResourceBreakWindow}
+                      clearHoursAndBreaks={clearResourceHoursAndBreaks}
+                      newHoliday={resourceNewHoliday}
+                      setNewHoliday={setResourceNewHoliday}
+                      holidayWindow={resourceHolidayWindow}
+                      setHolidayWindow={setResourceHolidayWindow}
+                      addHoliday={addResourceHoliday}
+                      removeHoliday={removeResourceHoliday}
+                    />
+                  </View>
+                ) : null}
               </View>
-              <Text style={styles.rememberText}>
-                {resourceScheduleEnabled ? 'Using custom schedule' : 'Inherit organization schedule'}
-              </Text>
-            </Pressable>
-            {resourceScheduleEnabled ? (
-              <Text style={styles.orgMeta}>
-                {resourceScheduleForm.workingDays.length} working days / {resourceScheduleForm.holidays.length} holidays
-              </Text>
-            ) : null}
-            {resourceScheduleError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{resourceScheduleError}</Text>
-              </View>
-            ) : null}
-            {resourceScheduleEnabled ? (
-              <ScheduleEditor
-                form={resourceScheduleForm}
-                activeDay={resourceActiveDay}
-                setActiveDay={setResourceActiveDay}
-                toggleWorkingDay={toggleResourceWorkingDay}
-                applyDays={resourceApplyDays}
-                toggleApplyDay={toggleResourceApplyDay}
-                toggleApplyAllDays={toggleResourceApplyAllDays}
-                newBusinessWindow={resourceNewBusinessWindow}
-                setNewBusinessWindow={setResourceNewBusinessWindow}
-                addBusinessWindow={addResourceBusinessWindow}
-                setFullDayBusinessHours={setResourceBusinessHoursFullDay}
-                removeBusinessWindow={removeResourceBusinessWindow}
-                newBreakWindow={resourceNewBreakWindow}
-                setNewBreakWindow={setResourceNewBreakWindow}
-                addBreakWindow={addResourceBreakWindow}
-                removeBreakWindow={removeResourceBreakWindow}
-                clearHoursAndBreaks={clearResourceHoursAndBreaks}
-                newHoliday={resourceNewHoliday}
-                setNewHoliday={setResourceNewHoliday}
-                holidayWindow={resourceHolidayWindow}
-                setHolidayWindow={setResourceHolidayWindow}
-                addHoliday={addResourceHoliday}
-                removeHoliday={removeResourceHoliday}
-              />
-            ) : null}
 
-            <PrimaryButton
-              label={resourceSaving ? 'Saving resource...' : resourceForm.id ? 'Update resource' : 'Create resource'}
-              onPress={handleResourceSave}
-              disabled={resourceSaving}
-            />
-          </>
+              <View className="mt-4">
+                <PrimaryButton
+                  label={resourceSaving ? 'Saving resource...' : resourceForm.id ? 'Update resource' : 'Create resource'}
+                  onPress={handleResourceSave}
+                  disabled={resourceSaving}
+                />
+              </View>
+            </View>
+          </View>
         ) : activeTab === 'appointments' && canViewAppointments ? (
           <>
             <View style={styles.sectionHeader}>
