@@ -2742,235 +2742,268 @@ function ScheduleEditor({
   footer,
 }: ScheduleEditorProps) {
   const allApplySelected = DAY_NAMES.every((day) => applyDays.includes(day));
-  return (
-    <>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Working days</Text>
-      </View>
-      <View style={styles.typeChips}>
-        {DAY_NAMES.map((day) => {
-          const enabled = form.workingDays.includes(day);
-          return (
-            <Pressable
-              key={day}
-              onPress={() => toggleWorkingDay(day)}
-              style={[styles.typeChip, enabled && styles.typeChipSelected]}
-            >
-              <Text style={[styles.typeChipText, enabled && styles.typeChipTextSelected]}>{DAY_LABELS[day]}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+  const chipBase = 'rounded-full border px-3 py-1.5';
+  const chipTextBase = 'text-xs font-semibold';
+  const chipActive = 'border-indigo-500 bg-indigo-50';
+  const chipInactive = 'border-slate-200 bg-white';
+  const chipTextActive = 'text-indigo-700';
+  const chipTextInactive = 'text-slate-600';
+  const actionChipBase = 'rounded-full border border-slate-200 bg-white px-3 py-1.5';
+  const actionChipText = 'text-[11px] font-semibold uppercase tracking-[1px] text-slate-600';
+  const removeChipBase = 'rounded-full border border-rose-200 bg-rose-50 px-2 py-1';
+  const removeChipText = 'text-xs font-semibold text-rose-600';
 
-      <View style={[styles.inputField, { marginTop: 10 }]}>
-        <Text style={styles.sectionTitle}>Edit day</Text>
-        <View style={styles.typeChips}>
-          {DAY_NAMES.map((day) => (
-            <Pressable
-              key={day}
-              style={[styles.typeChip, activeDay === day && styles.typeChipSelected]}
-              onPress={() => setActiveDay(day)}
-            >
-              <Text style={[styles.typeChipText, activeDay === day && styles.typeChipTextSelected]}>{DAY_LABELS[day]}</Text>
-            </Pressable>
-          ))}
+  return (
+    <View className="gap-5">
+      <View className="gap-2">
+        <Text className="text-base font-semibold text-slate-900">Working days</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {DAY_NAMES.map((day) => {
+            const enabled = form.workingDays.includes(day);
+            return (
+              <Pressable
+                key={day}
+                onPress={() => toggleWorkingDay(day)}
+                className={`${chipBase} ${enabled ? chipActive : chipInactive}`}
+              >
+                <Text className={`${chipTextBase} ${enabled ? chipTextActive : chipTextInactive}`}>
+                  {DAY_LABELS[day]}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      <View style={[styles.inputField, { marginTop: 8 }]}>
-        <Text style={styles.sectionTitle}>Apply hours & breaks to</Text>
-        <Text style={styles.helperText}>Leave empty to apply only to {DAY_LABELS[activeDay]}.</Text>
-        <View style={styles.typeChips}>
+      <View className="gap-2">
+        <Text className="text-base font-semibold text-slate-900">Edit day</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {DAY_NAMES.map((day) => {
+            const selected = activeDay === day;
+            return (
+              <Pressable
+                key={day}
+                onPress={() => setActiveDay(day)}
+                className={`${chipBase} ${selected ? chipActive : chipInactive}`}
+              >
+                <Text className={`${chipTextBase} ${selected ? chipTextActive : chipTextInactive}`}>
+                  {DAY_LABELS[day]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View className="gap-2">
+        <Text className="text-base font-semibold text-slate-900">Apply hours & breaks to</Text>
+        <Text className="text-xs text-slate-500">Leave empty to apply only to {DAY_LABELS[activeDay]}.</Text>
+        <View className="flex-row flex-wrap gap-2">
           {DAY_NAMES.map((day) => {
             const selected = applyDays.includes(day);
             return (
               <Pressable
                 key={`apply-${day}`}
-                style={[styles.typeChip, selected && styles.typeChipSelected]}
                 onPress={() => toggleApplyDay(day)}
+                className={`${chipBase} ${selected ? chipActive : chipInactive}`}
               >
-                <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{DAY_LABELS[day]}</Text>
+                <Text className={`${chipTextBase} ${selected ? chipTextActive : chipTextInactive}`}>
+                  {DAY_LABELS[day]}
+                </Text>
               </Pressable>
             );
           })}
           <Pressable
-            style={[styles.typeChip, allApplySelected && styles.typeChipSelected]}
             onPress={toggleApplyAllDays}
+            className={`${chipBase} ${allApplySelected ? chipActive : chipInactive}`}
           >
-            <Text style={[styles.typeChipText, allApplySelected && styles.typeChipTextSelected]}>7 days</Text>
+            <Text className={`${chipTextBase} ${allApplySelected ? chipTextActive : chipTextInactive}`}>
+              7 days
+            </Text>
           </Pressable>
         </View>
-        <Pressable onPress={clearHoursAndBreaks} style={styles.secondaryChipCompact}>
-          <Text style={styles.secondaryChipText}>Clear all hours & breaks</Text>
+        <Pressable onPress={clearHoursAndBreaks} className={`${actionChipBase} self-start`}>
+          <Text className={actionChipText}>Clear all hours & breaks</Text>
         </Pressable>
       </View>
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Business hours ({DAY_LABELS[activeDay]})</Text>
-      </View>
-      <View style={styles.orgList}>
-        {form.businessHours[activeDay].length === 0 ? (
-          <Text style={styles.statusText}>No business hours for {DAY_LABELS[activeDay]}.</Text>
-        ) : (
-          form.businessHours[activeDay].map((window, idx) => (
-            <View key={`bh-${activeDay}-${idx}`} style={styles.orgCard}>
-              <View style={styles.orgHeader}>
-                <Text style={styles.orgName}>
+      <View className="h-px w-full bg-slate-200" />
+
+      <View className="gap-3">
+        <Text className="text-base font-semibold text-slate-900">Business hours ({DAY_LABELS[activeDay]})</Text>
+        <View className="gap-2">
+          {form.businessHours[activeDay].length === 0 ? (
+            <Text className="text-sm text-slate-500">No business hours for {DAY_LABELS[activeDay]}.</Text>
+          ) : (
+            form.businessHours[activeDay].map((window, idx) => (
+              <View
+                key={`bh-${activeDay}-${idx}`}
+                className="flex-row items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2"
+              >
+                <Text className="text-sm font-semibold text-slate-800">
                   {window.start || '--:--'} - {window.end || '--:--'}
                 </Text>
-                <Pressable onPress={() => removeBusinessWindow(activeDay, idx)} style={styles.orgAction}>
-                  <Text style={styles.deleteText}>Remove</Text>
+                <Pressable onPress={() => removeBusinessWindow(activeDay, idx)} className={removeChipBase}>
+                  <Text className={removeChipText}>Remove</Text>
                 </Pressable>
               </View>
-            </View>
-          ))
-        )}
-      </View>
-      <View style={styles.row}>
-        <View style={styles.flexHalf}>
-          <TimeInput
-            label="Start"
-            value={newBusinessWindow.start}
-            onChangeText={(start) => setNewBusinessWindow((prev) => ({ ...prev, start }))}
-          />
+            ))
+          )}
         </View>
-        <View style={styles.flexHalf}>
-          <TimeInput
-            label="End"
-            value={newBusinessWindow.end}
-            onChangeText={(end) => setNewBusinessWindow((prev) => ({ ...prev, end }))}
-          />
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <TimeInput
+              label="Start"
+              value={newBusinessWindow.start}
+              onChangeText={(start) => setNewBusinessWindow((prev) => ({ ...prev, start }))}
+            />
+          </View>
+          <View className="flex-1">
+            <TimeInput
+              label="End"
+              value={newBusinessWindow.end}
+              onChangeText={(end) => setNewBusinessWindow((prev) => ({ ...prev, end }))}
+            />
+          </View>
         </View>
-      </View>
-      <View style={styles.sectionActions}>
-        <Pressable onPress={addBusinessWindow} style={styles.secondaryChipCompact}>
-          <Text style={styles.secondaryChipText}>Add business window</Text>
-        </Pressable>
-        <Pressable onPress={setFullDayBusinessHours} style={styles.secondaryChipCompact}>
-          <Text style={styles.secondaryChipText}>Set 24 hours</Text>
-        </Pressable>
+        <View className="flex-row flex-wrap gap-2">
+          <Pressable onPress={addBusinessWindow} className={actionChipBase}>
+            <Text className={actionChipText}>Add business window</Text>
+          </Pressable>
+          <Pressable onPress={setFullDayBusinessHours} className={actionChipBase}>
+            <Text className={actionChipText}>Set 24 hours</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.divider} />
+      <View className="h-px w-full bg-slate-200" />
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Breaks ({DAY_LABELS[activeDay]})</Text>
-      </View>
-      <View style={styles.orgList}>
-        {form.breaks[activeDay].length === 0 ? (
-          <Text style={styles.statusText}>No breaks for {DAY_LABELS[activeDay]}.</Text>
-        ) : (
-          form.breaks[activeDay].map((window, idx) => (
-            <View key={`br-${activeDay}-${idx}`} style={styles.orgCard}>
-              <View style={styles.orgHeader}>
-                <Text style={styles.orgName}>
+      <View className="gap-3">
+        <Text className="text-base font-semibold text-slate-900">Breaks ({DAY_LABELS[activeDay]})</Text>
+        <View className="gap-2">
+          {form.breaks[activeDay].length === 0 ? (
+            <Text className="text-sm text-slate-500">No breaks for {DAY_LABELS[activeDay]}.</Text>
+          ) : (
+            form.breaks[activeDay].map((window, idx) => (
+              <View
+                key={`br-${activeDay}-${idx}`}
+                className="flex-row items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2"
+              >
+                <Text className="text-sm font-semibold text-slate-800">
                   {window.start || '--:--'} - {window.end || '--:--'}
                 </Text>
-                <Pressable onPress={() => removeBreakWindow(activeDay, idx)} style={styles.orgAction}>
-                  <Text style={styles.deleteText}>Remove</Text>
+                <Pressable onPress={() => removeBreakWindow(activeDay, idx)} className={removeChipBase}>
+                  <Text className={removeChipText}>Remove</Text>
                 </Pressable>
               </View>
-            </View>
-          ))
-        )}
-      </View>
-      <View style={styles.row}>
-        <View style={styles.flexHalf}>
-          <TimeInput
-            label="Break start"
-            value={newBreakWindow.start}
-            onChangeText={(start) => setNewBreakWindow((prev) => ({ ...prev, start }))}
-          />
+            ))
+          )}
         </View>
-        <View style={styles.flexHalf}>
-          <TimeInput
-            label="Break end"
-            value={newBreakWindow.end}
-            onChangeText={(end) => setNewBreakWindow((prev) => ({ ...prev, end }))}
-          />
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <TimeInput
+              label="Break start"
+              value={newBreakWindow.start}
+              onChangeText={(start) => setNewBreakWindow((prev) => ({ ...prev, start }))}
+            />
+          </View>
+          <View className="flex-1">
+            <TimeInput
+              label="Break end"
+              value={newBreakWindow.end}
+              onChangeText={(end) => setNewBreakWindow((prev) => ({ ...prev, end }))}
+            />
+          </View>
         </View>
+        <Pressable onPress={addBreakWindow} className={actionChipBase}>
+          <Text className={actionChipText}>Add break window</Text>
+        </Pressable>
       </View>
-      <Pressable onPress={addBreakWindow} style={styles.secondaryChipCompact}>
-        <Text style={styles.secondaryChipText}>Add break window</Text>
-      </Pressable>
 
-      <View style={styles.divider} />
+      <View className="h-px w-full bg-slate-200" />
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Holidays</Text>
-      </View>
-      <View style={styles.orgList}>
-        {form.holidays.map((holiday, idx) => (
-          <View key={`holiday-${holiday.date}-${idx}`} style={styles.orgCard}>
-            <View style={styles.orgHeader}>
-              <Text style={styles.orgName}>{holiday.date || 'Unknown date'}</Text>
-              <Pressable onPress={() => removeHoliday(idx)} style={styles.orgAction}>
-                <Text style={styles.deleteText}>Remove</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.orgType}>{holiday.allDay ? 'All day' : 'Partial day'}</Text>
-            <Text style={styles.orgMeta}>{holiday.description || 'No description'}</Text>
-            {!holiday.allDay && holiday.closedWindows.length > 0 ? (
-              <Text style={styles.orgMeta}>
-                Closed {holiday.closedWindows[0].start || '--:--'} - {holiday.closedWindows[0].end || '--:--'}
+      <View className="gap-3">
+        <Text className="text-base font-semibold text-slate-900">Holidays</Text>
+        <View className="gap-2">
+          {form.holidays.map((holiday, idx) => (
+            <View key={`holiday-${holiday.date}-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+              <View className="flex-row items-start justify-between gap-2">
+                <Text className="text-sm font-semibold text-slate-900">{holiday.date || 'Unknown date'}</Text>
+                <Pressable onPress={() => removeHoliday(idx)} className={removeChipBase}>
+                  <Text className={removeChipText}>Remove</Text>
+                </Pressable>
+              </View>
+              <Text className="mt-1 text-[11px] font-semibold uppercase tracking-[1px] text-slate-500">
+                {holiday.allDay ? 'All day' : 'Partial day'}
               </Text>
-            ) : null}
-          </View>
-        ))}
-        {form.holidays.length === 0 ? <Text style={styles.statusText}>No holidays defined.</Text> : null}
-      </View>
-      <View style={styles.row}>
-        <View style={styles.flexHalf}>
-          <DatePickerField
-            label="Holiday date (YYYY-MM-DD)"
-            placeholder="2025-12-25"
-            value={newHoliday.date}
-            onChangeText={(date) => setNewHoliday((prev) => ({ ...prev, date }))}
-          />
+              <Text className="mt-1 text-sm text-slate-600">{holiday.description || 'No description'}</Text>
+              {!holiday.allDay && holiday.closedWindows.length > 0 ? (
+                <Text className="mt-1 text-sm text-slate-600">
+                  Closed {holiday.closedWindows[0].start || '--:--'} - {holiday.closedWindows[0].end || '--:--'}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+          {form.holidays.length === 0 ? (
+            <Text className="text-sm text-slate-500">No holidays defined.</Text>
+          ) : null}
         </View>
-        <View style={styles.flexHalf}>
-          <InputField
-            label="Description"
-            placeholder="Christmas"
-            value={newHoliday.description}
-            onChangeText={(description) => setNewHoliday((prev) => ({ ...prev, description }))}
-          />
-        </View>
-      </View>
-      <Pressable
-        onPress={() => setNewHoliday((prev) => ({ ...prev, allDay: !prev.allDay }))}
-        style={styles.rememberRow}
-      >
-        <View style={[styles.checkbox, newHoliday.allDay && styles.checkboxChecked]}>
-          {newHoliday.allDay ? <View style={styles.checkboxDot} /> : null}
-        </View>
-        <Text style={styles.rememberText}>All day closure</Text>
-      </Pressable>
-      {!newHoliday.allDay ? (
-        <View style={styles.row}>
-          <View style={styles.flexHalf}>
-            <TimeInput
-              label="Closed from"
-              value={holidayWindow.start}
-              onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <DatePickerField
+              label="Holiday date (YYYY-MM-DD)"
+              placeholder="2025-12-25"
+              value={newHoliday.date}
+              onChangeText={(date) => setNewHoliday((prev) => ({ ...prev, date }))}
             />
           </View>
-          <View style={styles.flexHalf}>
-            <TimeInput
-              label="Closed to"
-              value={holidayWindow.end}
-              onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
+          <View className="flex-1">
+            <InputField
+              label="Description"
+              placeholder="Christmas"
+              value={newHoliday.description}
+              onChangeText={(description) => setNewHoliday((prev) => ({ ...prev, description }))}
             />
           </View>
         </View>
-      ) : null}
-      <Pressable onPress={addHoliday} style={styles.secondaryChip}>
-        <Text style={styles.secondaryChipText}>Add holiday</Text>
-      </Pressable>
+        <Pressable
+          onPress={() => setNewHoliday((prev) => ({ ...prev, allDay: !prev.allDay }))}
+          className="flex-row items-center gap-2"
+        >
+          <View
+            className={`h-5 w-5 items-center justify-center rounded-md border ${
+              newHoliday.allDay ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-white'
+            }`}
+          >
+            {newHoliday.allDay ? <View className="h-2.5 w-2.5 rounded-full bg-indigo-600" /> : null}
+          </View>
+          <Text className="text-sm font-medium text-slate-700">All day closure</Text>
+        </Pressable>
+        {!newHoliday.allDay ? (
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <TimeInput
+                label="Closed from"
+                value={holidayWindow.start}
+                onChangeText={(start) => setHolidayWindow((prev) => ({ ...prev, start }))}
+              />
+            </View>
+            <View className="flex-1">
+              <TimeInput
+                label="Closed to"
+                value={holidayWindow.end}
+                onChangeText={(end) => setHolidayWindow((prev) => ({ ...prev, end }))}
+              />
+            </View>
+          </View>
+        ) : null}
+        <Pressable onPress={addHoliday} className={`${actionChipBase} self-start`}>
+          <Text className={actionChipText}>Add holiday</Text>
+        </Pressable>
+      </View>
 
-      <View style={styles.divider} />
-      {footer}
-    </>
+      {footer ? <View className="mt-4">{footer}</View> : null}
+    </View>
   );
 }
 
