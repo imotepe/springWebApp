@@ -7,14 +7,19 @@ import com.exampleproject.model.AvailabilitySlot;
 import com.exampleproject.model.Customer;
 import com.exampleproject.model.Organization;
 import com.exampleproject.model.Resource;
+import com.exampleproject.model.ResourcePhoto;
 import com.exampleproject.repository.AppointmentRepository;
 import com.exampleproject.repository.AppointmentTypeRepository;
 import com.exampleproject.repository.CustomerRepository;
 import com.exampleproject.repository.OrganizationRepository;
 import com.exampleproject.repository.ResourceRepository;
 import com.exampleproject.service.AvailabilityService;
+import com.exampleproject.service.FileStorageService;
+import com.exampleproject.service.FileStorageService.StoredFile;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -36,6 +41,7 @@ public class PublicBookingController {
     private final AvailabilityService availabilityService;
     private final AppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
+    private final FileStorageService fileStorageService;
 
     public PublicBookingController(
             OrganizationRepository organizationRepository,
@@ -43,7 +49,8 @@ public class PublicBookingController {
             ResourceRepository resourceRepository,
             AvailabilityService availabilityService,
             AppointmentRepository appointmentRepository,
-            CustomerRepository customerRepository
+            CustomerRepository customerRepository,
+            FileStorageService fileStorageService
     ) {
         this.organizationRepository = organizationRepository;
         this.appointmentTypeRepository = appointmentTypeRepository;
@@ -51,6 +58,7 @@ public class PublicBookingController {
         this.availabilityService = availabilityService;
         this.appointmentRepository = appointmentRepository;
         this.customerRepository = customerRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     @GetMapping("/{slug}")
@@ -70,6 +78,27 @@ public class PublicBookingController {
     public List<Resource> resources(@PathVariable String slug) {
         Organization org = resolveOrg(slug);
         return resourceRepository.findByOrgId(org.getId());
+    }
+
+    @GetMapping("/{slug}/resources/{resourceId}/photo")
+    public ResponseEntity<org.springframework.core.io.Resource> resourcePhoto(
+            @PathVariable String slug,
+            @PathVariable String resourceId
+    ) {
+        Organization org = resolveOrg(slug);
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        if (!org.getId().equals(resource.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
+        }
+        String photoPath = resolveDefaultPhotoPath(resource);
+        if (photoPath == null || photoPath.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
+        }
+        StoredFile file = fileStorageService.loadResourcePhoto(photoPath);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.getContentType()))
+                .body(file.getResource());
     }
 
     @GetMapping("/{slug}/availability")
@@ -216,6 +245,29 @@ public class PublicBookingController {
     private Organization resolveOrg(String slug) {
         return organizationRepository.findByMarketingNameIgnoreCase(slug)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+    }
+
+    private String resolveDefaultPhotoPath(Resource resource) {
+        if (resource == null) {
+            return "";
+        }
+        List<ResourcePhoto> photos = resource.getPhotos();
+        if (photos != null) {
+            for (ResourcePhoto photo : photos) {
+                if (photo == null) {
+                    continue;
+                }
+                String path = photo.getPath();
+                if (path != null && !path.isBlank()) {
+                    return path;
+                }
+            }
+        }
+        String legacyPath = resource.getPhotoPath();
+        if (legacyPath == null || legacyPath.isBlank()) {
+            return "";
+        }
+        return legacyPath.trim();
     }
 
     private LocalDateTime parseDateTime(String value, String field) {

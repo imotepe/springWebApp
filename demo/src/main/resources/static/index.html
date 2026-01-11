@@ -514,10 +514,20 @@
         color: var(--muted);
       }
 
+      .photo-slot img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: inherit;
+        display: block;
+      }
+
       .photo-slot.large {
         width: 100%;
-        height: 200px;
+        height: auto;
+        aspect-ratio: 4 / 3;
         border-radius: 22px;
+        overflow: hidden;
       }
 
       .doctor-info h3 {
@@ -663,8 +673,105 @@
           height: 56px;
         }
 
-        .photo-slot.large {
-          height: 160px;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        corePlugins: {
+          preflight: false
+        }
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/tailwindcss">
+      @layer components {
+        .page-status {
+          @apply rounded-2xl border border-slate-200 bg-white/90 text-sm text-slate-600;
+        }
+        .panel {
+          @apply rounded-3xl border border-slate-200 bg-white shadow-sm;
+        }
+        .panel-header {
+          @apply flex items-center justify-between gap-3;
+        }
+        .panel-title {
+          @apply text-lg font-semibold text-slate-900;
+        }
+        .panel-subtitle {
+          @apply text-sm text-slate-500;
+        }
+        .chip {
+          @apply rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600;
+        }
+        .icon-button {
+          @apply rounded-xl border border-slate-200 bg-white;
+        }
+        .booking-select select {
+          @apply rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900;
+        }
+        .form-field label {
+          @apply text-xs font-semibold text-slate-600;
+        }
+        .form-field input,
+        .form-field textarea {
+          @apply rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900;
+        }
+        .doctor-search {
+          @apply rounded-2xl border border-slate-200 bg-white px-3 py-2;
+        }
+        .doctor-search input {
+          @apply text-sm text-slate-900;
+        }
+        .doctor-card {
+          @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+        }
+        .doctor-card.active {
+          @apply border-indigo-500 bg-indigo-50;
+        }
+        .agenda-chip {
+          @apply rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600;
+        }
+        .agenda-chip.active {
+          @apply border-indigo-500 bg-indigo-50 text-indigo-700;
+        }
+        .agenda-chip.muted {
+          @apply border-slate-200 bg-slate-100 text-slate-400;
+        }
+        .slot-button {
+          @apply rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700;
+        }
+        .slot-button.active {
+          @apply border-indigo-500 bg-indigo-600 text-white;
+        }
+        .slot-button.muted {
+          @apply border-slate-200 bg-slate-100 text-slate-400;
+        }
+        .calendar {
+          @apply rounded-3xl border border-slate-200 bg-slate-50;
+        }
+        .calendar-nav button {
+          @apply rounded-full border border-slate-200 bg-white text-slate-600;
+        }
+        .day-cell {
+          @apply rounded-xl border border-transparent bg-white text-sm text-slate-700;
+        }
+        .day-cell.selected {
+          @apply border-indigo-500 bg-indigo-600 text-white;
+        }
+        .primary-btn {
+          @apply rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white;
+        }
+        .ghost-btn {
+          @apply rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700;
+        }
+        .customer-results {
+          @apply rounded-2xl border border-slate-200 bg-slate-50 p-3;
+        }
+        .customer-result {
+          @apply rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700;
+        }
+        .notes {
+          @apply rounded-2xl border border-slate-200 bg-white;
         }
       }
     </style>
@@ -1053,6 +1160,35 @@
           return apiBase() + (trimmed.charAt(0) === "/" ? "" : "/") + trimmed;
         }
 
+        function resolveResourcePhotoUrl(resource) {
+          if (!resource || !resource.id || !state.slug) return "";
+          return (
+            apiBase() +
+            "/api/public/organizations/" +
+            encodeURIComponent(state.slug) +
+            "/resources/" +
+            encodeURIComponent(resource.id) +
+            "/photo"
+          );
+        }
+
+        function buildResourcePhotoSlot(resource, sizeClass) {
+          var slot = document.createElement("div");
+          slot.className = "photo-slot" + (sizeClass ? " " + sizeClass : "");
+          slot.textContent = "Photo";
+          var photoUrl = resolveResourcePhotoUrl(resource);
+          if (!photoUrl) return slot;
+
+          var img = document.createElement("img");
+          img.alt = (resource && resource.name ? resource.name : "Resource") + " photo";
+          img.onload = function () {
+            slot.textContent = "";
+            slot.appendChild(img);
+          };
+          img.src = photoUrl;
+          return slot;
+        }
+
         function fetchJson(url) {
           return fetch(url).then(function (response) {
             if (!response.ok) {
@@ -1307,9 +1443,7 @@
             card.classList.add("active");
           }
 
-          var photo = document.createElement("div");
-          photo.className = "photo-slot";
-          photo.textContent = "Photo";
+          var photo = buildResourcePhotoSlot(resource);
 
           var info = document.createElement("div");
           info.className = "doctor-info";
@@ -1420,9 +1554,7 @@
             return;
           }
 
-          var photo = document.createElement("div");
-          photo.className = "photo-slot large";
-          photo.textContent = "Photo";
+          var photo = buildResourcePhotoSlot(resource, "large");
 
           var name = document.createElement("h3");
           name.textContent = resource.name || "Doctor";
