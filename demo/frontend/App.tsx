@@ -1113,9 +1113,9 @@ function InputField({
 
 function QrCodePreview({ label, uri }: QrCodePreviewProps) {
   return (
-    <View style={styles.qrTile}>
-      <Image source={{ uri }} style={styles.qrImage} resizeMode="contain" />
-      <Text style={styles.qrLabel}>{label}</Text>
+    <View className="items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+      <Image source={{ uri }} className="h-20 w-20" resizeMode="contain" />
+      <Text className="text-xs font-semibold text-slate-900">{label}</Text>
     </View>
   );
 }
@@ -7691,393 +7691,452 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
         </ScrollView>
 
         {activeTab === 'orgs' && canManageOrganizations ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Organizations ({visibleOrgs.length}/{orgs.length})</Text>
-                <View style={styles.sectionActions}>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Organizations</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleOrgs.length} of {orgs.length} organizations
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
                   {!isOrgAdminRestricted ? (
-                    <Pressable onPress={resetForm} style={styles.secondaryChip}>
-                      <Text style={styles.secondaryChipText}>New</Text>
+                    <Pressable
+                      onPress={resetForm}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                    >
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                     </Pressable>
                   ) : null}
-                  <Pressable onPress={loadOrganizations} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={loadOrganizations}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search by id, name, marketing name, phone, createdBy"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search by id, name, marketing name, phone, createdBy"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
+                  />
+                </View>
               </View>
-              {renderPagination(orgPage, totalOrgPages, setOrgPage)}
+              <View className="mt-3">{renderPagination(orgPage, totalOrgPages, setOrgPage)}</View>
             </View>
 
             {message ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{message}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{message}</Text>
               </View>
             ) : null}
 
-            {loading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading...</Text>
-              </View>
-            ) : (
-              <ScrollView
-                style={styles.orgListScroll}
-                contentContainerStyle={styles.orgList}
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                {visibleOrgs.map((org) => (
-                  <Pressable
-                    key={org.id ?? org.name}
-                    style={[styles.orgCard, form.id === org.id && styles.orgCardActive]}
-                    onPress={() => startEdit(org)}
-                  >
-                    <View style={styles.orgListHeader}>
-                      <View style={styles.orgHeaderText}>
-                        <Text style={styles.orgName} numberOfLines={1}>
-                          {org.name}
-                        </Text>
-                        <Text style={styles.orgType} numberOfLines={1}>
-                          {org.type}
-                        </Text>
-                      </View>
-                      {org.logoImage ? (
-                        <Image
-                          source={{ uri: resolveLogoUri(org.logoImage) }}
-                          style={styles.orgLogoThumb}
-                          resizeMode="contain"
-                        />
-                      ) : null}
-                    </View>
-                    <Text style={styles.orgMeta}>
-                      {org.marketingName || 'No marketing name'} - {org.industry || 'No industry'}
-                    </Text>
-                    <View style={styles.orgMetaRow}>
-                      <Text style={styles.orgMeta}>{org.phone || 'No phone'}</Text>
-                      {org.mapsLink ? (
-                        <Text style={styles.link} numberOfLines={1}>
-                          {org.mapsLink}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {(org.facebookPage || org.instagram || org.whatsappContact) ? (
-                      <View style={styles.orgMetaRow}>
-                        {org.facebookPage ? (
-                          <Text style={styles.orgMeta} numberOfLines={1}>
-                            FB: {org.facebookPage}
-                          </Text>
-                        ) : null}
-                        {org.instagram ? (
-                          <Text style={styles.orgMeta} numberOfLines={1}>
-                            IG: {org.instagram}
-                          </Text>
-                        ) : null}
-                        {org.whatsappContact ? (
-                          <Text style={styles.orgMeta} numberOfLines={1}>
-                            WA: {org.whatsappContact}
-                          </Text>
-                        ) : null}
-                      </View>
-                    ) : null}
-                    <Text style={styles.orgMeta}>
-                      Created: {org.createdAt ? new Date(org.createdAt).toLocaleString() : 'Unknown'} by{' '}
-                      {org.createdBy || 'unknown'}
-                    </Text>
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startEdit(org)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleDelete(org)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                ))}
-                {visibleOrgs.length === 0 ? (
-                  <Text style={styles.statusText}>No organizations match the filters.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{form.id ? 'Edit organization' : 'Create organization'}</Text>
-              {form.id ? (
-                <Pressable onPress={resetForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            {formError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{formError}</Text>
-              </View>
-            ) : null}
-
-            <InputField
-              label="Name"
-              placeholder="Legal name"
-              value={form.name}
-              onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
-              disabled={!canEditOrgIdentity}
-            />
-            <InputField
-              label="Marketing name"
-              placeholder="Public-facing name"
-              value={form.marketingName}
-              onChangeText={(marketingName) => setForm((prev) => ({ ...prev, marketingName }))}
-              disabled={!canEditOrgIdentity}
-            />
-            <InputField
-              label="Industry"
-              placeholder="Industry"
-              value={form.industry}
-              onChangeText={(industry) => setForm((prev) => ({ ...prev, industry }))}
-              disabled={!canEditOrgIdentity}
-            />
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Organization type</Text>
-              <Pressable
-                style={[styles.dropdownTrigger, !canEditOrgIdentity && styles.dropdownTriggerDisabled]}
-                disabled={!canEditOrgIdentity}
-                onPress={() => {
-                  if (!canEditOrgIdentity) return;
-                  setOrgTypePickerOpen((open) => {
-                    const next = !open;
-                    if (next) setOrgTypeQuery('');
-                    return next;
-                  });
-                }}
-              >
-                <Text style={form.type ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {form.type || 'Select organization type'}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Organization list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {loading ? 'Loading' : `${visibleOrgs.length} visible`}
                 </Text>
-              </Pressable>
-              {orgTypePickerOpen ? (
-                <View style={styles.dropdownPanel}>
-                  <TextInput
-                    value={orgTypeQuery}
-                    onChangeText={setOrgTypeQuery}
-                    placeholder="Search types..."
-                    placeholderTextColor="rgba(107,114,128,0.7)"
-                    style={styles.dropdownSearchInput}
-                    autoCapitalize="none"
-                  />
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                    {filteredOrgTypesForPicker.map((type) => {
-                      const selected = form.type === type.name;
-                      return (
+              </View>
+
+              {loading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleOrgs.map((org) => (
                         <Pressable
-                          key={type.id}
-                          onPress={() => {
-                            setForm((prev) => ({ ...prev, type: type.name }));
-                            setOrgTypePickerOpen(false);
-                          }}
-                          style={[styles.dropdownItem, selected && styles.dropdownItemSelected]}
+                          key={org.id ?? org.name}
+                          onPress={() => startEdit(org)}
+                          className={`rounded-2xl border p-4 ${
+                            form.id === org.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-slate-200 bg-white'
+                          }`}
                         >
-                          <Text
-                            style={[styles.dropdownItemLabel, selected && styles.dropdownItemLabelSelected]}
-                            numberOfLines={1}
-                          >
-                            {type.name}
+                          <View className="flex-row items-start justify-between gap-3">
+                            <View className="flex-1">
+                              <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                {org.name || 'Organization'}
+                              </Text>
+                              <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                {org.type || 'No type'}
+                              </Text>
+                            </View>
+                            {org.logoImage ? (
+                              <Image
+                                source={{ uri: resolveLogoUri(org.logoImage) }}
+                                className="h-10 w-16 rounded-xl bg-slate-100"
+                                resizeMode="contain"
+                              />
+                            ) : null}
+                          </View>
+                          <Text className="mt-2 text-sm text-slate-600">
+                            {org.marketingName || 'No marketing name'} - {org.industry || 'No industry'}
                           </Text>
-                          {type.description ? (
-                            <Text style={styles.dropdownItemDescription} numberOfLines={1}>
-                              {type.description}
-                            </Text>
+                          <View className="mt-1 flex-row flex-wrap gap-2">
+                            <Text className="text-sm text-slate-600">{org.phone || 'No phone'}</Text>
+                            {org.mapsLink ? (
+                              <Text className="text-xs font-semibold text-indigo-600" numberOfLines={1}>
+                                {org.mapsLink}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {org.facebookPage || org.instagram || org.whatsappContact ? (
+                            <View className="mt-1 flex-row flex-wrap gap-2">
+                              {org.facebookPage ? (
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  FB: {org.facebookPage}
+                                </Text>
+                              ) : null}
+                              {org.instagram ? (
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  IG: {org.instagram}
+                                </Text>
+                              ) : null}
+                              {org.whatsappContact ? (
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  WA: {org.whatsappContact}
+                                </Text>
+                              ) : null}
+                            </View>
                           ) : null}
+                          <Text className="mt-1 text-sm text-slate-600">
+                            Created: {org.createdAt ? new Date(org.createdAt).toLocaleString() : 'Unknown'} by{' '}
+                            {org.createdBy || 'unknown'}
+                          </Text>
+                          <View className="mt-3 flex-row gap-3">
+                            <Pressable
+                              onPress={() => startEdit(org)}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleDelete(org)}
+                              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                            </Pressable>
+                          </View>
                         </Pressable>
-                      );
-                    })}
-                    {filteredOrgTypesForPicker.length === 0 ? (
-                      <Text style={styles.statusText}>No organization types available.</Text>
-                    ) : null}
+                      ))}
+                      {visibleOrgs.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No organizations match the filters.</Text>
+                      ) : null}
+                    </View>
                   </ScrollView>
                 </View>
-              ) : null}
-            </View>
-            <InputField
-              label="Phone"
-              placeholder="+33 1 23 45 67 89"
-              value={form.phone}
-              onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
-              keyboardType="default"
-            />
-
-            <View style={styles.addressRow}>
-              <InputField
-                label="Street"
-                placeholder="123 Main St"
-                value={form.street}
-                onChangeText={(street) => setForm((prev) => ({ ...prev, street }))}
-              />
-            </View>
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="City"
-                  placeholder="City"
-                  value={form.city}
-                  onChangeText={(city) => setForm((prev) => ({ ...prev, city }))}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="State / Region"
-                  placeholder="State or region"
-                  value={form.state}
-                  onChangeText={(state) => setForm((prev) => ({ ...prev, state }))}
-                />
-              </View>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Postal code"
-                  placeholder="Postal code"
-                  value={form.postalCode}
-                  onChangeText={(postalCode) => setForm((prev) => ({ ...prev, postalCode }))}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Country"
-                  placeholder="Country"
-                  value={form.country}
-                  onChangeText={(country) => setForm((prev) => ({ ...prev, country }))}
-                />
-              </View>
+              )}
             </View>
 
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Latitude"
-                  placeholder="48.8566"
-                  value={form.latitude}
-                  onChangeText={(latitude) => setForm((prev) => ({ ...prev, latitude }))}
-                  keyboardType="default"
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Longitude"
-                  placeholder="2.3522"
-                  value={form.longitude}
-                  onChangeText={(longitude) => setForm((prev) => ({ ...prev, longitude }))}
-                  keyboardType="default"
-                />
-              </View>
-            </View>
-
-            <InputField
-              label="Maps link"
-              placeholder="https://maps.google.com/?q=48.8566,2.3522"
-              value={form.mapsLink}
-              onChangeText={(mapsLink) => setForm((prev) => ({ ...prev, mapsLink }))}
-              autoComplete="off"
-            />
-            <InputField
-              label="Facebook page"
-              placeholder="https://www.facebook.com/yourpage"
-              value={form.facebookPage}
-              onChangeText={(facebookPage) => setForm((prev) => ({ ...prev, facebookPage }))}
-              autoComplete="off"
-            />
-            <InputField
-              label="Facebook group"
-              placeholder="https://www.facebook.com/groups/yourgroup"
-              value={form.facebookGroup}
-              onChangeText={(facebookGroup) => setForm((prev) => ({ ...prev, facebookGroup }))}
-              autoComplete="off"
-            />
-            <InputField
-              label="Instagram"
-              placeholder="https://www.instagram.com/yourhandle"
-              value={form.instagram}
-              onChangeText={(instagram) => setForm((prev) => ({ ...prev, instagram }))}
-              autoComplete="off"
-            />
-            <InputField
-              label="WhatsApp contact"
-              placeholder="+33 6 00 00 00 00"
-              value={form.whatsappContact}
-              onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
-              autoComplete="off"
-            />
-            {selectedOrgQrCodes.length > 0 ? (
-              <View style={styles.qrSection}>
-                <Text style={styles.label}>QR codes</Text>
-                <View style={styles.qrRow}>
-                  {selectedOrgQrCodes.map((qr) => (
-                    <QrCodePreview key={qr.label} label={qr.label} uri={qr.uri} />
-                  ))}
-                </View>
-                <Text style={styles.helperText}>Generated automatically when links are saved.</Text>
-              </View>
-            ) : null}
-            {isSuperAdmin ? (
-              <InputField
-                label="Logo image URL"
-                placeholder="https://cdn.example.com/logos/yourorg.png"
-                value={form.logoImage}
-                onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
-                autoComplete="off"
-              />
-            ) : null}
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Logo upload</Text>
-              <Pressable
-                onPress={openLogoPicker}
-                disabled={!form.id || logoUploading}
-                style={[
-                  styles.secondaryChip,
-                  (!form.id || logoUploading) && styles.secondaryChipDisabled,
-                ]}
-              >
-                <Text style={styles.secondaryChipText}>
-                  {logoUploading ? 'Uploading...' : 'Upload logo'}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {form.id ? 'Edit organization' : 'Create organization'}
                 </Text>
-              </Pressable>
-              <Text style={styles.helperText}>
-                {form.id
-                  ? 'Upload an image file; the URL will be saved to logoImage.'
-                  : 'Save the organization before uploading a logo.'}
-              </Text>
-              {logoUploadMessage ? (
-                <View style={styles.statusPill}>
-                  <Text style={styles.statusText}>{logoUploadMessage}</Text>
-                </View>
-              ) : null}
-              {logoUploadError ? (
-                <View style={[styles.statusPill, styles.errorPill]}>
-                  <Text style={styles.errorText}>{logoUploadError}</Text>
-                </View>
-              ) : null}
-              {form.logoImage ? (
-                <Image source={{ uri: resolveLogoUri(form.logoImage) }} style={styles.orgLogo} resizeMode="contain" />
-              ) : null}
-            </View>
+                {form.id ? (
+                  <Pressable
+                    onPress={resetForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
 
-            <PrimaryButton
-              label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
-              onPress={handleSave}
-              disabled={saving}
-            />
-          </>
+              {formError ? (
+                <View className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                  <Text className="text-sm text-rose-700">{formError}</Text>
+                </View>
+              ) : null}
+
+              <View className="mt-4 gap-4">
+                <InputField
+                  label="Name"
+                  placeholder="Legal name"
+                  value={form.name}
+                  onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
+                  disabled={!canEditOrgIdentity}
+                />
+                <InputField
+                  label="Marketing name"
+                  placeholder="Public-facing name"
+                  value={form.marketingName}
+                  onChangeText={(marketingName) => setForm((prev) => ({ ...prev, marketingName }))}
+                  disabled={!canEditOrgIdentity}
+                />
+                <InputField
+                  label="Industry"
+                  placeholder="Industry"
+                  value={form.industry}
+                  onChangeText={(industry) => setForm((prev) => ({ ...prev, industry }))}
+                  disabled={!canEditOrgIdentity}
+                />
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">Organization type</Text>
+                  <Pressable
+                    disabled={!canEditOrgIdentity}
+                    onPress={() => {
+                      if (!canEditOrgIdentity) return;
+                      setOrgTypePickerOpen((open) => {
+                        const next = !open;
+                        if (next) setOrgTypeQuery('');
+                        return next;
+                      });
+                    }}
+                    className={`flex-row items-center justify-between rounded-2xl border px-3 py-2 ${
+                      !canEditOrgIdentity
+                        ? 'border-slate-200 bg-slate-100 opacity-60'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className={form.type ? 'text-sm font-medium text-slate-900' : 'text-sm text-slate-400'}>
+                      {form.type || 'Select organization type'}
+                    </Text>
+                  </Pressable>
+                  {orgTypePickerOpen ? (
+                    <View className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                      <View className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <TextInput
+                          value={orgTypeQuery}
+                          onChangeText={setOrgTypeQuery}
+                          placeholder="Search types..."
+                          placeholderTextColor="rgba(107,114,128,0.7)"
+                          className="text-sm text-slate-900"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                      <ScrollView className="mt-2 max-h-48" nestedScrollEnabled>
+                        {filteredOrgTypesForPicker.map((type) => {
+                          const selected = form.type === type.name;
+                          return (
+                            <Pressable
+                              key={type.id}
+                              onPress={() => {
+                                setForm((prev) => ({ ...prev, type: type.name }));
+                                setOrgTypePickerOpen(false);
+                              }}
+                              className={`rounded-xl border px-3 py-2 ${
+                                selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-slate-50'
+                              }`}
+                            >
+                              <Text
+                                className={`text-sm font-semibold ${
+                                  selected ? 'text-indigo-700' : 'text-slate-800'
+                                }`}
+                                numberOfLines={1}
+                              >
+                                {type.name}
+                              </Text>
+                              {type.description ? (
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  {type.description}
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                        {filteredOrgTypesForPicker.length === 0 ? (
+                          <Text className="text-sm text-slate-500">No organization types available.</Text>
+                        ) : null}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
+                <InputField
+                  label="Phone"
+                  placeholder="+33 1 23 45 67 89"
+                  value={form.phone}
+                  onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
+                  keyboardType="default"
+                />
+
+                <View className="w-full">
+                  <InputField
+                    label="Street"
+                    placeholder="123 Main St"
+                    value={form.street}
+                    onChangeText={(street) => setForm((prev) => ({ ...prev, street }))}
+                  />
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <InputField
+                      label="City"
+                      placeholder="City"
+                      value={form.city}
+                      onChangeText={(city) => setForm((prev) => ({ ...prev, city }))}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <InputField
+                      label="State / Region"
+                      placeholder="State or region"
+                      value={form.state}
+                      onChangeText={(state) => setForm((prev) => ({ ...prev, state }))}
+                    />
+                  </View>
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <InputField
+                      label="Postal code"
+                      placeholder="Postal code"
+                      value={form.postalCode}
+                      onChangeText={(postalCode) => setForm((prev) => ({ ...prev, postalCode }))}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <InputField
+                      label="Country"
+                      placeholder="Country"
+                      value={form.country}
+                      onChangeText={(country) => setForm((prev) => ({ ...prev, country }))}
+                    />
+                  </View>
+                </View>
+
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <InputField
+                      label="Latitude"
+                      placeholder="48.8566"
+                      value={form.latitude}
+                      onChangeText={(latitude) => setForm((prev) => ({ ...prev, latitude }))}
+                      keyboardType="default"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <InputField
+                      label="Longitude"
+                      placeholder="2.3522"
+                      value={form.longitude}
+                      onChangeText={(longitude) => setForm((prev) => ({ ...prev, longitude }))}
+                      keyboardType="default"
+                    />
+                  </View>
+                </View>
+
+                <InputField
+                  label="Maps link"
+                  placeholder="https://maps.google.com/?q=48.8566,2.3522"
+                  value={form.mapsLink}
+                  onChangeText={(mapsLink) => setForm((prev) => ({ ...prev, mapsLink }))}
+                  autoComplete="off"
+                />
+                <InputField
+                  label="Facebook page"
+                  placeholder="https://www.facebook.com/yourpage"
+                  value={form.facebookPage}
+                  onChangeText={(facebookPage) => setForm((prev) => ({ ...prev, facebookPage }))}
+                  autoComplete="off"
+                />
+                <InputField
+                  label="Facebook group"
+                  placeholder="https://www.facebook.com/groups/yourgroup"
+                  value={form.facebookGroup}
+                  onChangeText={(facebookGroup) => setForm((prev) => ({ ...prev, facebookGroup }))}
+                  autoComplete="off"
+                />
+                <InputField
+                  label="Instagram"
+                  placeholder="https://www.instagram.com/yourhandle"
+                  value={form.instagram}
+                  onChangeText={(instagram) => setForm((prev) => ({ ...prev, instagram }))}
+                  autoComplete="off"
+                />
+                <InputField
+                  label="WhatsApp contact"
+                  placeholder="+33 6 00 00 00 00"
+                  value={form.whatsappContact}
+                  onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
+                  autoComplete="off"
+                />
+                {selectedOrgQrCodes.length > 0 ? (
+                  <View className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                    <Text className="text-sm font-semibold text-slate-900">QR codes</Text>
+                    <View className="mt-2 flex-row flex-wrap gap-3">
+                      {selectedOrgQrCodes.map((qr) => (
+                        <QrCodePreview key={qr.label} label={qr.label} uri={qr.uri} />
+                      ))}
+                    </View>
+                    <Text className="mt-2 text-xs text-slate-500">Generated automatically when links are saved.</Text>
+                  </View>
+                ) : null}
+                {isSuperAdmin ? (
+                  <InputField
+                    label="Logo image URL"
+                    placeholder="https://cdn.example.com/logos/yourorg.png"
+                    value={form.logoImage}
+                    onChangeText={(logoImage) => setForm((prev) => ({ ...prev, logoImage }))}
+                    autoComplete="off"
+                  />
+                ) : null}
+                <View className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <Text className="text-sm font-semibold text-slate-900">Logo upload</Text>
+                  <Pressable
+                    onPress={openLogoPicker}
+                    disabled={!form.id || logoUploading}
+                    className={`mt-3 rounded-full border px-3 py-2 ${
+                      !form.id || logoUploading
+                        ? 'border-slate-200 bg-slate-100 opacity-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      {logoUploading ? 'Uploading...' : 'Upload logo'}
+                    </Text>
+                  </Pressable>
+                  <Text className="mt-2 text-xs text-slate-500">
+                    {form.id
+                      ? 'Upload an image file; the URL will be saved to logoImage.'
+                      : 'Save the organization before uploading a logo.'}
+                  </Text>
+                  {logoUploadMessage ? (
+                    <View className="mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                      <Text className="text-sm text-slate-700">{logoUploadMessage}</Text>
+                    </View>
+                  ) : null}
+                  {logoUploadError ? (
+                    <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                      <Text className="text-sm text-rose-700">{logoUploadError}</Text>
+                    </View>
+                  ) : null}
+                  {form.logoImage ? (
+                    <Image
+                      source={{ uri: resolveLogoUri(form.logoImage) }}
+                      className="mt-2 h-10 w-20 rounded-xl bg-slate-100"
+                      resizeMode="contain"
+                    />
+                  ) : null}
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <PrimaryButton
+                  label={saving ? 'Saving...' : form.id ? 'Update organization' : 'Create organization'}
+                  onPress={handleSave}
+                  disabled={saving}
+                />
+              </View>
+            </View>
+          </View>
         ) : activeTab === 'types' && canManageOrgTypes ? (
           <>
             <View style={styles.sectionHeader}>
