@@ -8138,112 +8138,168 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             </View>
           </View>
         ) : activeTab === 'types' && canManageOrgTypes ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>
-                  Organization types ({visibleTypes.length}/{orgTypes.length})
-                </Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetTypeForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New type</Text>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Organization types</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleTypes.length} of {orgTypes.length} types
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={resetTypeForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      New type
+                    </Text>
                   </Pressable>
-                  <Pressable onPress={loadOrgTypes} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={loadOrgTypes}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Refresh
+                    </Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={typeSearch}
-                  onChangeText={setTypeSearch}
-                  placeholder="Search types by id, name, description"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={typeSearch}
+                    onChangeText={setTypeSearch}
+                    placeholder="Search types by id, name, description"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
+                  />
+                </View>
               </View>
-              {renderPagination(typePage, totalTypePages, setTypePage)}
+              <View className="mt-3">{renderPagination(typePage, totalTypePages, setTypePage)}</View>
             </View>
 
             {typeMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{typeMessage}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{typeMessage}</Text>
               </View>
             ) : null}
 
-            {loading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading...</Text>
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Type list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {loading ? 'Loading' : `${visibleTypes.length} visible`}
+                </Text>
               </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleTypes.map((type) => (
-                  <Pressable
-                    key={type.id}
-                    style={[styles.orgCard, typeForm.id === type.id && styles.orgCardActive]}
-                    onPress={() => startTypeEdit(type)}
+
+              {loading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                   >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{type.name}</Text>
-                      <Text style={styles.orgType}>{type.id ? `#${type.id}` : 'New type'}</Text>
+                    <View className="gap-3 pb-1">
+                      {visibleTypes.map((type) => (
+                        <Pressable
+                          key={type.id}
+                          onPress={() => startTypeEdit(type)}
+                          className={`rounded-2xl border p-4 ${
+                            typeForm.id === type.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <View className="flex-row items-start justify-between gap-3">
+                            <View className="flex-1">
+                              <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                {type.name || 'Organization type'}
+                              </Text>
+                              <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                {type.id ? `#${type.id}` : 'New type'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text className="mt-2 text-sm text-slate-600">{type.description || 'No description'}</Text>
+                          <View className="mt-3 flex-row gap-3">
+                            <Pressable
+                              onPress={() => startTypeEdit(type)}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleTypeDelete(type)}
+                              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                            </Pressable>
+                          </View>
+                        </Pressable>
+                      ))}
+                      {visibleTypes.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No organization types yet.</Text>
+                      ) : null}
                     </View>
-                    <Text style={styles.orgMeta}>{type.description || 'No description'}</Text>
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startTypeEdit(type)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleTypeDelete(type)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                ))}
-                {visibleTypes.length === 0 ? (
-                  <Text style={styles.statusText}>No organization types yet.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                {typeForm.id ? 'Edit organization type' : 'Create organization type'}
-              </Text>
-              {typeForm.id ? (
-                <Pressable onPress={resetTypeForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
+                  </ScrollView>
+                </View>
+              )}
             </View>
 
-            {typeError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{typeError}</Text>
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {typeForm.id ? 'Edit organization type' : 'Create organization type'}
+                </Text>
+                {typeForm.id ? (
+                  <Pressable
+                    onPress={resetTypeForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            ) : null}
 
-            <InputField
-              label="Type name"
-              placeholder="Retail, Public, etc."
-              value={typeForm.name}
-              onChangeText={(name) => setTypeForm((prev) => ({ ...prev, name }))}
-            />
-            <InputField
-              label="Description"
-              placeholder="Short description"
-              value={typeForm.description ?? ''}
-              onChangeText={(description) => setTypeForm((prev) => ({ ...prev, description }))}
-            />
+              {typeError ? (
+                <View className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                  <Text className="text-sm text-rose-700">{typeError}</Text>
+                </View>
+              ) : null}
 
-            <PrimaryButton
-              label={typeSaving ? 'Saving type...' : typeForm.id ? 'Update type' : 'Create type'}
-              onPress={handleTypeSave}
-              disabled={typeSaving}
-            />
-          </>
+              <View className="mt-4 gap-4">
+                <InputField
+                  label="Type name"
+                  placeholder="Retail, Public, etc."
+                  value={typeForm.name}
+                  onChangeText={(name) => setTypeForm((prev) => ({ ...prev, name }))}
+                />
+                <InputField
+                  label="Description"
+                  placeholder="Short description"
+                  value={typeForm.description ?? ''}
+                  onChangeText={(description) => setTypeForm((prev) => ({ ...prev, description }))}
+                />
+              </View>
+
+              <View className="mt-4">
+                <PrimaryButton
+                  label={typeSaving ? 'Saving type...' : typeForm.id ? 'Update type' : 'Create type'}
+                  onPress={handleTypeSave}
+                  disabled={typeSaving}
+                />
+              </View>
+            </View>
+          </View>
         ) : showAgenda ? (
           <Pressable onPress={handleAgendaOutsidePress}>
             <View style={styles.sectionHeader}>
@@ -8962,136 +9018,176 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             </Pressable>
           </Pressable>
         ) : activeTab === 'schedule' && canViewSchedule ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>
-                  Schedules ({filteredScheduleOrgs.length}/{orgs.length})
-                </Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={clearScheduleForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Clear</Text>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Schedules</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {filteredScheduleOrgs.length} of {orgs.length} organizations
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={clearScheduleForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Clear</Text>
                   </Pressable>
-                  <Pressable onPress={loadOrganizations} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={loadOrganizations}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={scheduleSearch}
-                  onChangeText={setScheduleSearch}
-                  placeholder="Search organizations to edit schedule"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={scheduleSearch}
+                    onChangeText={setScheduleSearch}
+                    placeholder="Search organizations to edit schedule"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
+                  />
+                </View>
               </View>
-              {renderPagination(schedulePage, totalSchedulePages, setSchedulePage)}
+              <View className="mt-3">{renderPagination(schedulePage, totalSchedulePages, setSchedulePage)}</View>
             </View>
 
             {scheduleMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{scheduleMessage}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{scheduleMessage}</Text>
               </View>
             ) : null}
             {scheduleError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{scheduleError}</Text>
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{scheduleError}</Text>
               </View>
             ) : null}
 
-            {loading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading...</Text>
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Schedule list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {loading ? 'Loading' : `${visibleScheduleOrgs.length} visible`}
+                </Text>
               </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleScheduleOrgs.map((org) => {
-                  const isSelected = scheduleOrgId === org.id;
-                  const holidaysCount = org.scheduleConfig?.holidays?.length ?? 0;
-                  const workingCount = org.scheduleConfig?.workingDays?.length ?? 0;
-                  return (
-                    <Pressable
-                      key={org.id ?? org.name}
-                      style={[styles.orgCard, isSelected && styles.orgCardActive]}
-                      onPress={() => startScheduleEdit(org)}
-                    >
-                      <View style={styles.orgHeader}>
-                        <Text style={styles.orgName}>{org.name}</Text>
-                        <Text style={styles.orgType}>{org.type}</Text>
-                      </View>
-                      <Text style={styles.orgMeta}>
-                        {workingCount} working days / {holidaysCount} holidays
-                      </Text>
-                      <View style={styles.orgActions}>
-                        <Pressable onPress={() => startScheduleEdit(org)} style={styles.orgAction}>
-                          <Text style={styles.link}>Edit schedule</Text>
-                        </Pressable>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-                {visibleScheduleOrgs.length === 0 ? (
-                  <Text style={styles.statusText}>No organizations yet.</Text>
-                ) : null}
-              </ScrollView>
-            )}
 
-            <View style={styles.divider} />
+              {loading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleScheduleOrgs.map((org) => {
+                        const isSelected = scheduleOrgId === org.id;
+                        const holidaysCount = org.scheduleConfig?.holidays?.length ?? 0;
+                        const workingCount = org.scheduleConfig?.workingDays?.length ?? 0;
+                        return (
+                          <Pressable
+                            key={org.id ?? org.name}
+                            onPress={() => startScheduleEdit(org)}
+                            className={`rounded-2xl border p-4 ${
+                              isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {org.name || 'Unnamed organization'}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {org.type || 'Org type'}
+                                </Text>
+                              </View>
+                              <View className="rounded-full bg-slate-900/10 px-2 py-1">
+                                <Text className="text-[10px] font-semibold uppercase tracking-[1px] text-slate-600">
+                                  {workingCount} days ? {holidaysCount} holidays
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">Org id: {org.id || 'unknown'}</Text>
+                            <Text className="text-sm text-slate-600">Timezone: {org.timezone || 'UTC'}</Text>
+                          </Pressable>
+                        );
+                      })}
+                      {visibleScheduleOrgs.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No organizations yet.</Text>
+                      ) : null}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
 
-            {scheduleOrgId ? (
-              <>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    Schedule for {selectedScheduleOrg?.name ?? 'organization'}
-                  </Text>
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {scheduleOrgId
+                    ? `Schedule for ${selectedScheduleOrg?.name ?? 'organization'}`
+                    : 'Schedule editor'}
+                </Text>
+                {scheduleOrgId ? (
                   <Pressable
                     onPress={() => selectedScheduleOrg && startScheduleEdit(selectedScheduleOrg)}
-                    style={styles.secondaryChip}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
                   >
-                    <Text style={styles.secondaryChipText}>Reset</Text>
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
                   </Pressable>
-                </View>
+                ) : null}
+              </View>
 
-                <ScheduleEditor
-                  form={scheduleForm}
-                  activeDay={activeDay}
-                  setActiveDay={setActiveDay}
-                  toggleWorkingDay={toggleWorkingDay}
-                  applyDays={scheduleApplyDays}
-                  toggleApplyDay={toggleScheduleApplyDay}
-                  toggleApplyAllDays={toggleScheduleApplyAllDays}
-                  newBusinessWindow={newBusinessWindow}
-                  setNewBusinessWindow={setNewBusinessWindow}
-                  addBusinessWindow={addBusinessWindow}
-                  setFullDayBusinessHours={setBusinessHoursFullDay}
-                  removeBusinessWindow={removeBusinessWindow}
-                  newBreakWindow={newBreakWindow}
-                  setNewBreakWindow={setNewBreakWindow}
-                  addBreakWindow={addBreakWindow}
-                  removeBreakWindow={removeBreakWindow}
-                  clearHoursAndBreaks={clearScheduleHoursAndBreaks}
-                  newHoliday={newHoliday}
-                  setNewHoliday={setNewHoliday}
-                  holidayWindow={holidayWindow}
-                  setHolidayWindow={setHolidayWindow}
-                  addHoliday={addHoliday}
-                  removeHoliday={removeHoliday}
-                  footer={
-                    <PrimaryButton
-                      label={scheduleSaving ? 'Saving schedule...' : 'Save schedule'}
-                      onPress={handleScheduleSave}
-                      disabled={scheduleSaving}
-                    />
-                  }
-                />
-              </>
-            ) : (
-              <Text style={styles.statusText}>Select an organization to edit its schedule.</Text>
-            )}
-          </>
+              {scheduleOrgId ? (
+                <View className="mt-4">
+                  <ScheduleEditor
+                    form={scheduleForm}
+                    activeDay={activeDay}
+                    setActiveDay={setActiveDay}
+                    toggleWorkingDay={toggleWorkingDay}
+                    applyDays={scheduleApplyDays}
+                    toggleApplyDay={toggleScheduleApplyDay}
+                    toggleApplyAllDays={toggleScheduleApplyAllDays}
+                    newBusinessWindow={newBusinessWindow}
+                    setNewBusinessWindow={setNewBusinessWindow}
+                    addBusinessWindow={addBusinessWindow}
+                    setFullDayBusinessHours={setBusinessHoursFullDay}
+                    removeBusinessWindow={removeBusinessWindow}
+                    newBreakWindow={newBreakWindow}
+                    setNewBreakWindow={setNewBreakWindow}
+                    addBreakWindow={addBreakWindow}
+                    removeBreakWindow={removeBreakWindow}
+                    clearHoursAndBreaks={clearScheduleHoursAndBreaks}
+                    newHoliday={newHoliday}
+                    setNewHoliday={setNewHoliday}
+                    holidayWindow={holidayWindow}
+                    setHolidayWindow={setHolidayWindow}
+                    addHoliday={addHoliday}
+                    removeHoliday={removeHoliday}
+                    footer={
+                      <PrimaryButton
+                        label={scheduleSaving ? 'Saving schedule...' : 'Save schedule'}
+                        onPress={handleScheduleSave}
+                        disabled={scheduleSaving}
+                      />
+                    }
+                  />
+                </View>
+              ) : (
+                <Text className="mt-3 text-sm text-slate-500">Select an organization to edit its schedule.</Text>
+              )}
+            </View>
+          </View>
         ) : activeTab === 'resources' && canViewResources ? (
           <View className="w-full gap-6">
             <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
@@ -10031,178 +10127,251 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             ) : null}
           </>
         ) : activeTab === 'appointmentTypes' && canViewAppointmentTypes ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>
-                  Appointment types ({visibleAppointmentTypes.length}/{appointmentTypes.length})
-                </Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetAppointmentTypeForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Appointment types</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleAppointmentTypes.length} of {appointmentTypes.length} types
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={resetAppointmentTypeForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                   </Pressable>
-                  <Pressable onPress={() => loadAppointmentTypes()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={() => loadAppointmentTypes()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={appointmentTypeSearch}
-                  onChangeText={setAppointmentTypeSearch}
-                  placeholder="Search by id, name, category, org, duration"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
-                  <OrganizationPickerField
-                    label="Org filter (optional)"
-                    placeholder="All organizations"
-                    value={appointmentTypeOrgFilter}
-                    onSelect={setAppointmentTypeOrgFilter}
-                    organizations={homeOrgBase}
-                    allowEmptyOption
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={appointmentTypeSearch}
+                    onChangeText={setAppointmentTypeSearch}
+                    placeholder="Search by id, name, category, org, duration"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
                   />
                 </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <Pressable onPress={() => loadAppointmentTypes()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <OrganizationPickerField
+                      label="Org filter (optional)"
+                      placeholder="All organizations"
+                      value={appointmentTypeOrgFilter}
+                      onSelect={setAppointmentTypeOrgFilter}
+                      organizations={homeOrgBase}
+                      allowEmptyOption
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => loadAppointmentTypes()}
+                    className="self-end rounded-full border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Apply filter
+                    </Text>
                   </Pressable>
                 </View>
               </View>
-              {renderPagination(appointmentTypePage, totalAppointmentTypePages, setAppointmentTypePage)}
+              <View className="mt-3">
+                {renderPagination(appointmentTypePage, totalAppointmentTypePages, setAppointmentTypePage)}
+              </View>
             </View>
 
             {appointmentTypeMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{appointmentTypeMessage}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{appointmentTypeMessage}</Text>
               </View>
             ) : null}
             {appointmentTypeError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{appointmentTypeError}</Text>
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{appointmentTypeError}</Text>
               </View>
             ) : null}
 
-            {appointmentTypeLoading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading appointment types...</Text>
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">Type list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {appointmentTypeLoading ? 'Loading' : `${visibleAppointmentTypes.length} visible`}
+                </Text>
               </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleAppointmentTypes.map((type) => (
-                  <Pressable
-                    key={type.id ?? type.name}
-                    style={[styles.orgCard, appointmentTypeForm.id === type.id && styles.orgCardActive]}
-                    onPress={() => startAppointmentTypeEdit(type)}
+
+              {appointmentTypeLoading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading appointment types...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                   >
-                    <View style={styles.orgHeader}>
-                      <Text style={styles.orgName}>{type.name || 'Appointment type'}</Text>
-                      <Text style={styles.orgType}>{type.category || 'No category'}</Text>
+                    <View className="gap-3 pb-1">
+                      {visibleAppointmentTypes.map((type) => (
+                        <Pressable
+                          key={type.id ?? type.name}
+                          onPress={() => startAppointmentTypeEdit(type)}
+                          className={`rounded-2xl border p-4 ${
+                            appointmentTypeForm.id === type.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <View className="flex-row items-start justify-between gap-3">
+                            <View className="flex-1">
+                              <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                {type.name || 'Appointment type'}
+                              </Text>
+                              <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                {type.category || 'No category'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text className="mt-2 text-sm text-slate-600">
+                            Org: {type.orgId || 'N/A'} - Default duration: {type.defaultDurationMinutes ?? 'N/A'} mins
+                          </Text>
+                          <Text className="text-sm text-slate-600">
+                            Allowed durations: {(type.allowedDurations ?? []).join(', ') || 'Any'} - Requires resource:{' '}
+                            {type.requiresResource ? 'Yes' : 'No'} - Active: {type.active ? 'Yes' : 'No'}
+                          </Text>
+                          <View className="mt-3 flex-row gap-3">
+                            <Pressable
+                              onPress={() => startAppointmentTypeEdit(type)}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleAppointmentTypeDelete(type)}
+                              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                            >
+                              <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                            </Pressable>
+                          </View>
+                        </Pressable>
+                      ))}
+                      {visibleAppointmentTypes.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No appointment types match the filters.</Text>
+                      ) : null}
                     </View>
-                    <Text style={styles.orgMeta}>
-                      Org: {type.orgId || 'N/A'} - Default duration: {type.defaultDurationMinutes ?? 'N/A'} mins
-                    </Text>
-                    <Text style={styles.orgMeta}>
-                      Allowed durations: {(type.allowedDurations ?? []).join(', ') || 'Any'} - Requires resource:{' '}
-                      {type.requiresResource ? 'Yes' : 'No'} - Active: {type.active ? 'Yes' : 'No'}
-                    </Text>
-                    <View style={styles.orgActions}>
-                      <Pressable onPress={() => startAppointmentTypeEdit(type)} style={styles.orgAction}>
-                        <Text style={styles.link}>Edit</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleAppointmentTypeDelete(type)} style={styles.orgAction}>
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                ))}
-                {visibleAppointmentTypes.length === 0 ? (
-                  <Text style={styles.statusText}>No appointment types match the filters.</Text>
-                ) : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                {appointmentTypeForm.id ? 'Edit appointment type' : 'Create appointment type'}
-              </Text>
-              {appointmentTypeForm.id ? (
-                <Pressable onPress={resetAppointmentTypeForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
+                  </ScrollView>
+                </View>
+              )}
             </View>
 
-            <InputField
-              label="Name"
-              placeholder="Consultation"
-              value={appointmentTypeForm.name}
-              onChangeText={(name) => setAppointmentTypeForm((prev) => ({ ...prev, name }))}
-            />
-            <InputField
-              label="Category"
-              placeholder="Medical"
-              value={appointmentTypeForm.category}
-              onChangeText={(category) => setAppointmentTypeForm((prev) => ({ ...prev, category }))}
-            />
-            <OrganizationPickerField
-              label="Org id (required for platform admins)"
-              value={appointmentTypeForm.orgId}
-              onSelect={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
-              organizations={homeOrgBase}
-            />
-            <DurationSelectField
-              label="Default duration (minutes)"
-              placeholder="Select duration"
-              value={appointmentTypeForm.defaultDurationMinutes}
-              onChangeValue={(defaultDurationMinutes) =>
-                setAppointmentTypeForm((prev) => ({ ...prev, defaultDurationMinutes }))
-              }
-            />
-            <DurationMultiSelectField
-              label="Allowed durations (comma separated minutes)"
-              placeholder="Any duration"
-              value={appointmentTypeForm.allowedDurations}
-              onChangeValue={(allowedDurations) => setAppointmentTypeForm((prev) => ({ ...prev, allowedDurations }))}
-            />
-            <Pressable
-              onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, requiresResource: !prev.requiresResource }))}
-              style={styles.rememberRow}
-            >
-              <View style={[styles.checkbox, appointmentTypeForm.requiresResource && styles.checkboxChecked]}>
-                {appointmentTypeForm.requiresResource ? <View style={styles.checkboxDot} /> : null}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">
+                  {appointmentTypeForm.id ? 'Edit appointment type' : 'Create appointment type'}
+                </Text>
+                {appointmentTypeForm.id ? (
+                  <Pressable
+                    onPress={resetAppointmentTypeForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
               </View>
-              <Text style={styles.rememberText}>Requires resource</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, active: !prev.active }))}
-              style={styles.rememberRow}
-            >
-              <View style={[styles.checkbox, appointmentTypeForm.active && styles.checkboxChecked]}>
-                {appointmentTypeForm.active ? <View style={styles.checkboxDot} /> : null}
-              </View>
-              <Text style={styles.rememberText}>Active</Text>
-            </Pressable>
 
-            <PrimaryButton
-              label={
-                appointmentTypeSaving
-                  ? 'Saving appointment type...'
-                  : appointmentTypeForm.id
-                    ? 'Update appointment type'
-                    : 'Create appointment type'
-              }
-              onPress={handleAppointmentTypeSave}
-              disabled={appointmentTypeSaving}
-            />
-          </>
+              <View className="mt-4 gap-4">
+                <InputField
+                  label="Name"
+                  placeholder="Consultation"
+                  value={appointmentTypeForm.name}
+                  onChangeText={(name) => setAppointmentTypeForm((prev) => ({ ...prev, name }))}
+                />
+                <InputField
+                  label="Category"
+                  placeholder="Medical"
+                  value={appointmentTypeForm.category}
+                  onChangeText={(category) => setAppointmentTypeForm((prev) => ({ ...prev, category }))}
+                />
+                <OrganizationPickerField
+                  label="Org id (required for platform admins)"
+                  value={appointmentTypeForm.orgId}
+                  onSelect={(orgId) => setAppointmentTypeForm((prev) => ({ ...prev, orgId }))}
+                  organizations={homeOrgBase}
+                />
+                <DurationSelectField
+                  label="Default duration (minutes)"
+                  placeholder="Select duration"
+                  value={appointmentTypeForm.defaultDurationMinutes}
+                  onChangeValue={(defaultDurationMinutes) =>
+                    setAppointmentTypeForm((prev) => ({ ...prev, defaultDurationMinutes }))
+                  }
+                />
+                <DurationMultiSelectField
+                  label="Allowed durations (comma separated minutes)"
+                  placeholder="Any duration"
+                  value={appointmentTypeForm.allowedDurations}
+                  onChangeValue={(allowedDurations) =>
+                    setAppointmentTypeForm((prev) => ({ ...prev, allowedDurations }))
+                  }
+                />
+                <Pressable
+                  onPress={() =>
+                    setAppointmentTypeForm((prev) => ({ ...prev, requiresResource: !prev.requiresResource }))
+                  }
+                  className="flex-row items-center gap-2"
+                >
+                  <View
+                    className={`h-5 w-5 items-center justify-center rounded-md border ${
+                      appointmentTypeForm.requiresResource
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {appointmentTypeForm.requiresResource ? (
+                      <View className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
+                    ) : null}
+                  </View>
+                  <Text className="text-sm font-medium text-slate-700">Requires resource</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setAppointmentTypeForm((prev) => ({ ...prev, active: !prev.active }))}
+                  className="flex-row items-center gap-2"
+                >
+                  <View
+                    className={`h-5 w-5 items-center justify-center rounded-md border ${
+                      appointmentTypeForm.active ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {appointmentTypeForm.active ? <View className="h-2.5 w-2.5 rounded-full bg-indigo-600" /> : null}
+                  </View>
+                  <Text className="text-sm font-medium text-slate-700">Active</Text>
+                </Pressable>
+              </View>
+
+              <View className="mt-4">
+                <PrimaryButton
+                  label={
+                    appointmentTypeSaving
+                      ? 'Saving appointment type...'
+                      : appointmentTypeForm.id
+                        ? 'Update appointment type'
+                        : 'Create appointment type'
+                  }
+                  onPress={handleAppointmentTypeSave}
+                  disabled={appointmentTypeSaving}
+                />
+              </View>
+            </View>
+          </View>
         ) : activeTab === 'customers' && canViewCustomers ? (
           <>
             <View style={styles.sectionHeader}>
@@ -10485,309 +10654,404 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
             ) : null}
           </>
         ) : activeTab === 'users' && canViewUsers ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Users ({visibleUsers.length}/{users.length})</Text>
-                <View style={styles.sectionActions}>
-                  <Pressable onPress={resetUserForm} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>New</Text>
+          <View className="w-full gap-6">
+            <View className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-4">
+                <View className="flex-1">
+                  <Text className="text-xl font-semibold text-slate-900">Users</Text>
+                  <Text className="mt-1 text-sm text-slate-500">
+                    Showing {visibleUsers.length} of {users.length} users
+                  </Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={resetUserForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">New</Text>
                   </Pressable>
-                  <Pressable onPress={() => loadUsers()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Refresh</Text>
+                  <Pressable
+                    onPress={() => loadUsers()}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Refresh</Text>
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.searchBox}>
-                <TextInput
-                  value={userSearch}
-                  onChangeText={setUserSearch}
-                  placeholder="Search by username, email, name, org, status, role"
-                  placeholderTextColor="rgba(107,114,128,0.7)"
-                  style={styles.searchInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={styles.row}>
-                <View style={styles.flexHalf}>
-                  <OrganizationPickerField
-                    label="Home org filter (optional)"
-                    placeholder="All organizations"
-                    value={userOrgFilter}
-                    onSelect={setUserOrgFilter}
-                    organizations={homeOrgBase}
-                    allowEmptyOption
+              <View className="mt-4 gap-3">
+                <View className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <TextInput
+                    value={userSearch}
+                    onChangeText={setUserSearch}
+                    placeholder="Search by username, email, name, org, status, role"
+                    placeholderTextColor="rgba(107,114,128,0.7)"
+                    className="text-sm text-slate-900"
+                    autoCapitalize="none"
                   />
                 </View>
-                <View style={[styles.flexHalf, { alignItems: 'flex-end' }]}>
-                  <Pressable onPress={() => loadUsers()} style={styles.secondaryChip}>
-                    <Text style={styles.secondaryChipText}>Apply org filter</Text>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <OrganizationPickerField
+                      label="Home org filter (optional)"
+                      placeholder="All organizations"
+                      value={userOrgFilter}
+                      onSelect={setUserOrgFilter}
+                      organizations={homeOrgBase}
+                      allowEmptyOption
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => loadUsers()}
+                    className="self-end rounded-full border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                      Apply filter
+                    </Text>
                   </Pressable>
                 </View>
               </View>
-              {renderPagination(userPage, totalUserPages, setUserPage)}
+              <View className="mt-3">{renderPagination(userPage, totalUserPages, setUserPage)}</View>
             </View>
 
             {userMessage ? (
-              <View style={styles.statusPill}>
-                <Text style={styles.statusText}>{userMessage}</Text>
+              <View className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                <Text className="text-sm text-slate-700">{userMessage}</Text>
               </View>
             ) : null}
             {userError ? (
-              <View style={[styles.statusPill, styles.errorPill]}>
-                <Text style={styles.errorText}>{userError}</Text>
+              <View className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <Text className="text-sm text-rose-700">{userError}</Text>
               </View>
             ) : null}
 
-            {userLoading ? (
-              <View style={styles.loadingInline}>
-                <ActivityIndicator color="#1D4ED8" />
-                <Text style={styles.statusText}>Loading users...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.orgListScroll} contentContainerStyle={styles.orgList} nestedScrollEnabled keyboardShouldPersistTaps="handled" maintainVisibleContentPosition={{ minIndexForVisible: 0 }} >
-                {visibleUsers.map((user) => {
-                  const name =
-                    user.firstName || user.lastName
-                      ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
-                      : user.username;
-                  return (
-                    <Pressable
-                      key={user.id ?? user.username}
-                      style={[styles.orgCard, userForm.id === user.id && styles.orgCardActive]}
-                      onPress={() => startUserEdit(user)}
-                    >
-                      <View style={styles.orgHeader}>
-                        <Text style={styles.orgName}>{name}</Text>
-                        <Text style={styles.orgType}>{user.status || 'ACTIVE'}</Text>
-                      </View>
-                      <Text style={styles.orgMeta}>
-                        {user.username} - {user.email || 'No email'}
-                      </Text>
-                      <Text style={styles.orgMeta}>Roles: {formatUserRoles(user.roles)}</Text>
-                      <Text style={styles.orgMeta}>
-                        Home org:{' '}
-                        {user.homeOrganizationId
-                          ? getOrganizationLabel(homeOrgBase, user.homeOrganizationId)
-                          : 'Platform'}
-                        {user.createdAt ? ` - Created ${user.createdAt}` : ''}
-                      </Text>
-                      <View style={styles.orgActions}>
-                        <Pressable onPress={() => startUserEdit(user)} style={styles.orgAction}>
-                          <Text style={styles.link}>Edit</Text>
-                        </Pressable>
-                        <Pressable onPress={() => handleUserDelete(user)} style={styles.orgAction}>
-                          <Text style={styles.deleteText}>Delete</Text>
-                        </Pressable>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-                {visibleUsers.length === 0 ? <Text style={styles.statusText}>No users match the filters.</Text> : null}
-              </ScrollView>
-            )}
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{userForm.id ? 'Edit user' : 'Create user'}</Text>
-              {userForm.id ? (
-                <Pressable onPress={resetUserForm} style={styles.secondaryChip}>
-                  <Text style={styles.secondaryChipText}>Reset</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Username"
-                  placeholder="john.doe"
-                  value={userForm.username}
-                  onChangeText={(username) => setUserForm((prev) => ({ ...prev, username }))}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Email"
-                  placeholder="john.doe@example.com"
-                  value={userForm.email}
-                  onChangeText={(email) => setUserForm((prev) => ({ ...prev, email }))}
-                  keyboardType="email-address"
-                  autoComplete="email"
-                />
-              </View>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="First name"
-                  placeholder="John"
-                  value={userForm.firstName}
-                  onChangeText={(firstName) => setUserForm((prev) => ({ ...prev, firstName }))}
-                />
-              </View>
-              <View style={styles.flexHalf}>
-                <InputField
-                  label="Last name"
-                  placeholder="Doe"
-                  value={userForm.lastName}
-                  onChangeText={(lastName) => setUserForm((prev) => ({ ...prev, lastName }))}
-                />
-              </View>
-            </View>
-            <InputField
-              label="Password"
-              placeholder={userForm.id ? 'Leave blank to keep current password' : 'At least 8 characters'}
-              value={userForm.password}
-              onChangeText={(password) => setUserForm((prev) => ({ ...prev, password }))}
-              secureTextEntry
-              autoComplete="password"
-            />
-            <InputField
-              label={userForm.id ? 'Confirm new password' : 'Confirm password'}
-              placeholder={userForm.id ? 'Re-enter new password' : 'Re-enter password'}
-              value={userForm.passwordConfirm}
-              onChangeText={(passwordConfirm) => setUserForm((prev) => ({ ...prev, passwordConfirm }))}
-              secureTextEntry
-              autoComplete="password"
-            />
-            <Text style={styles.helperText}>Leave both password fields blank when editing to keep the existing password.</Text>
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Home organization (optional for platform admins)</Text>
-              <Pressable
-                style={[styles.dropdownTrigger, styles.dropdownTriggerRow]}
-                onPress={() =>
-                  setHomeOrgPickerOpen((open) => {
-                    const next = !open;
-                    if (next) setHomeOrgQuery('');
-                    return next;
-                  })
-                }
-              >
-                <Text style={userForm.homeOrganizationId ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {userForm.homeOrganizationId
-                    ? getOrganizationLabel(homeOrgBase, userForm.homeOrganizationId)
-                    : 'Select organization'}
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-slate-900">User list</Text>
+                <Text className="text-[11px] uppercase tracking-[1px] text-slate-400">
+                  {userLoading ? 'Loading' : `${visibleUsers.length} visible`}
                 </Text>
-                <Text style={styles.dropdownCaret}>{homeOrgPickerOpen ? '^' : 'v'}</Text>
-              </Pressable>
-              {homeOrgPickerOpen ? (
-                <View style={styles.dropdownPanel}>
-                  <TextInput
-                    value={homeOrgQuery}
-                    onChangeText={setHomeOrgQuery}
-                    placeholder="Search by id, name, marketing name, phone, createdBy"
-                    placeholderTextColor="rgba(107,114,128,0.7)"
-                    style={styles.dropdownSearchInput}
-                    autoCapitalize="none"
-                  />
-                  <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                    {filteredHomeOrgs.length === 0 ? (
-                      <Text style={styles.statusText}>No organizations match the search.</Text>
-                    ) : (
-                      filteredHomeOrgs.map((org) => (
-                        <Pressable
-                          key={org.id ?? org.name}
-                          onPress={() => {
-                            setUserForm((prev) => ({ ...prev, homeOrganizationId: org.id || '' }));
-                            setHomeOrgPickerOpen(false);
-                          }}
-                          style={[
-                            styles.dropdownItem,
-                            userForm.homeOrganizationId === org.id && styles.dropdownItemSelected,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemLabel,
-                              userForm.homeOrganizationId === org.id && styles.dropdownItemLabelSelected,
-                            ]}
-                            numberOfLines={1}
+              </View>
+
+              {userLoading ? (
+                <View className="mt-4 flex-row items-center gap-3">
+                  <ActivityIndicator color="#1D4ED8" />
+                  <Text className="text-sm text-slate-600">Loading users...</Text>
+                </View>
+              ) : (
+                <View className="mt-4">
+                  <ScrollView
+                    style={styles.orgListScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                  >
+                    <View className="gap-3 pb-1">
+                      {visibleUsers.map((user) => {
+                        const name =
+                          user.firstName || user.lastName
+                            ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+                            : user.username;
+                        const status = user.status || 'ACTIVE';
+                        const statusActive = status === 'ACTIVE';
+                        return (
+                          <Pressable
+                            key={user.id ?? user.username}
+                            onPress={() => startUserEdit(user)}
+                            className={`rounded-2xl border p-4 ${
+                              userForm.id === user.id ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                            }`}
                           >
-                            {org.marketingName || org.name || org.id}
-                          </Text>
-                          <Text style={styles.dropdownItemDescription} numberOfLines={1}>
-                            {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
-                          </Text>
-                        </Pressable>
-                      ))
-                    )}
+                            <View className="flex-row items-start justify-between gap-3">
+                              <View className="flex-1">
+                                <Text className="text-base font-semibold text-slate-900" numberOfLines={1}>
+                                  {name}
+                                </Text>
+                                <Text className="mt-1 text-xs uppercase tracking-[1px] text-slate-500" numberOfLines={1}>
+                                  {user.username}
+                                </Text>
+                              </View>
+                              <View className={`rounded-full px-2 py-1 ${statusActive ? 'bg-emerald-100' : 'bg-slate-900/10'}`}>
+                                <Text
+                                  className={`text-[10px] font-semibold uppercase tracking-[1px] ${
+                                    statusActive ? 'text-emerald-700' : 'text-slate-600'
+                                  }`}
+                                >
+                                  {status}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="mt-2 text-sm text-slate-600">Email: {user.email || 'No email'}</Text>
+                            <Text className="text-sm text-slate-600">Roles: {formatUserRoles(user.roles)}</Text>
+                            <Text className="text-sm text-slate-600">
+                              Home org:{' '}
+                              {user.homeOrganizationId
+                                ? getOrganizationLabel(homeOrgBase, user.homeOrganizationId)
+                                : 'Platform'}
+                              {user.createdAt ? ` - Created ${user.createdAt}` : ''}
+                            </Text>
+                            <View className="mt-3 flex-row gap-3">
+                              <Pressable
+                                onPress={() => startUserEdit(user)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-slate-700">Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleUserDelete(user)}
+                                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5"
+                              >
+                                <Text className="text-xs font-semibold text-rose-600">Delete</Text>
+                              </Pressable>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                      {visibleUsers.length === 0 ? (
+                        <Text className="text-sm text-slate-500">No users match the filters.</Text>
+                      ) : null}
+                    </View>
                   </ScrollView>
                 </View>
-              ) : null}
+              )}
             </View>
-            <View style={styles.row}>
-              <View style={styles.flexHalf}>
-                <DatePickerField
-                  label="Expires on (optional)"
-                  placeholder="2026-01-01"
-                  value={userForm.expiresDate}
-                  onChangeText={(expiresDate) =>
-                    setUserForm((prev) => ({
-                      ...prev,
-                      expiresDate,
-                      expiresAt: buildDateTimeValue(expiresDate, prev.expiresTime),
-                    }))
-                  }
+
+            <View className="w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-lg font-semibold text-slate-900">{userForm.id ? 'Edit user' : 'Create user'}</Text>
+                {userForm.id ? (
+                  <Pressable
+                    onPress={resetUserForm}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View className="mt-4 gap-4">
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <InputField
+                      label="Username"
+                      placeholder="john.doe"
+                      value={userForm.username}
+                      onChangeText={(username) => setUserForm((prev) => ({ ...prev, username }))}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <InputField
+                      label="Email"
+                      placeholder="john.doe@example.com"
+                      value={userForm.email}
+                      onChangeText={(email) => setUserForm((prev) => ({ ...prev, email }))}
+                      keyboardType="email-address"
+                      autoComplete="email"
+                    />
+                  </View>
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <InputField
+                      label="First name"
+                      placeholder="John"
+                      value={userForm.firstName}
+                      onChangeText={(firstName) => setUserForm((prev) => ({ ...prev, firstName }))}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <InputField
+                      label="Last name"
+                      placeholder="Doe"
+                      value={userForm.lastName}
+                      onChangeText={(lastName) => setUserForm((prev) => ({ ...prev, lastName }))}
+                    />
+                  </View>
+                </View>
+                <InputField
+                  label="Password"
+                  placeholder={userForm.id ? 'Leave blank to keep current password' : 'At least 8 characters'}
+                  value={userForm.password}
+                  onChangeText={(password) => setUserForm((prev) => ({ ...prev, password }))}
+                  secureTextEntry
+                  autoComplete="password"
+                />
+                <InputField
+                  label={userForm.id ? 'Confirm new password' : 'Confirm password'}
+                  placeholder={userForm.id ? 'Re-enter new password' : 'Re-enter password'}
+                  value={userForm.passwordConfirm}
+                  onChangeText={(passwordConfirm) => setUserForm((prev) => ({ ...prev, passwordConfirm }))}
+                  secureTextEntry
+                  autoComplete="password"
+                />
+                <Text className="text-xs text-slate-500">
+                  Leave both password fields blank when editing to keep the existing password.
+                </Text>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">
+                    Home organization (optional for platform admins)
+                  </Text>
+                  <Pressable
+                    className="flex-row items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                    onPress={() =>
+                      setHomeOrgPickerOpen((open) => {
+                        const next = !open;
+                        if (next) setHomeOrgQuery('');
+                        return next;
+                      })
+                    }
+                  >
+                    <Text
+                      className={
+                        userForm.homeOrganizationId ? 'text-sm font-medium text-slate-900' : 'text-sm text-slate-400'
+                      }
+                    >
+                      {userForm.homeOrganizationId
+                        ? getOrganizationLabel(homeOrgBase, userForm.homeOrganizationId)
+                        : 'Select organization'}
+                    </Text>
+                    <Text className="text-xs font-semibold text-slate-500">{homeOrgPickerOpen ? '^' : 'v'}</Text>
+                  </Pressable>
+                  {homeOrgPickerOpen ? (
+                    <View className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                      <View className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <TextInput
+                          value={homeOrgQuery}
+                          onChangeText={setHomeOrgQuery}
+                          placeholder="Search by id, name, marketing name, phone, createdBy"
+                          placeholderTextColor="rgba(107,114,128,0.7)"
+                          className="text-sm text-slate-900"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                      <ScrollView className="mt-2 max-h-48" nestedScrollEnabled>
+                        {filteredHomeOrgs.length === 0 ? (
+                          <Text className="text-sm text-slate-500">No organizations match the search.</Text>
+                        ) : (
+                          <View className="gap-2">
+                            {filteredHomeOrgs.map((org) => (
+                              <Pressable
+                                key={org.id ?? org.name}
+                                onPress={() => {
+                                  setUserForm((prev) => ({ ...prev, homeOrganizationId: org.id || '' }));
+                                  setHomeOrgPickerOpen(false);
+                                }}
+                                className={`rounded-xl border px-3 py-2 ${
+                                  userForm.homeOrganizationId === org.id
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-slate-200 bg-slate-50'
+                                }`}
+                              >
+                                <Text
+                                  className={`text-sm font-semibold ${
+                                    userForm.homeOrganizationId === org.id ? 'text-indigo-700' : 'text-slate-800'
+                                  }`}
+                                  numberOfLines={1}
+                                >
+                                  {org.marketingName || org.name || org.id}
+                                </Text>
+                                <Text className="text-xs text-slate-500" numberOfLines={1}>
+                                  {org.name || org.marketingName || 'Unnamed'} - {org.createdBy || 'unknown'}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <DatePickerField
+                      label="Expires on (optional)"
+                      placeholder="2026-01-01"
+                      value={userForm.expiresDate}
+                      onChangeText={(expiresDate) =>
+                        setUserForm((prev) => ({
+                          ...prev,
+                          expiresDate,
+                          expiresAt: buildDateTimeValue(expiresDate, prev.expiresTime),
+                        }))
+                      }
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <TimeInput
+                      label="Expiration time"
+                      value={userForm.expiresTime}
+                      onChangeText={(expiresTime) => {
+                        const safeTime = normalizeTimeString(expiresTime, '00:00');
+                        setUserForm((prev) => ({
+                          ...prev,
+                          expiresTime: safeTime,
+                          expiresAt: buildDateTimeValue(prev.expiresDate, safeTime),
+                        }));
+                      }}
+                    />
+                  </View>
+                </View>
+                <Text className="text-xs text-slate-500">Leave blank to keep the user active indefinitely.</Text>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">Roles</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {assignableRoles.map((role) => {
+                      const selected = userForm.roles.includes(role);
+                      return (
+                        <Pressable
+                          key={role}
+                          onPress={() => toggleRole(role)}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-semibold uppercase tracking-[1px] ${
+                              selected ? 'text-indigo-700' : 'text-slate-600'
+                            }`}
+                          >
+                            {role}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View className="gap-2">
+                  <Text className="text-sm font-semibold text-slate-900">Status</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {USER_STATUSES.map((status) => {
+                      const selected = userForm.status === status;
+                      return (
+                        <Pressable
+                          key={status}
+                          onPress={() => setUserForm((prev) => ({ ...prev, status }))}
+                          className={`rounded-full border px-3 py-1.5 ${
+                            selected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-semibold uppercase tracking-[1px] ${
+                              selected ? 'text-indigo-700' : 'text-slate-600'
+                            }`}
+                          >
+                            {status}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <PrimaryButton
+                  label={userSaving ? 'Saving user...' : userForm.id ? 'Update user' : 'Create user'}
+                  onPress={handleUserSave}
+                  disabled={userSaving}
                 />
               </View>
-              <View style={styles.flexHalf}>
-                <TimeInput
-                  label="Expiration time"
-                  value={userForm.expiresTime}
-                  onChangeText={(expiresTime) => {
-                    const safeTime = normalizeTimeString(expiresTime, '00:00');
-                    setUserForm((prev) => ({
-                      ...prev,
-                      expiresTime: safeTime,
-                      expiresAt: buildDateTimeValue(prev.expiresDate, safeTime),
-                    }));
-                  }}
-                />
-              </View>
             </View>
-            <Text style={styles.helperText}>Leave blank to keep the user active indefinitely.</Text>
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Roles</Text>
-              <View style={styles.typeChips}>
-                {assignableRoles.map((role) => {
-                  const selected = userForm.roles.includes(role);
-                  return (
-                    <Pressable
-                      key={role}
-                      onPress={() => toggleRole(role)}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}
-                    >
-                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{role}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <View style={styles.inputField}>
-              <Text style={styles.label}>Status</Text>
-              <View style={styles.typeChips}>
-                {USER_STATUSES.map((status) => {
-                  const selected = userForm.status === status;
-                  return (
-                    <Pressable
-                      key={status}
-                      onPress={() => setUserForm((prev) => ({ ...prev, status }))}
-                      style={[styles.typeChip, selected && styles.typeChipSelected]}
-                    >
-                      <Text style={[styles.typeChipText, selected && styles.typeChipTextSelected]}>{status}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <PrimaryButton
-              label={userSaving ? 'Saving user...' : userForm.id ? 'Update user' : 'Create user'}
-              onPress={handleUserSave}
-              disabled={userSaving}
-            />
-          </>
+          </View>
         ) : null}
       </View>
       </ScrollView>
