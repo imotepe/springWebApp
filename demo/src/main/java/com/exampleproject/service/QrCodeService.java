@@ -164,6 +164,7 @@ public class QrCodeService {
         FACEBOOK_GROUP("facebook-group", "FG", new Color(0x1461C0), Color.WHITE, "/qr-icons/facebook-group.png"),
         INSTAGRAM("instagram", "IG", new Color(0xE1306C), Color.WHITE, "/qr-icons/instagram.png"),
         WHATSAPP_MESSAGE("whatsapp-message", "WA", new Color(0x25D366), Color.WHITE, "/qr-icons/whatsapp.png"),
+        EMAIL("email", "EMAIL", new Color(0x2563EB), Color.WHITE, "/qr-icons/mail.png"),
         CALL("call", "CALL", new Color(0x0EA5E9), Color.WHITE, "/qr-icons/call.png");
 
         private final String slug;

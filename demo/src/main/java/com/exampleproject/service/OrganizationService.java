@@ -73,7 +73,7 @@ public class OrganizationService {
         org.setCreatedBy(context.user().getId());
         org.setCreatedAt(LocalDateTime.now());
         Organization saved = repository.save(org);
-        saved = refreshQrCodes(saved, null);
+        saved = refreshQrCodes(saved, null, false);
         subscriptionService.createDefaultForOrg(saved.getId());
         return saved;
     }
@@ -92,8 +92,9 @@ public class OrganizationService {
         org.setInstagramQrCode(existing.getInstagramQrCode());
         org.setWhatsappMessageQrCode(existing.getWhatsappMessageQrCode());
         org.setCallQrCode(existing.getCallQrCode());
+        org.setEmailQrCode(existing.getEmailQrCode());
         Organization saved = repository.save(org);
-        return refreshQrCodes(saved, existing);
+        return refreshQrCodes(saved, existing, false);
     }
 
     public void delete(String id) {
@@ -121,7 +122,14 @@ public class OrganizationService {
         return saved;
     }
 
-    private Organization refreshQrCodes(Organization org, Organization previous) {
+    public Organization refreshQrCodes(String id) {
+        Organization existing = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
+        organizationAccessManager.currentContext().checkOrgAccess(existing.getId(), OrganizationAccessManager.AccessIntent.WRITE);
+        return refreshQrCodes(existing, existing, true);
+    }
+
+    private Organization refreshQrCodes(Organization org, Organization previous, boolean force) {
         boolean updated = false;
         updated |= applyQrCode(
                 org,
@@ -130,7 +138,8 @@ public class OrganizationService {
                 previous == null ? null : previous.getMapsQrCode(),
                 org::setMapsQrCode,
                 QrCodeService.QrIcon.MAPS,
-                this::toMapsQrContent
+                this::toMapsQrContent,
+                force
         );
         updated |= applyQrCode(
                 org,
@@ -139,7 +148,8 @@ public class OrganizationService {
                 previous == null ? null : previous.getFacebookPageQrCode(),
                 org::setFacebookPageQrCode,
                 QrCodeService.QrIcon.FACEBOOK,
-                this::toFacebookPageQrContent
+                this::toFacebookPageQrContent,
+                force
         );
         updated |= applyQrCode(
                 org,
@@ -148,7 +158,8 @@ public class OrganizationService {
                 previous == null ? null : previous.getFacebookGroupQrCode(),
                 org::setFacebookGroupQrCode,
                 QrCodeService.QrIcon.FACEBOOK_GROUP,
-                this::toFacebookGroupQrContent
+                this::toFacebookGroupQrContent,
+                force
         );
         updated |= applyQrCode(
                 org,
@@ -157,7 +168,8 @@ public class OrganizationService {
                 previous == null ? null : previous.getInstagramQrCode(),
                 org::setInstagramQrCode,
                 QrCodeService.QrIcon.INSTAGRAM,
-                this::toInstagramQrContent
+                this::toInstagramQrContent,
+                force
         );
         updated |= applyQrCode(
                 org,
@@ -166,7 +178,18 @@ public class OrganizationService {
                 previous == null ? null : previous.getWhatsappMessageQrCode(),
                 org::setWhatsappMessageQrCode,
                 QrCodeService.QrIcon.WHATSAPP_MESSAGE,
-                this::toWhatsappMessageQrContent
+                this::toWhatsappMessageQrContent,
+                force
+        );
+        updated |= applyQrCode(
+                org,
+                org.getEmail(),
+                previous == null ? null : previous.getEmail(),
+                previous == null ? null : previous.getEmailQrCode(),
+                org::setEmailQrCode,
+                QrCodeService.QrIcon.EMAIL,
+                this::toEmailQrContent,
+                force
         );
         updated |= applyQrCode(
                 org,
@@ -175,7 +198,8 @@ public class OrganizationService {
                 previous == null ? null : previous.getCallQrCode(),
                 org::setCallQrCode,
                 QrCodeService.QrIcon.CALL,
-                this::toCallQrContent
+                this::toCallQrContent,
+                force
         );
         if (updated) {
             return repository.save(org);
@@ -190,7 +214,8 @@ public class OrganizationService {
             String previousQr,
             Consumer<String> setter,
             QrCodeService.QrIcon icon,
-            Function<String, String> contentBuilder
+            Function<String, String> contentBuilder,
+            boolean force
     ) {
         String newContent = contentBuilder.apply(newLink);
         String previousContent = contentBuilder.apply(previousLink);
@@ -206,7 +231,7 @@ public class OrganizationService {
         }
 
         boolean needsUpgrade = previousQr != null && !previousQr.isBlank() && !isQrVersion4(previousQr);
-        if (previousQr == null || previousQr.isBlank() || !Objects.equals(previousContent, newContent) || needsUpgrade) {
+        if (force || previousQr == null || previousQr.isBlank() || !Objects.equals(previousContent, newContent) || needsUpgrade) {
             String generated = qrCodeService.generateOrganizationQrCode(org.getId(), newContent, icon);
             if (previousQr != null && !previousQr.isBlank() && generated != null && !generated.equals(previousQr)) {
                 fileStorageService.deleteIfExists(previousQr);
@@ -281,6 +306,12 @@ public class OrganizationService {
         return "tel:" + phone;
     }
 
+    private String toEmailQrContent(String value) {
+        String email = normalizeEmail(value);
+        if (email == null) return null;
+        return "mailto:" + email + "?subject=" + urlEncode("appointment booking");
+    }
+
     private String normalizeLink(String value) {
         if (value == null) return null;
         String trimmed = value.trim();
@@ -319,6 +350,23 @@ public class OrganizationService {
         }
         String digitsOnly = cleaned.replace("+", "");
         return digitsOnly.isBlank() ? null : digitsOnly;
+    }
+
+    private String normalizeEmail(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        if (trimmed.isBlank()) {
+            return null;
+        }
+        if (trimmed.toLowerCase().startsWith("mailto:")) {
+            trimmed = trimmed.substring(7);
+        }
+        int queryIndex = trimmed.indexOf('?');
+        if (queryIndex > -1) {
+            trimmed = trimmed.substring(0, queryIndex);
+        }
+        trimmed = trimmed.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 
     private String stripHandle(String value) {

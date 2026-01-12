@@ -46,6 +46,11 @@ public class OrganizationController {
         return service.updateLogo(id, file);
     }
 
+    @PostMapping("/{id}/qr/refresh")
+    public Organization refreshQrCodes(@PathVariable String id) {
+        return service.refreshQrCodes(id);
+    }
+
     @DeleteMapping("/{id}")
     public void delete(@PathVariable String id) { service.delete(id); }
 }

@@ -122,6 +122,7 @@ type Organization = {
   industry?: string;
   type: string;
   phone?: string;
+  email?: string;
   createdBy?: string;
   createdAt?: string;
   scheduleConfig?: ScheduleConfigDto;
@@ -130,6 +131,7 @@ type Organization = {
   facebookGroup?: string;
   instagram?: string;
   whatsappContact?: string;
+  emailQrCode?: string;
   mapsQrCode?: string;
   facebookPageQrCode?: string;
   facebookGroupQrCode?: string;
@@ -268,6 +270,7 @@ type OrgFormState = {
   industry: string;
   type: string;
   phone: string;
+  email: string;
   street: string;
   city: string;
   state: string;
@@ -3163,6 +3166,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadMessage, setLogoUploadMessage] = useState<string | null>(null);
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const [qrRefreshing, setQrRefreshing] = useState(false);
+  const [qrRefreshMessage, setQrRefreshMessage] = useState<string | null>(null);
+  const [qrRefreshError, setQrRefreshError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeSaving, setTypeSaving] = useState(false);
   const [typeMessage, setTypeMessage] = useState<string | null>(null);
@@ -3352,6 +3358,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     industry: '',
     type: '',
     phone: '',
+    email: '',
     street: '',
     city: '',
     state: '',
@@ -3379,6 +3386,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       { label: 'Facebook group', uri: resolveLogoUri(selectedOrg.facebookGroupQrCode ?? '') },
       { label: 'Instagram', uri: resolveLogoUri(selectedOrg.instagramQrCode ?? '') },
       { label: 'WhatsApp message', uri: resolveLogoUri(selectedOrg.whatsappMessageQrCode ?? '') },
+      { label: 'Email', uri: resolveLogoUri(selectedOrg.emailQrCode ?? '') },
       { label: 'Call', uri: resolveLogoUri(selectedOrg.callQrCode ?? '') },
     ].filter((item) => item.uri);
   }, [selectedOrg]);
@@ -3942,6 +3950,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: '',
       type: orgTypes[0]?.name ?? '',
       phone: '',
+      email: '',
       street: '',
       city: '',
       state: '',
@@ -3960,6 +3969,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setLogoUploadMessage(null);
     setLogoUploadError(null);
     setLogoUploading(false);
+    setQrRefreshMessage(null);
+    setQrRefreshError(null);
+    setQrRefreshing(false);
   }, [orgTypes]);
 
   useEffect(() => {
@@ -4261,6 +4273,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: org.industry ?? '',
       type: org.type ?? '',
       phone: org.phone ?? '',
+      email: org.email ?? '',
       street: org.address?.street ?? '',
       city: org.address?.city ?? '',
       state: org.address?.state ?? '',
@@ -4281,6 +4294,9 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
     setLogoUploadMessage(null);
     setLogoUploadError(null);
     setLogoUploading(false);
+    setQrRefreshMessage(null);
+    setQrRefreshError(null);
+    setQrRefreshing(false);
     setMessage((prev) => (prev ? `Editing ${org.name}` : prev));
   };
 
@@ -4824,6 +4840,7 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       industry: form.industry.trim(),
       type: form.type.trim(),
       phone: form.phone.trim(),
+      email: form.email.trim() || undefined,
       address,
       location,
       mapsLink: form.mapsLink.trim() || undefined,
@@ -4884,6 +4901,33 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
       setLogoUploadMessage(null);
     } finally {
       setLogoUploading(false);
+    }
+  };
+
+  const handleRefreshQrCodes = async () => {
+    if (!form.id) {
+      setQrRefreshMessage(null);
+      setQrRefreshError('Save the organization before refreshing QR codes.');
+      return;
+    }
+    setQrRefreshing(true);
+    setQrRefreshMessage('Refreshing QR codes...');
+    setQrRefreshError(null);
+    try {
+      const res = await authFetch(`/api/organizations/${form.id}/qr/refresh`, { method: 'POST' });
+      if (!res.ok) {
+        setQrRefreshError(await parseErrorMessage(res));
+        setQrRefreshMessage(null);
+        return;
+      }
+      const updated = (await res.json()) as Organization;
+      setOrgs((prev) => prev.map((org) => (org.id === updated.id ? updated : org)));
+      setQrRefreshMessage('QR codes refreshed.');
+    } catch (error) {
+      setQrRefreshError(error instanceof Error ? error.message : 'Unable to refresh QR codes.');
+      setQrRefreshMessage(null);
+    } finally {
+      setQrRefreshing(false);
     }
   };
 
@@ -7966,6 +8010,14 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   onChangeText={(phone) => setForm((prev) => ({ ...prev, phone }))}
                   keyboardType="default"
                 />
+                <InputField
+                  label="Email"
+                  placeholder="contact@organization.com"
+                  value={form.email}
+                  onChangeText={(email) => setForm((prev) => ({ ...prev, email }))}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                />
 
                 <View className="w-full">
                   <InputField
@@ -8068,15 +8120,46 @@ function OrganizationAdminScreen({ token, onLogout }: { token: string; onLogout:
                   onChangeText={(whatsappContact) => setForm((prev) => ({ ...prev, whatsappContact }))}
                   autoComplete="off"
                 />
-                {selectedOrgQrCodes.length > 0 ? (
+                {form.id ? (
                   <View className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <Text className="text-sm font-semibold text-slate-900">QR codes</Text>
-                    <View className="mt-2 flex-row flex-wrap gap-3">
-                      {selectedOrgQrCodes.map((qr) => (
-                        <QrCodePreview key={qr.label} label={qr.label} uri={qr.uri} />
-                      ))}
+                    {selectedOrgQrCodes.length > 0 ? (
+                      <View className="mt-2 flex-row flex-wrap gap-3">
+                        {selectedOrgQrCodes.map((qr) => (
+                          <QrCodePreview key={qr.label} label={qr.label} uri={qr.uri} />
+                        ))}
+                      </View>
+                    ) : (
+                      <Text className="mt-2 text-xs text-slate-500">No QR codes available yet.</Text>
+                    )}
+                    <View className="mt-3 flex-row flex-wrap gap-2">
+                      <Pressable
+                        onPress={handleRefreshQrCodes}
+                        disabled={!form.id || qrRefreshing}
+                        className={`rounded-full border px-3 py-1.5 ${
+                          !form.id || qrRefreshing
+                            ? 'border-slate-200 bg-slate-100 opacity-50'
+                            : 'border-slate-200 bg-white'
+                        }`}
+                      >
+                        <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-slate-600">
+                          {qrRefreshing ? 'Refreshing...' : 'Refresh QR codes'}
+                        </Text>
+                      </Pressable>
                     </View>
-                    <Text className="mt-2 text-xs text-slate-500">Generated automatically when links are saved.</Text>
+                    {qrRefreshMessage ? (
+                      <View className="mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2">
+                        <Text className="text-sm text-slate-700">{qrRefreshMessage}</Text>
+                      </View>
+                    ) : null}
+                    {qrRefreshError ? (
+                      <View className="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+                        <Text className="text-sm text-rose-700">{qrRefreshError}</Text>
+                      </View>
+                    ) : null}
+                    <Text className="mt-2 text-xs text-slate-500">
+                      Generated automatically when links are saved. Use refresh to regenerate them.
+                    </Text>
                   </View>
                 ) : null}
                 {isSuperAdmin ? (

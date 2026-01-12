@@ -15,6 +15,7 @@ public class Organization {
     private String industry;
     private String type;
     private String phone;
+    private String email;
     private Address address;
     private GeoLocation location;
     private ScheduleConfig scheduleConfig;
@@ -25,6 +26,7 @@ public class Organization {
     private String facebookGroup;
     private String instagram;
     private String whatsappContact;
+    private String emailQrCode;
     private String mapsQrCode;
     private String facebookPageQrCode;
     private String facebookGroupQrCode;
@@ -67,6 +69,9 @@ public class Organization {
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
 
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
     public Address getAddress() { return address; }
     public void setAddress(Address address) { this.address = address; }
 
@@ -101,6 +106,9 @@ public class Organization {
 
     public String getWhatsappContact() { return whatsappContact; }
     public void setWhatsappContact(String whatsappContact) { this.whatsappContact = whatsappContact; }
+
+    public String getEmailQrCode() { return emailQrCode; }
+    public void setEmailQrCode(String emailQrCode) { this.emailQrCode = emailQrCode; }
 
     public String getMapsQrCode() { return mapsQrCode; }
     public void setMapsQrCode(String mapsQrCode) { this.mapsQrCode = mapsQrCode; }
@@ -143,6 +151,7 @@ public class Organization {
                 ", industry='" + industry + '\'' +
                 ", type='" + type + '\'' +
                 ", phone='" + phone + '\'' +
+                ", email='" + email + '\'' +
                 ", address=" + address +
                 ", location=" + location +
                 ", createdBy='" + createdBy + '\'' +
@@ -151,6 +160,7 @@ public class Organization {
                 ", facebookGroup='" + facebookGroup + '\'' +
                 ", instagram='" + instagram + '\'' +
                 ", whatsappContact='" + whatsappContact + '\'' +
+                ", emailQrCode='" + emailQrCode + '\'' +
                 ", mapsQrCode='" + mapsQrCode + '\'' +
                 ", facebookPageQrCode='" + facebookPageQrCode + '\'' +
                 ", facebookGroupQrCode='" + facebookGroupQrCode + '\'' +
