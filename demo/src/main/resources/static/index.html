@@ -522,12 +522,120 @@
         display: block;
       }
 
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
       .photo-slot.large {
         width: 100%;
         height: auto;
         aspect-ratio: 4 / 3;
         border-radius: 22px;
         overflow: hidden;
+      }
+
+      .photo-carousel {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .photo-carousel .carousel {
+        height: 100%;
+      }
+
+      .photo-carousel .carousel-body {
+        display: flex;
+        height: 100%;
+        transition: transform 0.4s ease;
+      }
+
+      .photo-carousel .carousel-slide {
+        min-width: 100%;
+        height: 100%;
+      }
+
+      .photo-carousel .carousel-frame {
+        width: 100%;
+        height: 100%;
+      }
+
+      .photo-carousel .carousel-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .photo-carousel .carousel-prev,
+      .photo-carousel .carousel-next {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.9);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+
+      .photo-carousel .carousel-prev {
+        left: 12px;
+      }
+
+      .photo-carousel .carousel-next {
+        right: 12px;
+      }
+
+      .photo-carousel .carousel-prev[disabled],
+      .photo-carousel .carousel-next[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .photo-carousel .carousel-arrow {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .photo-carousel .carousel-pagination {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .photo-carousel .carousel-box {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 118, 110, 0.25);
+        background: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
+      }
+
+      .photo-carousel .carousel-box.active {
+        background: var(--accent);
+        border-color: var(--accent);
       }
 
       .doctor-info h3 {
@@ -987,7 +1095,9 @@
           selectedDurationMinutes: null,
           availableSlots: [],
           resourceSlots: {},
-          customerMatches: []
+          customerMatches: [],
+          resourcePhotos: {},
+          resourcePhotoRequests: {}
         };
 
         var elements = {
@@ -1172,12 +1282,24 @@
           );
         }
 
-        function buildResourcePhotoSlot(resource, sizeClass) {
+        function resolveResourcePhotosUrl(resource) {
+          if (!resource || !resource.id || !state.slug) return "";
+          return (
+            apiBase() +
+            "/api/public/organizations/" +
+            encodeURIComponent(state.slug) +
+            "/resources/" +
+            encodeURIComponent(resource.id) +
+            "/photos"
+          );
+        }
+
+        function buildResourcePhotoSlot(resource, sizeClass, photoUrl) {
           var slot = document.createElement("div");
           slot.className = "photo-slot" + (sizeClass ? " " + sizeClass : "");
           slot.textContent = "Photo";
-          var photoUrl = resolveResourcePhotoUrl(resource);
-          if (!photoUrl) return slot;
+          var finalUrl = photoUrl || resolveResourcePhotoUrl(resource);
+          if (!finalUrl) return slot;
 
           var img = document.createElement("img");
           img.alt = (resource && resource.name ? resource.name : "Resource") + " photo";
@@ -1185,8 +1307,189 @@
             slot.textContent = "";
             slot.appendChild(img);
           };
-          img.src = photoUrl;
+          img.src = finalUrl;
           return slot;
+        }
+
+        function loadResourcePhotos(resource) {
+          if (!resource || !resource.id) {
+            return Promise.resolve([]);
+          }
+          var key = resource.id;
+          if (Object.prototype.hasOwnProperty.call(state.resourcePhotos, key)) {
+            return Promise.resolve(state.resourcePhotos[key]);
+          }
+          if (state.resourcePhotoRequests[key]) {
+            return state.resourcePhotoRequests[key];
+          }
+          var url = resolveResourcePhotosUrl(resource);
+          if (!url) {
+            state.resourcePhotos[key] = [];
+            return Promise.resolve([]);
+          }
+          var request = fetchJson(url)
+            .then(function (photos) {
+              var list = Array.isArray(photos)
+                ? photos.filter(function (photo) {
+                    return photo && photo.url;
+                  })
+                : [];
+              list.sort(function (a, b) {
+                return (a.order || 0) - (b.order || 0);
+              });
+              state.resourcePhotos[key] = list;
+              return list;
+            })
+            .catch(function () {
+              state.resourcePhotos[key] = [];
+              return [];
+            })
+            .finally(function () {
+              state.resourcePhotoRequests[key] = null;
+            });
+          state.resourcePhotoRequests[key] = request;
+          return request;
+        }
+
+        function setupCarousel(root) {
+          if (!root) return;
+          var body = root.querySelector(".carousel-body");
+          var slides = root.querySelectorAll(".carousel-slide");
+          if (!body || !slides.length) return;
+          var prev = root.querySelector(".carousel-prev");
+          var next = root.querySelector(".carousel-next");
+          var pagination = root.querySelector(".carousel-pagination");
+          var index = 0;
+
+          function update() {
+            body.style.transform = "translateX(-" + index * 100 + "%)";
+            slides.forEach(function (slide, idx) {
+              if (idx === index) {
+                slide.classList.add("active");
+              } else {
+                slide.classList.remove("active");
+              }
+            });
+            if (pagination) {
+              var dots = pagination.querySelectorAll("button");
+              dots.forEach(function (dot, idx) {
+                if (idx === index) {
+                  dot.classList.add("active");
+                } else {
+                  dot.classList.remove("active");
+                }
+              });
+            }
+            if (prev) prev.disabled = index === 0;
+            if (next) next.disabled = index >= slides.length - 1;
+          }
+
+          if (pagination) {
+            pagination.innerHTML = "";
+            slides.forEach(function (_slide, idx) {
+              var dot = document.createElement("button");
+              dot.type = "button";
+              dot.className = "carousel-box";
+              dot.addEventListener("click", function () {
+                index = idx;
+                update();
+              });
+              pagination.appendChild(dot);
+            });
+          }
+
+          if (prev) {
+            prev.addEventListener("click", function () {
+              if (index > 0) {
+                index -= 1;
+                update();
+              }
+            });
+          }
+          if (next) {
+            next.addEventListener("click", function () {
+              if (index < slides.length - 1) {
+                index += 1;
+                update();
+              }
+            });
+          }
+
+          body.classList.remove("opacity-0");
+          update();
+        }
+
+        function buildResourceCarousel(resource, photos) {
+          var wrapper = document.createElement("div");
+          wrapper.className = "photo-carousel relative w-full";
+          wrapper.setAttribute(
+            "data-carousel",
+            '{"loadingClasses":"opacity-0","dotsItemClasses":"carousel-box carousel-active:bg-primary"}'
+          );
+
+          var carousel = document.createElement("div");
+          carousel.className = "carousel h-80";
+
+          var body = document.createElement("div");
+          body.className = "carousel-body h-full opacity-0";
+
+          photos.forEach(function (photo, idx) {
+            if (!photo || !photo.url) return;
+            var slide = document.createElement("div");
+            slide.className = "carousel-slide" + (idx === 0 ? " active" : "");
+
+            var frame = document.createElement("div");
+            frame.className = "carousel-frame";
+
+            var img = document.createElement("img");
+            img.alt = (resource && resource.name ? resource.name : "Resource") + " photo";
+            img.src = photo.url;
+
+            frame.appendChild(img);
+            slide.appendChild(frame);
+            body.appendChild(slide);
+          });
+
+          carousel.appendChild(body);
+          wrapper.appendChild(carousel);
+
+          var prev = document.createElement("button");
+          prev.type = "button";
+          prev.className =
+            "carousel-prev start-5 max-sm:start-3 carousel-disabled:opacity-50 size-9.5 bg-base-100 flex items-center justify-center rounded-full shadow-base-300/20 shadow-sm";
+          prev.innerHTML = '<span class="carousel-arrow" aria-hidden="true">&lt;</span><span class="sr-only">Previous</span>';
+          wrapper.appendChild(prev);
+
+          var next = document.createElement("button");
+          next.type = "button";
+          next.className =
+            "carousel-next end-5 max-sm:end-3 carousel-disabled:opacity-50 size-9.5 bg-base-100 flex items-center justify-center rounded-full shadow-base-300/20 shadow-sm";
+          next.innerHTML = '<span class="carousel-arrow" aria-hidden="true">&gt;</span><span class="sr-only">Next</span>';
+          wrapper.appendChild(next);
+
+          var pagination = document.createElement("div");
+          pagination.className = "carousel-pagination absolute bottom-3 end-0 start-0 flex justify-center gap-3";
+          wrapper.appendChild(pagination);
+
+          setupCarousel(wrapper);
+          return wrapper;
+        }
+
+        function buildResourceDetailMedia(resource) {
+          if (!resource || !resource.id) {
+            return buildResourcePhotoSlot(resource, "large");
+          }
+          var key = resource.id;
+          if (Object.prototype.hasOwnProperty.call(state.resourcePhotos, key)) {
+            var photos = state.resourcePhotos[key] || [];
+            if (photos.length > 1) {
+              return buildResourceCarousel(resource, photos);
+            }
+            if (photos.length === 1) {
+              return buildResourcePhotoSlot(resource, "large", photos[0].url);
+            }
+          }
+          return buildResourcePhotoSlot(resource, "large");
         }
 
         function fetchJson(url) {
@@ -1554,7 +1857,7 @@
             return;
           }
 
-          var photo = buildResourcePhotoSlot(resource, "large");
+          var photo = buildResourceDetailMedia(resource);
 
           var name = document.createElement("h3");
           name.textContent = resource.name || "Doctor";
@@ -1604,6 +1907,14 @@
           elements.doctorDetail.appendChild(experience);
           elements.doctorDetail.appendChild(specialties);
           elements.doctorDetail.appendChild(review);
+
+          if (resource.id && !Object.prototype.hasOwnProperty.call(state.resourcePhotos, resource.id)) {
+            loadResourcePhotos(resource).then(function () {
+              if (resource.id === state.selectedResourceId) {
+                renderDoctorDetail();
+              }
+            });
+          }
         }
 
         function selectResource(resourceId, slot) {
@@ -1951,6 +2262,8 @@
             .then(function (data) {
               state.appointmentTypes = Array.isArray(data[0]) ? data[0] : [];
               state.resources = Array.isArray(data[1]) ? data[1] : [];
+              state.resourcePhotos = {};
+              state.resourcePhotoRequests = {};
               if (state.appointmentTypes[0]) {
                 state.selectedTypeId = state.appointmentTypes[0].id || "";
               }

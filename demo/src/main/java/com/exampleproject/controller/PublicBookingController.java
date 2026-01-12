@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -85,17 +86,38 @@ public class PublicBookingController {
             @PathVariable String slug,
             @PathVariable String resourceId
     ) {
-        Organization org = resolveOrg(slug);
-        Resource resource = resourceRepository.findById(resourceId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
-        if (!org.getId().equals(resource.getOrgId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
-        }
+        Resource resource = resolveResourceForOrg(slug, resourceId);
         String photoPath = resolveDefaultPhotoPath(resource);
         if (photoPath == null || photoPath.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
         }
         StoredFile file = fileStorageService.loadResourcePhoto(photoPath);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.getContentType()))
+                .body(file.getResource());
+    }
+
+    @GetMapping("/{slug}/resources/{resourceId}/photos")
+    public List<PublicResourcePhotoView> resourcePhotos(
+            @PathVariable String slug,
+            @PathVariable String resourceId
+    ) {
+        Resource resource = resolveResourceForOrg(slug, resourceId);
+        return toPublicPhotoViews(resource, slug);
+    }
+
+    @GetMapping("/{slug}/resources/{resourceId}/photos/{photoId}")
+    public ResponseEntity<org.springframework.core.io.Resource> resourcePhotoById(
+            @PathVariable String slug,
+            @PathVariable String resourceId,
+            @PathVariable String photoId
+    ) {
+        Resource resource = resolveResourceForOrg(slug, resourceId);
+        ResourcePhoto photo = findPhoto(resource.getPhotos(), photoId);
+        if (photo == null || photo.getPath() == null || photo.getPath().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource photo not found");
+        }
+        StoredFile file = fileStorageService.loadResourcePhoto(photo.getPath());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.getContentType()))
                 .body(file.getResource());
@@ -247,6 +269,74 @@ public class PublicBookingController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found"));
     }
 
+    private Resource resolveResourceForOrg(String slug, String resourceId) {
+        Organization org = resolveOrg(slug);
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
+        if (!org.getId().equals(resource.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
+        }
+        return resource;
+    }
+
+    private List<PublicResourcePhotoView> toPublicPhotoViews(Resource resource, String slug) {
+        List<PublicResourcePhotoView> views = new ArrayList<>();
+        if (resource != null) {
+            List<ResourcePhoto> photos = resource.getPhotos();
+            if (photos != null) {
+                for (int i = 0; i < photos.size(); i++) {
+                    ResourcePhoto photo = photos.get(i);
+                    if (photo == null || photo.getId() == null || photo.getId().isBlank()) {
+                        continue;
+                    }
+                    String path = photo.getPath();
+                    if (path == null || path.isBlank()) {
+                        continue;
+                    }
+                    boolean isDefault = views.isEmpty();
+                    views.add(new PublicResourcePhotoView(
+                            photo.getId(),
+                            buildPublicPhotoUrl(slug, resource.getId(), photo.getId()),
+                            isDefault,
+                            views.size()
+                    ));
+                }
+            }
+            if (views.isEmpty()) {
+                String legacyPath = resolveDefaultPhotoPath(resource);
+                if (legacyPath != null && !legacyPath.isBlank()) {
+                    views.add(new PublicResourcePhotoView(
+                            "default",
+                            buildPublicDefaultPhotoUrl(slug, resource.getId()),
+                            true,
+                            0
+                    ));
+                }
+            }
+        }
+        return views;
+    }
+
+    private String buildPublicPhotoUrl(String slug, String resourceId, String photoId) {
+        return "/api/public/organizations/" + slug + "/resources/" + resourceId + "/photos/" + photoId;
+    }
+
+    private String buildPublicDefaultPhotoUrl(String slug, String resourceId) {
+        return "/api/public/organizations/" + slug + "/resources/" + resourceId + "/photo";
+    }
+
+    private ResourcePhoto findPhoto(List<ResourcePhoto> photos, String photoId) {
+        if (photoId == null || photoId.isBlank() || photos == null) {
+            return null;
+        }
+        for (ResourcePhoto photo : photos) {
+            if (photo != null && photoId.equals(photo.getId())) {
+                return photo;
+            }
+        }
+        return null;
+    }
+
     private String resolveDefaultPhotoPath(Resource resource) {
         if (resource == null) {
             return "";
@@ -312,5 +402,8 @@ public class PublicBookingController {
             String startTime,
             String notes
     ) {
+    }
+
+    public record PublicResourcePhotoView(String id, String url, boolean isDefault, int order) {
     }
 }
